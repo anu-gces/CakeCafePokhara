@@ -2,7 +2,6 @@ import './index.css'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen.ts'
-import { ThemeProvider } from './lib/themeProvider.tsx'
 import { useFirebaseAuth } from './lib/useFirebaseAuth.ts'
 import SplashScreen from './components/splashscreen.tsx'
 
@@ -35,9 +34,7 @@ export function AppProvider() {
   }
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="cakecafe-ui-theme">
-        <RouterProvider router={router} context={{ authentication }} />
-      </ThemeProvider>
+      <RouterProvider router={router} context={{ authentication }} />
     </QueryClientProvider>
   )
 }
