@@ -82,13 +82,15 @@ define(['./workbox-f70c5944'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.gi7b80k1v3o"
+    "revision": "0.7imnnfiuegg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
-  workbox.registerRoute(/^https:\/\/firestore\.googleapis\.com\/.*$/, new workbox.NetworkFirst({
+  workbox.registerRoute(({
+    url
+  }) => url.hostname === "firestore.googleapis.com" && !url.pathname.includes("/Listen/channel"), new workbox.NetworkFirst({
     "cacheName": "firestore-api-cache",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 50,
