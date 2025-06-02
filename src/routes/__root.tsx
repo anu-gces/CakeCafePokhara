@@ -21,7 +21,7 @@ export const Route = createRootRouteWithContext<{
   authentication: FirebaseAuthType
 }>()({
   component: () => (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <ThemeProvider defaultTheme="light" storageKey="cakecafe-ui-theme">
       <div>
         <AuthProvider>
           <Outlet />
