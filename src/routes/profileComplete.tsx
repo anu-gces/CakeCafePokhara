@@ -4,7 +4,7 @@ import { redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/profileComplete')({
   beforeLoad: async ({ context: { authentication } }) => {
-    const user = await authentication.getCurrentUser()
+    const user = authentication.getCurrentUser()
 
     if (!user) {
       // If no user is authenticated, navigate to the login page

@@ -31,15 +31,11 @@ export function AppProvider() {
   const authentication = useFirebaseAuth()
 
   if (authentication.loading) {
-    return (
-      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <SplashScreen />
-      </ThemeProvider>
-    )
+    return <SplashScreen />
   }
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="light" storageKey="cakecafe-ui-theme">
         <RouterProvider router={router} context={{ authentication }} />
       </ThemeProvider>
     </QueryClientProvider>
