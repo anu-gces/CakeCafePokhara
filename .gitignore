@@ -1,0 +1,17 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+*.local
+.env
+
+# Ignore server secrets and build artifacts
+/server/
+
+# OS/system files
+Thumbs.db
+*.log
+
+# VSCode settings
+.vscode/
+.history/

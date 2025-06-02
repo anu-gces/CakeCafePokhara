@@ -1,0 +1,21 @@
+{
+  "name": "Cake Cafe",
+  "short_name": "CakeCafe",
+  "description": "A PWA for managing Cake Cafe operations.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e11d48",
+  "icons": [
+    {
+      "src": "/CakeCafeLogo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/CakeCafeLogo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
