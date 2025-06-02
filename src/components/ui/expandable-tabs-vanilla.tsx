@@ -48,43 +48,6 @@ const spanVariants = {
   exit: { width: 0, opacity: 0 },
 }
 
-const testObject = {
-  tabs: [
-    {
-      title: 'Order',
-      icon: () => <span>Order Icon</span>, // Replace with actual icon component
-      search: 'appetizers',
-    },
-    {
-      title: 'Notifications',
-      icon: () => <span>Notifications Icon</span>,
-      search: 'notifications',
-    },
-    {
-      title: 'Stocks',
-      icon: () => <span>Stocks Icon</span>,
-      search: 'Kitchen',
-    },
-    { type: 'separator' },
-    {
-      title: 'History',
-      icon: () => <span>History Icon</span>,
-      search: 'history',
-    },
-    {
-      title: 'Dashboard',
-      icon: () => <span>Dashboard Icon</span>,
-      search: 'overview',
-    },
-    {
-      title: 'Calendar',
-      icon: () => <span>Calendar Icon</span>,
-      search: 'calendar',
-    },
-  ],
-  to: '/',
-}
-
 const transition = { delay: 0.1, type: 'spring', bounce: 0, duration: 0.6 }
 
 export function ExpandableTabs({
