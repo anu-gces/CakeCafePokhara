@@ -19,6 +19,10 @@ const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage(function (payload) {
   // Customize notification here
+  self.registration.showNotification(payload.notification.title, {
+    body: payload.notification.body,
+    icon: '/CakeCafeLogo.png',
+  })
 })
 
 self.addEventListener('notificationclick', function (event) {
