@@ -18,8 +18,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage(function (payload) {
-  // Customize notification here
-  self.registration.showNotification(payload.data.title, {
+  return self.registration.showNotification(payload.data.title, {
     body: payload.data.body,
     icon: '/CakeCafeLogo.png',
   })
