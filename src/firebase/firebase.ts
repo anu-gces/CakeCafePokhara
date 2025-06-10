@@ -1,6 +1,6 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from 'firebase/app'
-import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
+import { getAuth } from 'firebase/auth'
 import { getMessaging } from 'firebase/messaging'
 
 const firebaseConfig = {
@@ -17,7 +17,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 // const analytics = getAnalytics(app); can import from firebase/analytics
 const auth = getAuth(app)
-setPersistence(auth, browserLocalPersistence)
 
 // Initialize Messaging
 let messaging: ReturnType<typeof getMessaging> | undefined
