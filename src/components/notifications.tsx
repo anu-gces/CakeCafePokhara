@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { listenToKanbanCardDocument } from '@/firebase/firestore'
+import {
+  listenToAllOrders,
+  listenToKanbanCardDocument,
+  updateOrderStatus,
+  type ProcessedOrder,
+} from '@/firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
 import {
   AlertCircle,
@@ -7,12 +12,17 @@ import {
   PackageOpenIcon,
   UtensilsIcon,
   CheckCircle2,
-  Loader2,
   HandIcon,
+  CheckIcon,
+  XIcon,
 } from 'lucide-react'
 import type { CardType } from './ui/kanbanBoard'
 import { Outlet } from '@tanstack/react-router'
 import { ExpandableTabs, type TabItem } from './ui/expandable-tabs'
+import { Button } from './ui/button'
+import SplashScreen from './splashscreen'
+import AnimatedClockIcon from '@/assets/AnimatedClockIcon'
+import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
 const tabs: TabItem[] = [
   {
@@ -148,90 +158,162 @@ export function StockNotification() {
 }
 
 export function OrderNotification() {
-  const orders = [
-    {
-      id: 'order-1',
-      status: 'pending',
-      tableNumber: 4,
-      items: ['Masala Dosa', 'Chai'],
-      remarks: '',
-      createdAt: new Date(Date.now() - 3 * 60 * 1000),
-    },
-    {
-      id: 'order-2',
-      status: 'in_progress',
-      tableNumber: 7,
-      items: ['Paneer Butter Masala', '2x Naan'],
-      remarks: 'No butter on naan',
-      createdAt: new Date(Date.now() - 9 * 60 * 1000),
-    },
-    {
-      id: 'order-3',
-      status: 'ready',
-      tableNumber: 2,
-      items: ['Thukpa', 'Iced Tea'],
-      remarks: 'Extra lemon',
-      createdAt: new Date(Date.now() - 18 * 60 * 1000),
-    },
-    {
-      id: 'order-4',
-      status: 'served',
-      tableNumber: 5,
-      items: ['Pizza', 'Mojito'],
-      remarks: '',
-      createdAt: new Date(Date.now() - 30 * 60 * 1000),
-    },
-  ]
+  const [orders, setOrders] = useState<
+    ({ docId: string } & ProcessedOrder)[] | null
+  >(null)
+  const [error, setError] = useState(false)
+  const userAdditional = useFirebaseAuth().userAdditional
+  useEffect(() => {
+    const unsubscribe = listenToAllOrders((orders) => {
+      setOrders(orders)
+      setError(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  if (orders === null) {
+    return <SplashScreen />
+  }
+
+  if (error) {
+    return (
+      <div className="top-1/2 left-1/2 absolute text-center -translate-x-1/2 -translate-y-1/2 transform">
+        <AlertCircle className="mx-auto mb-2 w-10 h-10 text-destructive" />
+        <p className="font-medium text-destructive">Failed to load orders</p>
+      </div>
+    )
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="top-1/2 left-1/2 absolute text-center -translate-x-1/2 -translate-y-1/2 transform">
+        <div className="inline-flex bg-muted/30 mb-3 p-4 rounded-full">
+          <Clock className="w-6 h-6 text-muted-foreground" />
+        </div>
+        <p className="text-muted-foreground">No unpaid orders at the moment</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3 p-3">
-      {orders.map(({ id, status, tableNumber, items, remarks, createdAt }) => (
-        <div
-          key={id}
-          className="group bg-card shadow-sm hover:shadow-md p-4 border rounded-xl transition"
-        >
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-2">
-              <UtensilsIcon className="w-5 h-5 text-muted-foreground" />
-              <span className="font-medium text-sm">Table {tableNumber}</span>
+      {orders.map(
+        ({ docId, status, tableNumber, items, remarks, receiptDate }) => (
+          <div
+            key={docId}
+            className="group bg-card shadow-sm p-4 border rounded-xl transition"
+          >
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-2">
+                <UtensilsIcon className="w-5 h-5 text-muted-foreground" />
+                <span className="font-medium text-sm">Table {tableNumber}</span>
+              </div>
+              <div className="flex flex-col items-end gap-0.5">
+                {status === 'pending' && (
+                  <span className="inline-flex items-center gap-1 bg-yellow-100 px-2 py-0.5 rounded-full font-medium text-yellow-800 text-xs">
+                    <AnimatedClockIcon width={15} height={15} />
+                    Preparing
+                  </span>
+                )}
+                {status === 'ready_to_serve' && (
+                  <span className="inline-flex items-center gap-1 bg-blue-100 px-2 py-0.5 rounded-full font-medium text-blue-700 text-xs">
+                    <CheckIcon className="w-3 h-3" />
+                    Ready to Serve
+                  </span>
+                )}
+                {status === 'ready_to_pay' && (
+                  <span className="inline-flex items-center gap-1 bg-emerald-100 px-2 py-0.5 rounded-full font-medium text-emerald-700 text-xs">
+                    <HandIcon className="w-3 h-3" />
+                    Ready to Pay
+                  </span>
+                )}
+                {status === 'paid' && (
+                  <span className="inline-flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full font-medium text-muted-foreground text-xs">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Paid
+                  </span>
+                )}
+                <div className="text-[10px] text-muted-foreground">
+                  Placed{' '}
+                  {formatDistanceToNow(new Date(receiptDate), {
+                    addSuffix: true,
+                  })}
+                </div>
+              </div>
             </div>
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                status === 'pending'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : status === 'in_progress'
-                    ? 'bg-blue-100 text-blue-700'
-                    : status === 'ready'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {status === 'pending' && <Clock className="w-3 h-3" />}
-              {status === 'in_progress' && (
-                <Loader2 className="w-3 h-3 animate-spin" />
-              )}
-              {status === 'ready' && <CheckCircle2 className="w-3 h-3" />}
-              {status === 'served' && <HandIcon className="w-3 h-3" />}
-              {status.charAt(0).toUpperCase() +
-                status.slice(1).replace('_', ' ')}
-            </span>
-          </div>
 
-          <div className="mb-1 text-muted-foreground text-sm">
-            {items.join(', ')}
-          </div>
-
-          {remarks && (
-            <div className="mb-1 text-muted-foreground text-xs italic">
-              “{remarks}”
+            <div className="mb-1 text-muted-foreground text-sm">
+              {items.map((item) => `${item.foodName} ×${item.qty}`).join(', ')}
             </div>
-          )}
 
-          <div className="text-muted-foreground text-xs">
-            Placed {formatDistanceToNow(createdAt, { addSuffix: true })}
+            {remarks && (
+              <div className="mb-1 text-muted-foreground text-xs italic">
+                “{remarks}”
+              </div>
+            )}
+
+            {status !== 'dismissed' && (
+              <div className="flex gap-2 mt-2">
+                {status === 'pending' &&
+                  (userAdditional?.department === 'kitchen' ||
+                    userAdditional?.role === 'owner') && (
+                    <Button
+                      className="active:scale-95"
+                      onClick={() => updateOrderStatus(docId, 'ready_to_serve')}
+                    >
+                      Mark as Prepared
+                    </Button>
+                  )}
+                {status === 'ready_to_serve' &&
+                  (userAdditional?.department === 'waiter' ||
+                    userAdditional?.role === 'owner') && (
+                    <Button
+                      className="active:scale-95"
+                      onClick={() => updateOrderStatus(docId, 'ready_to_pay')}
+                    >
+                      Mark as Served
+                    </Button>
+                  )}
+                {status === 'ready_to_pay' &&
+                  (userAdditional?.department === 'billing' ||
+                    userAdditional?.role === 'owner') && (
+                    <Button
+                      className="active:scale-95"
+                      onClick={() => updateOrderStatus(docId, 'paid')}
+                    >
+                      Mark as Paid
+                    </Button>
+                  )}
+                {status === 'paid' &&
+                  (userAdditional?.department === 'billing' ||
+                    userAdditional?.role === 'owner') && (
+                    <Button
+                      className="active:scale-95"
+                      onClick={() => updateOrderStatus(docId, 'dismissed')}
+                    >
+                      Dismiss Notification
+                    </Button>
+                  )}
+
+                {/* Cancel button for admin, billing, and manager */}
+                {(userAdditional?.role === 'admin' ||
+                  userAdditional?.department === 'billing' ||
+                  userAdditional?.role === 'owner') && (
+                  <Button
+                    variant="outline"
+                    className="active:scale-95"
+                    onClick={() => updateOrderStatus(docId, 'cancelled')}
+                  >
+                    <XIcon className="mr-1 w-4 h-4" />
+                    Cancel Order
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        ),
+      )}
     </div>
   )
 }

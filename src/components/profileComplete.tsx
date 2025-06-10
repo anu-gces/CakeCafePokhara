@@ -219,9 +219,7 @@ export function profileComplete() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="kitchen">Kitchen</SelectItem>
-                  <SelectItem value="guest_relations">
-                    Guest Relations
-                  </SelectItem>
+                  <SelectItem value="waiter">Waiter</SelectItem>
                   <SelectItem value="operations">Operations</SelectItem>
                   <SelectItem value="management">Management</SelectItem>
                 </SelectContent>

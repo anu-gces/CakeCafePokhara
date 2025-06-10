@@ -47,7 +47,11 @@ const tabs: TabItem[] = [
     icon: UtensilsIcon,
     to: '/home/editMenu?category="appetizers"',
   },
-  { title: 'Notifications', icon: BellIcon, to: '/home/notifications' },
+  {
+    title: 'Notifications',
+    icon: BellIcon,
+    to: '/home/notifications/orderNotification',
+  },
   {
     title: 'Stocks',
     icon: PackageOpenIcon,

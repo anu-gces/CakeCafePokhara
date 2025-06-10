@@ -21,6 +21,7 @@ messaging.onBackgroundMessage(function (payload) {
   return self.registration.showNotification(payload.data.title, {
     body: payload.data.body,
     icon: '/CakeCafeLogo.png',
+    badge: '/CakeCafeLogo.png',
   })
 })
 

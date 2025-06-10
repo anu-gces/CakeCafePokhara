@@ -127,6 +127,13 @@ export function editMenu() {
     tableNumber: number
     complementary: boolean
     remarks: string
+    status:
+      | 'pending'
+      | 'ready_to_serve'
+      | 'ready_to_pay'
+      | 'paid'
+      | 'cancelled'
+      | 'dismissed'
   }>({
     items: [],
     discountRate: 0,
@@ -134,6 +141,7 @@ export function editMenu() {
     tableNumber: -1,
     complementary: false,
     remarks: '',
+    status: 'pending', // Default status
   })
   const [search, setSearch] = useState('')
 
@@ -192,6 +200,7 @@ export function editMenu() {
                 tableNumber: -1,
                 complementary: false,
                 remarks: '',
+                status: 'pending', // Reset status
               })
               setSelectedTable(-1)
             }}
@@ -255,6 +264,13 @@ export type AddToCart = {
   complementary: boolean
   remarks: string
   creditor?: string | null // Optional creditor field
+  status:
+    | 'pending'
+    | 'ready_to_serve'
+    | 'ready_to_pay'
+    | 'paid'
+    | 'cancelled'
+    | 'dismissed'
 }
 
 type BillProps = {
@@ -285,6 +301,7 @@ function CreateOrderDrawer({
         complementary: false,
         creditor: null, // Reset creditor
         remarks: '',
+        status: 'pending',
       })
       setSelectedTable(-1)
       setStep(false)

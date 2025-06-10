@@ -485,14 +485,7 @@ export async function getAllOrders(): Promise<ProcessedOrder[]> {
     const ordersRef = collection(db, 'orderHistory')
     const querySnapshot = await getDocs(ordersRef)
 
-    const orders = querySnapshot.docs.map(
-      (doc) =>
-        doc.data() as AddToCart & {
-          processedBy: string
-          receiptDate: string
-          receiptId: string
-        },
-    )
+    const orders = querySnapshot.docs.map((doc) => doc.data() as ProcessedOrder)
 
     console.log('Orders retrieved successfully:', orders)
     return orders
@@ -500,6 +493,44 @@ export async function getAllOrders(): Promise<ProcessedOrder[]> {
     console.error('Error retrieving orders:', error)
     throw error
   }
+}
+
+export function listenToAllOrders(
+  callback: (orders: (ProcessedOrder & { docId: string })[]) => void,
+) {
+  // Only fetch orders where status is NOT 'cancelled'
+  const ordersRef = collection(db, 'orderHistory')
+  const q = query(
+    ordersRef,
+    where('status', '!=', 'cancelled'),
+    orderBy('receiptDate', 'desc'),
+  )
+
+  const unsubscribe = onSnapshot(
+    q,
+    (querySnapshot) => {
+      const orders = querySnapshot.docs.map((doc) => ({
+        ...(doc.data() as ProcessedOrder),
+        docId: doc.id, // Attach Firestore document ID
+      }))
+      callback(orders)
+    },
+    (error) => {
+      console.error('Error listening to orders:', error)
+    },
+  )
+
+  return unsubscribe
+}
+
+export async function updateOrderStatus(docId: string, status: string) {
+  const orderRef = doc(db, 'orderHistory', docId)
+  await updateDoc(orderRef, { status })
+}
+
+export async function deleteOrder(docId: string) {
+  const orderRef = doc(db, 'orderHistory', docId)
+  await deleteDoc(orderRef)
 }
 
 export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
@@ -645,6 +676,26 @@ export async function getKitchenDepartmentFcmTokens(): Promise<string[]> {
   // 2. For each user, get their FCM tokens from the subcollection
   const tokens: string[] = []
   for (const uid of kitchenUserIds) {
+    const tokensRef = collection(db, 'userFcmTokens', uid, 'tokens')
+    const tokensSnapshot = await getDocs(tokensRef)
+    tokensSnapshot.forEach((tokenDoc) => {
+      const data = tokenDoc.data()
+      if (data.token) tokens.push(data.token)
+    })
+  }
+  return tokens
+}
+
+export async function getWaiternDepartmentFcmTokens(): Promise<string[]> {
+  // 1. Query users whose department is 'waiter'
+  const usersRef = collection(db, 'users')
+  const q = query(usersRef, where('department', '==', 'waiter'))
+  const userSnapshot = await getDocs(q)
+  const waiterUserIds = userSnapshot.docs.map((doc) => doc.id)
+
+  // 2. For each user, get their FCM tokens from the subcollection
+  const tokens: string[] = []
+  for (const uid of waiterUserIds) {
     const tokensRef = collection(db, 'userFcmTokens', uid, 'tokens')
     const tokensSnapshot = await getDocs(tokensRef)
     tokensSnapshot.forEach((tokenDoc) => {

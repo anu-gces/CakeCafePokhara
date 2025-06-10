@@ -35,7 +35,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
-import { auth } from '@/firebase/firebase'
 import {
   Select,
   SelectContent,
@@ -48,6 +47,7 @@ import { useSearch } from '@tanstack/react-router'
 import { Input } from './input'
 import { Label } from './label'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
 type ColumnType = 'inStock' | 'runningLow' | 'outOfStock' | 'restocked'
 
@@ -235,6 +235,7 @@ const KanbanColumn = ({
   const [active, setActive] = useState(false)
   const search = useSearch({ from: '/home/stock' })
   const category = search.category
+  const { userAdditional } = useFirebaseAuth()
 
   const handleDragStart = (e: DragEvent, card: CardType) => {
     e.dataTransfer.setData('cardId', card.id)
@@ -261,9 +262,13 @@ const KanbanColumn = ({
       cardToTransfer = {
         ...cardToTransfer,
         column,
-        lastModifiedUid: auth.currentUser?.uid || '',
-        lastModifiedDisplayName: auth.currentUser?.displayName || '',
-        lastModifiedEmail: auth.currentUser?.email || '',
+        lastModifiedUid: userAdditional?.uid || '',
+        lastModifiedDisplayName:
+          [userAdditional?.firstName, userAdditional?.lastName]
+            .filter(Boolean)
+            .join(' ') || '',
+
+        lastModifiedEmail: userAdditional?.email || '',
         updatedAt: new Date().toISOString(),
       }
 
