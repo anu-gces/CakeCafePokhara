@@ -18,23 +18,10 @@ import { type PanInfo, useMotionValue, motion } from 'motion/react'
 import { handleSwipeSnap } from '@/lib/swipeGestures'
 import { toast } from 'sonner'
 
-import errorSound from '@/assets/error.mp3'
-import successSound from '@/assets/success.mp3'
+import { playSuccessSound, playErrorSound } from '@/assets/playSFX'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addCreditorToFirestore, getAllCreditors } from '@/firebase/firestore'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
-
-// Play error sound
-function playErrorSound() {
-  const audio = new Audio(errorSound)
-  audio.play()
-}
-
-// Play success sound
-function playSuccessSound() {
-  const audio = new Audio(successSound)
-  audio.play()
-}
 
 export const Route = createFileRoute('/home/creditors')({
   component: RouteComponent,

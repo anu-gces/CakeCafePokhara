@@ -161,12 +161,12 @@ export function OrderNotification() {
   const [orders, setOrders] = useState<
     ({ docId: string } & ProcessedOrder)[] | null
   >(null)
-  const [error, setError] = useState(false)
+
   const userAdditional = useFirebaseAuth().userAdditional
+
   useEffect(() => {
     const unsubscribe = listenToAllOrders((orders) => {
       setOrders(orders)
-      setError(false)
     })
 
     return () => unsubscribe()
@@ -176,14 +176,14 @@ export function OrderNotification() {
     return <SplashScreen />
   }
 
-  if (error) {
-    return (
-      <div className="top-1/2 left-1/2 absolute text-center -translate-x-1/2 -translate-y-1/2 transform">
-        <AlertCircle className="mx-auto mb-2 w-10 h-10 text-destructive" />
-        <p className="font-medium text-destructive">Failed to load orders</p>
-      </div>
-    )
-  }
+  // if (error) {
+  //   return (
+  //     <div className="top-1/2 left-1/2 absolute text-center -translate-x-1/2 -translate-y-1/2 transform">
+  //       <AlertCircle className="mx-auto mb-2 w-10 h-10 text-destructive" />
+  //       <p className="font-medium text-destructive">Failed to load orders</p>
+  //     </div>
+  //   )
+  // }
 
   if (orders.length === 0) {
     return (

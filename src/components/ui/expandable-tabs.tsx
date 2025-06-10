@@ -10,7 +10,8 @@ import {
   listenToKanbanCardDocument,
 } from '@/firebase/firestore'
 import { toast } from 'sonner'
-import { auth } from '@/firebase/firebase'
+import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
+import { playNotificationsSound } from '@/assets/playSFX'
 
 interface Tab {
   title: string
@@ -54,6 +55,7 @@ const spanVariants = {
 }
 
 const transition = { delay: 0.1, type: 'spring', bounce: 0, duration: 0.6 }
+const THRESHOLD_MS = 5000 // 5 seconds threshold
 
 export function ExpandableTabs({
   tabs,
@@ -63,6 +65,7 @@ export function ExpandableTabs({
 }: ExpandableTabsProps) {
   const [selected, setSelected] = React.useState<number | null>(null)
   const [notificationCount, setNotificationCount] = React.useState(0)
+  const { userAdditional } = useFirebaseAuth()
 
   const navigate = useNavigate({ from: '/home' })
   const currentLocation = useLocation()
@@ -104,7 +107,6 @@ export function ExpandableTabs({
       // Filter items for runningLow and outOfStock columns
 
       // Check for the latest updatedAt timestamp
-      const THRESHOLD_MS = 5000 // 5 seconds threshold
       const now = new Date().getTime()
 
       items.forEach((item) => {
@@ -113,7 +115,7 @@ export function ExpandableTabs({
         const updatedAt = new Date(item.updatedAt).getTime()
         if (
           now - updatedAt <= THRESHOLD_MS &&
-          auth.currentUser?.uid !== item.lastModifiedUid
+          userAdditional?.uid !== item.lastModifiedUid // skip if you created it
         ) {
           toast(
             <div className="flex justify-between items-center gap-3">
@@ -152,6 +154,40 @@ export function ExpandableTabs({
         (order) => order.status !== 'paid' && order.status !== 'dismissed',
       ).length
       setNotificationCount(count)
+    })
+    return () => unsub()
+  }, [])
+
+  React.useEffect(() => {
+    const unsub = listenToAllOrders((orders) => {
+      const now = Date.now()
+      let shouldPlaySound = false
+
+      orders.forEach((order) => {
+        // Only notify for new orders within the last 5 seconds, not created by self
+        const receiptTime = new Date(order.receiptDate).getTime()
+        if (
+          now - receiptTime <= THRESHOLD_MS &&
+          userAdditional?.firstName !== order.processedBy // skip if you created it
+        ) {
+          toast(
+            <div className="flex items-center gap-3">
+              <span className="inline-block bg-red-500 rounded-full w-2 h-2" />
+              <div>
+                <p className="font-semibold text-base">New Order</p>
+                <p className="text-muted-foreground text-sm">
+                  Table <span className="font-medium">{order.tableNumber}</span>{' '}
+                  — Placed just now
+                </p>
+              </div>
+            </div>,
+          )
+          shouldPlaySound = true
+        }
+      })
+      if (shouldPlaySound) {
+        playNotificationsSound()
+      }
     })
     return () => unsub()
   }, [])
