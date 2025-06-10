@@ -139,7 +139,7 @@ export function Home() {
   return (
     <div
       data-vaul-drawer-wrapper=""
-      className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-y-hidden"
+      className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-y-clip"
     >
       <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-b border-border">
         <div className="flex items-center gap-2">

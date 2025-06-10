@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  onAuthStateChanged,
+  onIdTokenChanged,
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
@@ -56,9 +56,26 @@ export function useFirebaseAuth() {
       }
       setLoading(false)
     }
-    const unsubscribe = onAuthStateChanged(auth, handleAuth)
+    const unsubscribe = onIdTokenChanged(auth, handleAuth)
     return unsubscribe
   }, [])
+
+  async function isUserProfileComplete(): Promise<boolean> {
+    const user = auth.currentUser
+    if (user) {
+      const userRef = doc(db, 'users', user.uid)
+      const userDoc = await getDoc(userRef)
+      if (userDoc.exists()) {
+        const userData = userDoc.data()
+        return userData ? userData.isProfileComplete : false
+      } else {
+        await enterUserDocument(user.uid, user.email!, user.photoURL)
+        return false
+      }
+    } else {
+      throw new Error('No user is currently logged in')
+    }
+  }
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider()
@@ -95,23 +112,6 @@ export function useFirebaseAuth() {
 
   function getCurrentUser() {
     return auth.currentUser
-  }
-
-  async function isUserProfileComplete(): Promise<boolean> {
-    const user = auth.currentUser
-    if (user) {
-      const userRef = doc(db, 'users', user.uid)
-      const userDoc = await getDoc(userRef)
-      if (userDoc.exists()) {
-        const userData = userDoc.data()
-        return userData ? userData.isProfileComplete : false
-      } else {
-        await enterUserDocument(user.uid, user.email!, user.photoURL)
-        return false
-      }
-    } else {
-      throw new Error('No user is currently logged in')
-    }
   }
 
   return {

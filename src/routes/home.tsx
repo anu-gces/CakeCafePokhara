@@ -22,4 +22,13 @@ export const Route = createFileRoute('/home')({
     }
   },
   notFoundComponent: Error404,
+  errorComponent: (error: any) => (
+    <div>
+      <h1 className="font-bold text-2xl">Error</h1>
+      <p className="text-red-500">
+        An error occurred while loading the home page.
+      </p>
+      <p className="text-red-500">{error.message}</p>
+    </div>
+  ),
 })
