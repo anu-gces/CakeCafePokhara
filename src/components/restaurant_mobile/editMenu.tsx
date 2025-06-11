@@ -218,14 +218,14 @@ export function editMenu() {
       <CategoryTabs />
       {/*  Search Input */}
       <div className="mt-2">
-        <div className="relative px-4 py-2">
-          <SearchIcon className="top-1/2 left-8 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
+        <div className="relative py-2">
+          <SearchIcon className="top-1/2 left-4 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
           <Input
             type="text"
             placeholder="Search food..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 rounded-none"
           />
         </div>
       </div>

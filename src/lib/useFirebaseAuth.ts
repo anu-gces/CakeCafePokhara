@@ -108,6 +108,7 @@ export function useFirebaseAuth() {
   const logout = async () => {
     await signOut(auth)
     setUser(null)
+    window.location.reload()
   }
 
   function getCurrentUser() {
