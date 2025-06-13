@@ -41,6 +41,7 @@ export function useFirebaseAuth() {
               phoneNumber: '',
               department: '',
               role: 'employee',
+              salary: 0,
               isProfileComplete: false,
             }
             await setDoc(userRef, newUser)

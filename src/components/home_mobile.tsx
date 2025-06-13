@@ -102,14 +102,14 @@ export function Home() {
     }
   }, [wasOffline])
 
-  // useEffect(() => {
-  //   if (
-  //     typeof Notification !== 'undefined' &&
-  //     Notification.permission === 'default'
-  //   ) {
-  //     Notification.requestPermission()
-  //   }
-  // }, [])
+  useEffect(() => {
+    if (
+      typeof Notification !== 'undefined' &&
+      Notification.permission === 'default'
+    ) {
+      Notification.requestPermission()
+    }
+  }, [])
 
   useEffect(() => {
     async function fetchAndSaveFcmToken() {
