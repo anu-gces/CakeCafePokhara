@@ -17,19 +17,19 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging()
 
-messaging.onBackgroundMessage(function (payload) {
-  return self.registration.showNotification(payload.data.title, {
-    body: payload.data.body,
-    icon: '/CakeCafeLogo.png',
-    badge: '/CakeCafeBadgeWhite.png',
-  })
-})
+// messaging.onBackgroundMessage(function (payload) {
+//   return self.registration.showNotification(payload.data.title, {
+//     body: payload.data.body,
+//     icon: '/CakeCafeLogo.png',
+//     badge: '/CakeCafeBadgeWhite.png',
+//   })
+// })
 
-self.addEventListener('notificationclick', function (event) {
-  event.notification.close()
-  event.waitUntil(
-    clients.openWindow(
-      self.location.origin + '/home/notifications/orderNotification',
-    ),
-  )
-})
+// self.addEventListener('notificationclick', function (event) {
+//   event.notification.close()
+//   event.waitUntil(
+//     clients.openWindow(
+//       self.location.origin + '/home/notifications/orderNotification',
+//     ),
+//   )
+// })

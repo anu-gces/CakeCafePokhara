@@ -315,7 +315,7 @@ function CreateOrderDrawer({
           //   headers: { 'Content-Type': 'application/json' },
           //   body: JSON.stringify({ tokens }),
           // })
-          await fetch('https://fcm-q9pp.onrender.com/send-fcm', {
+          await fetch('https://great-zebra-28.deno.dev', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
