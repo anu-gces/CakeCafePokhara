@@ -1,12 +1,14 @@
 node_modules
 .DS_Store
 dist
+FCMServer
 dist-ssr
 *.local
 .env
 
 # Ignore server secrets and build artifacts
 /server/
+
 
 # OS/system files
 Thumbs.db

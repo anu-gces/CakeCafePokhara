@@ -74,6 +74,17 @@ export default defineConfig({
             },
           },
           {
+            urlPattern: /\.(?:mp3)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'audio-cache',
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+          {
             urlPattern: /\/assets\/.*\.(js|css)/, // Vite static assets
             handler: 'NetworkFirst',
             options: {

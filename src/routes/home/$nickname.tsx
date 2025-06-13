@@ -5,6 +5,8 @@ import type { AddToCart } from '@/components/restaurant_mobile/editMenu'
 import { getCreditorOrdersByNickname } from '@/firebase/firestore'
 import SplashScreen from '@/components/splashscreen'
 import { useQuery } from '@tanstack/react-query'
+import { Badge } from '@/components/ui/badge'
+import { format } from 'date-fns'
 
 function getTotal(
   items: AddToCart['items'],
@@ -111,7 +113,12 @@ function RouteComponent() {
                   #{order.receiptId}
                 </div>
                 <div className="text-muted-foreground text-xs">
-                  {order.receiptDate}
+                  <Badge variant="outline">
+                    {format(
+                      new Date(order.receiptDate),
+                      'dd MMM yyyy, hh:mm a',
+                    )}
+                  </Badge>
                 </div>
               </div>
               <ul className="space-y-1 mb-3">
@@ -124,7 +131,7 @@ function RouteComponent() {
                       </span>
                     </span>
                     <span className="font-medium">
-                      रु {item.foodPrice * item.qty}
+                      Rs. {item.foodPrice * item.qty}
                     </span>
                   </li>
                 ))}

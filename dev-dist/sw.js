@@ -82,7 +82,7 @@ define(['./workbox-f70c5944'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.2gq2lam58j8"
+    "revision": "0.uvtpg91hcvo"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -108,6 +108,13 @@ define(['./workbox-f70c5944'], (function (workbox) { 'use strict';
     "cacheName": "image-cache",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 100,
+      maxAgeSeconds: 2592000
+    })]
+  }), 'GET');
+  workbox.registerRoute(/\.(?:mp3)$/, new workbox.CacheFirst({
+    "cacheName": "audio-cache",
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 30,
       maxAgeSeconds: 2592000
     })]
   }), 'GET');

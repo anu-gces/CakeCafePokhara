@@ -310,11 +310,21 @@ function CreateOrderDrawer({
       try {
         const tokens = await getKitchenDepartmentFcmTokens()
         if (tokens.length > 0) {
-          await fetch('https://fcm-production-8994.up.railway.app/send-fcm', {
+          // await fetch('https://fcm-production-8994.up.railway.app/send-fcm', {
+          //   method: 'POST',
+          //   headers: { 'Content-Type': 'application/json' },
+          //   body: JSON.stringify({ tokens }),
+          // })
+          await fetch('https://fcm-q9pp.onrender.com/send-fcm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tokens }),
+            body: JSON.stringify({
+              tokens,
+              title: 'New Order',
+              body: `New order placed at Table ${addToCart.tableNumber}`,
+            }),
           })
+          console.log('Success!')
         }
       } catch (err) {
         console.error('Failed to send FCM notification:', err)

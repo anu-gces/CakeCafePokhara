@@ -16,6 +16,7 @@ import {
   BellIcon,
   CalendarIcon,
   DollarSignIcon,
+  DonutIcon,
   HandCoinsIcon,
   HelpCircleIcon,
   HistoryIcon,
@@ -101,14 +102,14 @@ export function Home() {
     }
   }, [wasOffline])
 
-  useEffect(() => {
-    if (
-      typeof Notification !== 'undefined' &&
-      Notification.permission === 'default'
-    ) {
-      Notification.requestPermission()
-    }
-  }, [])
+  // useEffect(() => {
+  //   if (
+  //     typeof Notification !== 'undefined' &&
+  //     Notification.permission === 'default'
+  //   ) {
+  //     Notification.requestPermission()
+  //   }
+  // }, [])
 
   useEffect(() => {
     async function fetchAndSaveFcmToken() {
@@ -216,35 +217,15 @@ function AvatarDrawer() {
             <UserIcon className="w-5 h-5" />
             <span>Profile Settings</span>
           </Link>
-          {(userAdditional?.role === 'admin' ||
-            userAdditional?.role === 'owner') && (
-            <Link
-              to="/home/employee"
-              onClick={() => setOpen(false)}
-              className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-            >
-              <UsersIcon className="w-5 h-5" />
-              <span>Employee Management</span>
-            </Link>
-          )}
 
           <Link
-            to="/home/dashboard"
-            search={{ tab: 'analytics' }}
+            to="/home/employee/$salaryLedger"
+            params={{ salaryLedger: userAdditional?.uid || '' }}
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
-            <BarChart2Icon className="w-5 h-5" />
-            <span>Analytics</span>
-          </Link>
-
-          <Link
-            to="/home/creditors"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <HandCoinsIcon className="w-5 h-5" />
-            <span>Creditors</span>
+            <DollarSignIcon className="w-5 h-5" />
+            <span>Salary</span>
           </Link>
 
           <Link
@@ -283,23 +264,15 @@ function HamburgerDrawer() {
         <DrawerHeader>
           <DrawerTitle>Business Management</DrawerTitle>
           <DrawerDescription className="text-xs text-nowrap">
-            Access and manage your business operations, financials, and
-            resources.
+            Manage your business operations, financials, and resources.
           </DrawerDescription>
         </DrawerHeader>
         <Separator />
         <div className="flex flex-col flex-grow justify-center items-start space-y-2">
-          <Link
-            to="/home/settings"
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <UserIcon className="w-5 h-5" />
-            <span>Profile Settings</span>
-          </Link>
           {(userAdditional?.role === 'admin' ||
             userAdditional?.role === 'owner') && (
             <Link
-              to="/home/employee"
+              to="/home/employee/table"
               onClick={() => setOpen(false)}
               className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
             >
@@ -328,12 +301,20 @@ function HamburgerDrawer() {
           </Link>
 
           <Link
-            to="/home/help"
+            to="/home/kitchenLedger"
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
-            <HelpCircleIcon className="w-5 h-5" />
-            <span>Help</span>
+            <UtensilsIcon className="w-5 h-5" />
+            <span>Kitchen Ledger</span>
+          </Link>
+          <Link
+            to="/home/bakeryLedger"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <DonutIcon className="w-5 h-5" />
+            <span>Bakery Ledger</span>
           </Link>
         </div>
         <Separator />

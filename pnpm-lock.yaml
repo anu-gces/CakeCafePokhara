@@ -116,6 +116,9 @@ dependencies:
   react-number-format:
     specifier: ^5.4.4
     version: 5.4.4(react-dom@19.1.0)(react@19.1.0)
+  react-onesignal:
+    specifier: ^3.2.3
+    version: 3.2.3
   recharts:
     specifier: ^2.15.3
     version: 2.15.3(react-dom@19.1.0)(react@19.1.0)
@@ -6691,6 +6694,11 @@ packages:
     dependencies:
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
+    dev: false
+
+  /react-onesignal@3.2.3:
+    resolution: {integrity: sha512-5LIbQbybNTQ8ngaMeJEBB1EEzDEYJ8SS10L7hHKNCIIWrTmeKpYFhCgwjwb1QFdZ+eRjil5y+ujJR6syf7SVVw==}
+    engines: {node: '>=14', npm: '>=6'}
     dev: false
 
   /react-refresh@0.17.0:

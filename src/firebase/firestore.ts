@@ -4,7 +4,6 @@ import type { FoodItemProps } from '@/components/restaurant_mobile/editMenu'
 import { type User, onAuthStateChanged } from 'firebase/auth'
 import { type User as UserType } from '@/components/employee'
 import {
-  type DocumentData,
   collection,
   doc,
   getDoc,
@@ -53,6 +52,7 @@ export async function enterUserDocument(
     lastName: '',
     phoneNumber: '',
     department: '',
+    salary: 0, // Default salary
     role: 'employee', // Default role
     isProfileComplete: false, // New field to track if the profile is complete
   }
@@ -68,12 +68,22 @@ export function getCurrentUserDetails(): Promise<User | null> {
   })
 }
 
-export async function getAllUsers(): Promise<DocumentData[]> {
+export async function getSingleUser(uid: string) {
+  const userRef = doc(db, 'users', uid)
+  const userSnap = await getDoc(userRef)
+  if (userSnap.exists()) {
+    return userSnap.data() as UserAdditional
+  } else {
+    return null
+  }
+}
+
+export async function getAllUsers(): Promise<UserAdditional[]> {
   const usersRef = collection(db, 'users')
   const userSnapshot = await getDocs(usersRef)
   const users = userSnapshot.docs.map((doc) => doc.data())
   // console.log(users);
-  return users
+  return users as UserAdditional[]
 }
 
 export async function isUserProfileComplete(): Promise<boolean> {
@@ -94,6 +104,43 @@ export async function isUserProfileComplete(): Promise<boolean> {
   } else {
     throw new Error('No user is currently logged in')
   }
+}
+
+export type SalaryLedgerPayment = {
+  userUid: string
+  amount: number
+  date: string
+  paidBy: string
+  paymentMethod: string
+  reference?: string
+  notes?: string
+}
+
+export async function getSalaryLedgerPayments(
+  salaryLedgerUid: string,
+): Promise<Array<SalaryLedgerPayment & { id: string }>> {
+  const q = query(
+    collection(db, 'salaryLedger'),
+    where('userUid', '==', salaryLedgerUid),
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Array<SalaryLedgerPayment & { id: string }>
+}
+
+export async function enterSalaryLedgerPayment(payment: SalaryLedgerPayment) {
+  const paymentsRef = collection(db, 'salaryLedger')
+  const docRef = await addDoc(paymentsRef, payment)
+  return docRef.id
+}
+
+export async function deleteSalaryLedgerPayment(
+  paymentId: string,
+): Promise<void> {
+  const paymentRef = doc(db, 'salaryLedger', paymentId)
+  await deleteDoc(paymentRef)
 }
 
 export async function completeProfileInformation(
@@ -127,6 +174,7 @@ export type UserAdditional = {
   role: string
   profilePicture?: string | null
   isProfileComplete: boolean
+  salary: number // Optional field for salary
 }
 
 export async function getCurrentUserDocumentDetails(): Promise<UserAdditional | null> {
@@ -154,9 +202,14 @@ export async function editUserDetails(updatedDetails: {
   lastName?: string
   phoneNumber?: string
   department?: string
+  salary?: number
   role?: string
 }): Promise<void> {
   const currentUser = auth.currentUser
+
+  if ('email' in updatedDetails) {
+    throw new Error('Email cannot be updated')
+  }
 
   if (!currentUser) {
     throw new Error('No user is currently logged in')
@@ -502,7 +555,7 @@ export function listenToAllOrders(
   const ordersRef = collection(db, 'orderHistory')
   const q = query(
     ordersRef,
-    where('status', '!=', 'cancelled'),
+    where('status', 'not-in', ['cancelled', 'dismissed']),
     orderBy('receiptDate', 'desc'),
   )
 
