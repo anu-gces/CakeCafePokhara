@@ -25,11 +25,11 @@ const messaging = firebase.messaging()
 //   })
 // })
 
-// self.addEventListener('notificationclick', function (event) {
-//   event.notification.close()
-//   event.waitUntil(
-//     clients.openWindow(
-//       self.location.origin + '/home/notifications/orderNotification',
-//     ),
-//   )
-// })
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close()
+  event.waitUntil(
+    clients.openWindow(
+      self.location.origin + '/home/notifications/orderNotification',
+    ),
+  )
+})

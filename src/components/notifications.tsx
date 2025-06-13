@@ -40,7 +40,7 @@ const tabs: TabItem[] = [
 
 export function Notifications() {
   return (
-    <div>
+    <div className="h-full">
       <div>
         <ExpandableTabs className="ml-4 max-w-48" tabs={tabs} />
       </div>
@@ -68,7 +68,7 @@ export function StockNotification() {
 
   if (items === null)
     return (
-      <div className="flex justify-center items-center h-40">
+      <div className="flex justify-center items-center h-full">
         <div className="flex flex-col items-center animate-pulse">
           <div className="bg-muted mb-2 rounded-full w-12 h-12"></div>
           <div className="bg-muted rounded w-32 h-4"></div>
@@ -187,7 +187,7 @@ export function OrderNotification() {
 
   if (orders.length === 0) {
     return (
-      <div className="top-1/2 left-1/2 absolute text-center -translate-x-1/2 -translate-y-1/2 transform">
+      <div className="flex flex-col justify-center items-center h-full text-centers">
         <div className="inline-flex bg-muted/30 mb-3 p-4 rounded-full">
           <Clock className="w-6 h-6 text-muted-foreground" />
         </div>

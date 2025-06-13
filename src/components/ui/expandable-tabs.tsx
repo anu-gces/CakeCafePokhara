@@ -199,7 +199,7 @@ export function ExpandableTabs({
   return (
     <div
       className={cn(
-        'flex flex-no-wrap items-center gap-2 rounded-2xl border bg-background p-1 shadow-sm',
+        'flex flex-no-wrap min-w-fit  items-center gap-2 rounded-2xl border bg-background p-1 shadow-sm',
         className,
       )}
     >
@@ -248,7 +248,7 @@ export function ExpandableTabs({
                   animate="animate"
                   exit="exit"
                   transition={transition}
-                  className="overflow-hidden"
+                  className="overflow-hidden text-xs"
                 >
                   {tab.title}
                 </motion.span>
