@@ -44,6 +44,7 @@ import {
 import { uploadMenuItemImage } from '@/firebase/firebase_storage'
 import {
   createOrderDocument,
+  deleteUserFcmTokenByUid,
   enterFoodItem,
   getAllCreditors,
   getFoodItems,
@@ -308,23 +309,33 @@ function CreateOrderDrawer({
       queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
       // --- Send FCM notification to kitchen department ---
       try {
-        const tokens = await getKitchenDepartmentFcmTokens()
-        if (tokens.length > 0) {
+        const tokensWithUid = await getKitchenDepartmentFcmTokens()
+        const tokensOnly = tokensWithUid.map((t) => t.token)
+        console.log('Tokens only:', tokensOnly)
+        console.log('Tokens with UID:', tokensWithUid)
+
+        if (tokensWithUid.length > 0) {
           // await fetch('https://fcm-production-8994.up.railway.app/send-fcm', {
           //   method: 'POST',
           //   headers: { 'Content-Type': 'application/json' },
           //   body: JSON.stringify({ tokens }),
           // })
-          await fetch('https://great-zebra-28.deno.dev', {
+          const response = await fetch('https://great-zebra-28.deno.dev', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              tokens,
+              tokens: tokensOnly,
               title: 'New Order',
               body: `New order placed at Table ${addToCart.tableNumber}`,
             }),
           })
-          console.log('Success!')
+          const { invalidTokens } = await response.json()
+          const invalidUidTokenPairs = tokensWithUid.filter((t) =>
+            invalidTokens.includes(t.token),
+          )
+          for (const { uid, token } of invalidUidTokenPairs) {
+            await deleteUserFcmTokenByUid(uid, token)
+          }
         }
       } catch (err) {
         console.error('Failed to send FCM notification:', err)

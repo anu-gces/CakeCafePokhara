@@ -714,12 +714,23 @@ export async function saveUserFcmToken(token: string) {
       userAgent: navigator.userAgent,
     })
   } catch (error) {
-    console.error('Failed to save FCM token:', error)
     throw new Error('Failed to save FCM token')
   }
 }
 
-export async function getKitchenDepartmentFcmTokens(): Promise<string[]> {
+export async function deleteUserFcmTokenByUid(uid: string, token: string) {
+  // Reference to the specific token document in the user's subcollection
+  const tokenRef = doc(collection(db, 'userFcmTokens', uid, 'tokens'), token)
+  try {
+    await deleteDoc(tokenRef)
+  } catch (error) {
+    throw new Error('Failed to delete FCM token')
+  }
+}
+
+export async function getKitchenDepartmentFcmTokens(): Promise<
+  { uid: string; token: string }[]
+> {
   // 1. Query users whose department is 'kitchen'
   const usersRef = collection(db, 'users')
   const q = query(usersRef, where('department', '==', 'kitchen'))
@@ -727,13 +738,14 @@ export async function getKitchenDepartmentFcmTokens(): Promise<string[]> {
   const kitchenUserIds = userSnapshot.docs.map((doc) => doc.id)
 
   // 2. For each user, get their FCM tokens from the subcollection
-  const tokens: string[] = []
+  const tokens: { uid: string; token: string }[] = []
+
   for (const uid of kitchenUserIds) {
     const tokensRef = collection(db, 'userFcmTokens', uid, 'tokens')
     const tokensSnapshot = await getDocs(tokensRef)
     tokensSnapshot.forEach((tokenDoc) => {
       const data = tokenDoc.data()
-      if (data.token) tokens.push(data.token)
+      if (data.token) tokens.push({ uid, token: data.token })
     })
   }
   return tokens
