@@ -29,69 +29,84 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
+import { db } from '@/firebase/firestore' // adjust path as needed
+import SplashScreen from '@/components/splashscreen'
 
-const items = [
-  {
-    id: '1',
-    itemName: 'Tomato',
-    quantity: 10,
-    unit: 'kg',
-    price: 5.0,
-    notes: 'Fresh and organic',
-    addedBy: 'John Doe',
-    addedAt: '2023-11-01T10:00:00Z',
-  },
-  {
-    id: '2',
-    itemName: 'Potato',
-    quantity: 20,
-    unit: 'kg',
-    price: 2.0,
-    notes: 'Locally sourced',
-    addedBy: 'Jane Smith',
-    addedAt: '2023-11-02T11:30:00Z',
-  },
-  {
-    id: '3',
-    itemName: 'Rice',
-    quantity: 50,
-    unit: 'kg',
-    price: 1.5,
-    notes: 'Long grain, premium quality',
-    addedBy: 'Alice Johnson',
-    addedAt: '2023-11-03T09:15:00Z',
-  },
-  {
-    id: '4',
-    itemName: 'milk',
-    quantity: 5,
-    unit: 'liters',
-    price: 3.0,
-    notes: 'Organic milk from local farm',
-    addedBy: 'Bob Brown',
-    addedAt: '2023-11-04T14:45:00Z',
-  },
-  {
-    id: '5',
-    itemName: 'Eggs',
-    quantity: 30,
-    unit: 'dozen',
-    price: 2.5,
-    notes: 'Free-range eggs',
-    addedBy: 'Charlie Green',
-    addedAt: '2023-11-05T08:20:00Z',
-  },
-  {
-    id: '6',
-    itemName: 'Bread',
-    quantity: 15,
-    unit: 'loaves',
-    price: 1.0,
-    notes: 'Whole grain bread',
-    addedBy: 'Diana White',
-    addedAt: '2023-11-06T12:00:00Z',
-  },
-]
+// const items = [
+//   {
+//     id: '1',
+//     itemName: 'Tomato',
+//     quantity: 10,
+//     unit: 'kg',
+//     price: 5.0,
+//     notes: 'Fresh and organic',
+//     addedBy: 'John Doe',
+//     addedAt: '2023-11-01T10:00:00Z',
+//   },
+//   {
+//     id: '2',
+//     itemName: 'Potato',
+//     quantity: 20,
+//     unit: 'kg',
+//     price: 2.0,
+//     notes: 'Locally sourced',
+//     addedBy: 'Jane Smith',
+//     addedAt: '2023-11-02T11:30:00Z',
+//   },
+//   {
+//     id: '3',
+//     itemName: 'Rice',
+//     quantity: 50,
+//     unit: 'kg',
+//     price: 1.5,
+//     notes: 'Long grain, premium quality',
+//     addedBy: 'Alice Johnson',
+//     addedAt: '2023-11-03T09:15:00Z',
+//   },
+//   {
+//     id: '4',
+//     itemName: 'milk',
+//     quantity: 5,
+//     unit: 'liters',
+//     price: 3.0,
+//     notes: 'Organic milk from local farm',
+//     addedBy: 'Bob Brown',
+//     addedAt: '2023-11-04T14:45:00Z',
+//   },
+//   {
+//     id: '5',
+//     itemName: 'Eggs',
+//     quantity: 30,
+//     unit: 'dozen',
+//     price: 2.5,
+//     notes: 'Free-range eggs',
+//     addedBy: 'Charlie Green',
+//     addedAt: '2023-11-05T08:20:00Z',
+//   },
+//   {
+//     id: '6',
+//     itemName: 'Bread',
+//     quantity: 15,
+//     unit: 'loaves',
+//     price: 1.0,
+//     notes: 'Whole grain bread',
+//     addedBy: 'Diana White',
+//     addedAt: '2023-11-06T12:00:00Z',
+//   },
+// ]
+
+type KitchenLedgerItem = {
+  id: string
+  itemName: string
+  quantity: number
+  unit: string
+  price: number
+  notes?: string
+  addedBy: string
+  addedAt: string // ISO date string
+}
 
 export const Route = createFileRoute('/home/kitchenLedger')({
   component: RouteComponent,
@@ -99,20 +114,49 @@ export const Route = createFileRoute('/home/kitchenLedger')({
 
 function RouteComponent() {
   const { userAdditional } = useFirebaseAuth()
+
+  // Fetch kitchenLedger collection
+  const {
+    data: items,
+    isLoading,
+    isError,
+  } = useQuery<KitchenLedgerItem[]>({
+    queryKey: ['kitchenLedger'],
+    queryFn: async () => {
+      const snapshot = await getDocs(collection(db, 'kitchenLedger'))
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<KitchenLedgerItem, 'id'>),
+      })) as KitchenLedgerItem[]
+    },
+  })
+
+  if (isLoading) {
+    return <SplashScreen />
+  }
+
+  if (isError) {
+    return (
+      <div className="top-1/2 left-1/2 absolute text-red-500 -translate-x-1/2 -translate-y-1/2">
+        Error loading kitchen ledger items.
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto px-6 py-6 pb-9 max-w-xl min-h-full">
+    <div className="mx-auto px-7 py-6 pb-9 max-w-xl min-h-full">
       <div className="flex justify-between items-center mb-6">
         <h1 className="font-bold text-primary text-2xl">Kitchen Ledger</h1>
         {userAdditional?.role !== 'employee' && <LedgerDrawer />}
       </div>
       <div className="space-y-6">
-        {items.length === 0 ? (
+        {items?.length === 0 ? (
           <div className="text-muted-foreground text-center">
             No Items found.
           </div>
         ) : (
           <AnimatePresence>
-            {items.map((item, i) => (
+            {items?.map((item, i) => (
               <motion.div key={item.id} layout className="relative">
                 <div
                   key={item.addedAt + item.price}
@@ -176,7 +220,9 @@ function RouteComponent() {
                   className="top-1/2 -right-6 absolute text-red-500 hover:text-red-700 active:scale-95 -translate-y-1/2"
                   title="Delete item"
                 >
-                  {userAdditional?.role !== 'employee' && <DeleteItemDrawer />}
+                  {userAdditional?.role !== 'employee' && (
+                    <DeleteItemDrawer id={item.id} />
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -187,8 +233,27 @@ function RouteComponent() {
   )
 }
 
-const DeleteItemDrawer = () => {
+const DeleteItemDrawer = ({ id }: { id: string }) => {
   const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      await deleteDoc(doc(db, 'kitchenLedger', itemId))
+      return itemId
+    },
+    onSuccess: (itemId) => {
+      queryClient.setQueryData<KitchenLedgerItem[]>(
+        ['kitchenLedger'],
+        (oldItems) => oldItems?.filter((item) => item.id !== itemId) || [],
+      )
+      toast.success('Item deleted successfully!')
+      setOpen(false)
+    },
+    onError: (error) => {
+      toast.error(`Error deleting item: ${error.message}`)
+    },
+  })
 
   return (
     <Drawer
@@ -208,8 +273,11 @@ const DeleteItemDrawer = () => {
           </DrawerDescription>
         </DrawerHeader>
         <DrawerFooter>
-          <Button className="bg-primary" onClick={() => setOpen(false)}>
-            {false ? (
+          <Button
+            className="bg-primary"
+            onClick={() => deleteItemMutation.mutate(id)}
+          >
+            {deleteItemMutation.isPending ? (
               <>
                 <LoaderIcon
                   color="white"
@@ -246,6 +314,26 @@ const LedgerSchema = Yup.object().shape({
 
 function LedgerDrawer() {
   const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const { userAdditional } = useFirebaseAuth()
+
+  const addItemMutation = useMutation({
+    mutationFn: async (newItem: Omit<KitchenLedgerItem, 'id'>) => {
+      const docRef = await addDoc(collection(db, 'kitchenLedger'), newItem)
+      return { id: docRef.id, ...newItem }
+    },
+    onSuccess: (newItem) => {
+      queryClient.setQueryData<KitchenLedgerItem[]>(
+        ['kitchenLedger'],
+        (oldItems) => [...(oldItems || []), newItem],
+      )
+      toast.success('Item added successfully!')
+      setOpen(false)
+    },
+    onError: (error) => {
+      toast.error(`Error adding item: ${error.message}`)
+    },
+  })
 
   return (
     <Drawer
@@ -276,12 +364,17 @@ function LedgerDrawer() {
           onSubmit={(values, { resetForm }) => {
             // Add logic to save item, e.g.:
             // addItem({ ...values, addedBy: loggedInUser, addedAt: Date.now() })
-            toast.success(
-              `Item added: ${values.itemName} (${values.quantity} ${values.unit}) for Rs.${values.price}`,
-            )
+            addItemMutation.mutate({
+              itemName: values.itemName,
+              quantity: Number(values.quantity),
+              unit: values.unit,
+              price: Number(values.price),
+              notes: values.notes,
+              addedBy: userAdditional?.firstName || 'Unknown',
+              addedAt: new Date().toISOString(),
+            })
 
             resetForm()
-            setOpen(false)
           }}
         >
           {() => (
@@ -340,7 +433,7 @@ function LedgerDrawer() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="price">Price</Label>
+                <Label htmlFor="price">Price(Per Item)</Label>
                 <Field
                   as={Input}
                   id="price"
@@ -364,7 +457,19 @@ function LedgerDrawer() {
                 />
               </div>
               <DrawerFooter>
-                <Button type="submit">Save</Button>
+                <Button type="submit" disabled={addItemMutation.isPending}>
+                  {addItemMutation.isPending ? (
+                    <span className="flex items-center gap-2">
+                      <LoaderIcon
+                        className="w-4 h-4 animate-spin"
+                        color="white"
+                      />
+                      Saving...
+                    </span>
+                  ) : (
+                    <span>Save</span>
+                  )}
+                </Button>
                 <DrawerClose asChild>
                   <Button variant="outline" type="button">
                     Cancel

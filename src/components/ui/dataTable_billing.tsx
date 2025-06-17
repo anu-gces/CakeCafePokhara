@@ -130,7 +130,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="flex flex-col pb-4 h-full">
-      <div className="flex justify-between items-center px-4 py-2 w-full transition-all duration-1000">
+      <div className="flex justify-between items-center py-2 w-full transition-all duration-1000">
         <div className="relative">
           <Label className="block relative max-w-sm cursor-pointer">
             <SearchIcon className="top-1/2 left-3 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />

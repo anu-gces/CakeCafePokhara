@@ -75,7 +75,7 @@ function RouteComponent() {
   }
 
   return (
-    <div className="mx-auto px-6 py-6 pb-9 max-w-xl min-h-full">
+    <div className="mx-auto px-7 py-6 pb-9 max-w-xl min-h-full">
       <Button
         onClick={() =>
           navigate({

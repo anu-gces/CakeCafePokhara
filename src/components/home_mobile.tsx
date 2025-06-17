@@ -15,6 +15,7 @@ import {
   BarChart2Icon,
   BellIcon,
   CalendarIcon,
+  CoffeeIcon,
   DollarSignIcon,
   DonutIcon,
   HandCoinsIcon,
@@ -316,6 +317,17 @@ function HamburgerDrawer() {
             <DonutIcon className="w-5 h-5" />
             <span>Bakery Ledger</span>
           </Link>
+          {userAdditional?.role === 'admin' ||
+            (userAdditional?.role === 'owner' && (
+              <Link
+                to="/home/baristaLedger"
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <CoffeeIcon className="w-5 h-5" />
+                <span>Barista Ledger</span>
+              </Link>
+            ))}
         </div>
         <Separator />
         <DrawerFooter>

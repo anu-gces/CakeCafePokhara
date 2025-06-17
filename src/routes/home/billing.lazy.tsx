@@ -24,7 +24,10 @@ export const Route = createLazyFileRoute('/home/billing')({
     })
 
     return (
-      <>
+      <div className="px-4">
+        <h1 className="font-bold text-primary text-2xl text-left">
+          Order History
+        </h1>
         <DataTable
           columns={columns}
           data={orders || []}
@@ -36,7 +39,7 @@ export const Route = createLazyFileRoute('/home/billing')({
             'processedBy',
           ]}
         />
-      </>
+      </div>
     )
   },
 })

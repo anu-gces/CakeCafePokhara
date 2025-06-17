@@ -27,14 +27,17 @@ export const Route = createLazyFileRoute('/home/employee/table')({
 
     // Use the user data in your component
     return (
-      <>
+      <div className="px-4">
+        <h1 className="font-bold text-primary text-2xl text-left">
+          Employee Management
+        </h1>
         <DataTable
           columns={columns}
           data={users || []}
           filterColumnId="firstName"
           visibleColumns={['photo', 'actions', 'firstName', 'phoneNumber']}
         />
-      </>
+      </div>
     )
   },
 })

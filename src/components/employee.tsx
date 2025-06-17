@@ -1,6 +1,14 @@
 import { Button } from '@/components/ui/button'
 import type { ColumnDef } from '@tanstack/react-table'
-import { ArrowUpDown, MoreHorizontal, User2 } from 'lucide-react'
+import {
+  ArrowUpDown,
+  DollarSignIcon,
+  MoreHorizontal,
+  PhoneIcon,
+  SquarePenIcon,
+  Trash2Icon,
+  User2,
+} from 'lucide-react'
 import * as Yup from 'yup'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -226,6 +234,7 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
               <DropdownMenuItem
                 onClick={() => window.open(`tel:${user.phoneNumber}`, '_self')}
               >
+                <PhoneIcon />
                 Call Phone Number
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -238,11 +247,13 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
                   })
                 }}
               >
+                <DollarSignIcon />
                 Salary Ledger
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setIsDrawerOpen(true)}>
+                <SquarePenIcon />
                 Edit User Details
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -251,6 +262,7 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
                   setIsDeleteDrawerOpen(true)
                 }}
               >
+                <Trash2Icon />
                 Delete User
               </DropdownMenuItem>
             </DropdownMenuContent>
