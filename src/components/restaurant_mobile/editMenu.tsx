@@ -288,6 +288,7 @@ function CreateOrderDrawer({
   selectedTable: number
   setSelectedTable: (tableNo: number) => void
 }) {
+  const [open, setOpen] = useState<boolean>(false)
   const [step, setStep] = useState<boolean>(false)
   const queryClient = useQueryClient()
   const enterOrderMutation = useMutation({
@@ -306,13 +307,12 @@ function CreateOrderDrawer({
       })
       setSelectedTable(-1)
       setStep(false)
+      setOpen(false)
       queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
       // --- Send FCM notification to kitchen department ---
       try {
         const tokensWithUid = await getKitchenDepartmentFcmTokens()
         const tokensOnly = tokensWithUid.map((t) => t.token)
-        console.log('Tokens only:', tokensOnly)
-        console.log('Tokens with UID:', tokensWithUid)
 
         if (tokensWithUid.length > 0) {
           // await fetch('https://fcm-production-8994.up.railway.app/send-fcm', {
@@ -356,7 +356,12 @@ function CreateOrderDrawer({
   }
 
   return (
-    <Drawer shouldScaleBackground={true} setBackgroundColorOnScale={true}>
+    <Drawer
+      open={open}
+      onOpenChange={setOpen}
+      shouldScaleBackground={true}
+      setBackgroundColorOnScale={true}
+    >
       <DrawerTrigger className="right-4 bottom-16 z-50 absolute flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
         <>
           <span
@@ -465,19 +470,24 @@ function CreateOrderDrawer({
               </motion.span>
             )}
           </motion.button>
-          <DrawerClose asChild>
-            <Button
-              disabled={
-                enterOrderMutation.isPending || addToCart.items.length === 0 // Disable if no items in order
-              }
-              onClick={() => {
-                // console.log("Order Details:", addToCart);
-                enterOrderMutation.mutate(addToCart)
-              }}
-            >
-              Submit
-            </Button>
-          </DrawerClose>
+          <Button
+            disabled={
+              enterOrderMutation.isPending || addToCart.items.length === 0 // Disable if no items in order
+            }
+            onClick={() => {
+              // console.log("Order Details:", addToCart);
+              enterOrderMutation.mutate(addToCart)
+            }}
+          >
+            {enterOrderMutation.isPending ? (
+              <span className="flex items-center gap-2">
+                <LoaderIcon className="animate-spin" color="white" />
+                Saving...
+              </span>
+            ) : (
+              'Submit'
+            )}
+          </Button>
           <DrawerClose asChild>
             <Button variant="outline" className="w-full">
               Cancel

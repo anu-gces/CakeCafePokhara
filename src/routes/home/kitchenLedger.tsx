@@ -30,8 +30,11 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '@/firebase/firestore' // adjust path as needed
+import {
+  addKitchenLedgerItem,
+  deleteKitchenLedgerItem,
+  getAllKitchenLedgerItems,
+} from '@/firebase/firestore' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 
 // const items = [
@@ -97,7 +100,7 @@ import SplashScreen from '@/components/splashscreen'
 //   },
 // ]
 
-type KitchenLedgerItem = {
+export type KitchenLedgerItem = {
   id: string
   itemName: string
   quantity: number
@@ -122,13 +125,7 @@ function RouteComponent() {
     isError,
   } = useQuery<KitchenLedgerItem[]>({
     queryKey: ['kitchenLedger'],
-    queryFn: async () => {
-      const snapshot = await getDocs(collection(db, 'kitchenLedger'))
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<KitchenLedgerItem, 'id'>),
-      })) as KitchenLedgerItem[]
-    },
+    queryFn: getAllKitchenLedgerItems,
   })
 
   if (isLoading) {
@@ -189,16 +186,8 @@ function RouteComponent() {
       <div className="mx-auto px-7 py-6 pb-20 max-w-xl">
         <div className="space-y-4">
           {items?.length === 0 ? (
-            <div className="py-12 text-muted-foreground text-center">
-              <svg
-                className="opacity-50 mx-auto mb-4 w-12 h-12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path d="M9 17v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-6 4h6a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" />
-              </svg>
+            <div className="flex flex-col items-center py-12 text-muted-foreground text-center">
+              <ReceiptIcon />
               <p>No items found.</p>
               <p className="text-sm">
                 Add your first kitchen item to get started.
@@ -300,10 +289,7 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
   const queryClient = useQueryClient()
 
   const deleteItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      await deleteDoc(doc(db, 'kitchenLedger', itemId))
-      return itemId
-    },
+    mutationFn: deleteKitchenLedgerItem,
     onSuccess: (itemId) => {
       queryClient.setQueryData<KitchenLedgerItem[]>(
         ['kitchenLedger'],
@@ -380,10 +366,7 @@ function LedgerDrawer() {
   const { userAdditional } = useFirebaseAuth()
 
   const addItemMutation = useMutation({
-    mutationFn: async (newItem: Omit<KitchenLedgerItem, 'id'>) => {
-      const docRef = await addDoc(collection(db, 'kitchenLedger'), newItem)
-      return { id: docRef.id, ...newItem }
-    },
+    mutationFn: addKitchenLedgerItem,
     onSuccess: (newItem) => {
       queryClient.setQueryData<KitchenLedgerItem[]>(
         ['kitchenLedger'],

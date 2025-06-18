@@ -199,9 +199,17 @@ export function OrderNotification() {
   return (
     <div className="space-y-3 p-3">
       {orders.map(
-        ({ docId, status, tableNumber, items, remarks, receiptDate }) => (
+        ({
+          docId,
+          receiptId,
+          status,
+          tableNumber,
+          items,
+          remarks,
+          receiptDate,
+        }) => (
           <div
-            key={docId}
+            key={receiptId}
             className="group bg-card shadow-sm p-4 border rounded-xl transition"
           >
             <div className="flex justify-between items-start mb-2">
@@ -211,25 +219,25 @@ export function OrderNotification() {
               </div>
               <div className="flex flex-col items-end gap-0.5">
                 {status === 'pending' && (
-                  <span className="inline-flex items-center gap-1 bg-yellow-100 px-2 py-0.5 rounded-full font-medium text-yellow-800 text-xs">
+                  <span className="inline-flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full font-medium text-yellow-800 dark:text-yellow-300 text-xs">
                     <AnimatedClockIcon width={15} height={15} />
                     Preparing
                   </span>
                 )}
                 {status === 'ready_to_serve' && (
-                  <span className="inline-flex items-center gap-1 bg-blue-100 px-2 py-0.5 rounded-full font-medium text-blue-700 text-xs">
+                  <span className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full font-medium text-green-800 dark:text-green-300 text-xs">
                     <CheckIcon className="w-3 h-3" />
                     Ready to Serve
                   </span>
                 )}
                 {status === 'ready_to_pay' && (
-                  <span className="inline-flex items-center gap-1 bg-emerald-100 px-2 py-0.5 rounded-full font-medium text-emerald-700 text-xs">
+                  <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full font-medium text-blue-800 dark:text-blue-300 text-xs">
                     <HandIcon className="w-3 h-3" />
                     Ready to Pay
                   </span>
                 )}
                 {status === 'paid' && (
-                  <span className="inline-flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full font-medium text-muted-foreground text-xs">
+                  <span className="inline-flex items-center gap-1 bg-rose-100 dark:bg-rose-900/30 px-2 py-0.5 rounded-full font-medium text-rose-800 dark:text-rose-300 text-xs">
                     <CheckCircle2 className="w-3 h-3" />
                     Paid
                   </span>
@@ -260,7 +268,9 @@ export function OrderNotification() {
                     userAdditional?.role === 'owner') && (
                     <Button
                       className="active:scale-95"
-                      onClick={() => updateOrderStatus(docId, 'ready_to_serve')}
+                      onClick={() =>
+                        updateOrderStatus(docId, 'ready_to_serve', receiptId)
+                      }
                     >
                       Mark as Prepared
                     </Button>
@@ -270,7 +280,9 @@ export function OrderNotification() {
                     userAdditional?.role === 'owner') && (
                     <Button
                       className="active:scale-95"
-                      onClick={() => updateOrderStatus(docId, 'ready_to_pay')}
+                      onClick={() =>
+                        updateOrderStatus(docId, 'ready_to_pay', receiptId)
+                      }
                     >
                       Mark as Served
                     </Button>
@@ -280,7 +292,9 @@ export function OrderNotification() {
                     userAdditional?.role === 'owner') && (
                     <Button
                       className="active:scale-95"
-                      onClick={() => updateOrderStatus(docId, 'paid')}
+                      onClick={() =>
+                        updateOrderStatus(docId, 'paid', receiptId)
+                      }
                     >
                       Mark as Paid
                     </Button>
@@ -290,7 +304,9 @@ export function OrderNotification() {
                     userAdditional?.role === 'owner') && (
                     <Button
                       className="active:scale-95"
-                      onClick={() => updateOrderStatus(docId, 'dismissed')}
+                      onClick={() =>
+                        updateOrderStatus(docId, 'dismissed', receiptId)
+                      }
                     >
                       Dismiss Notification
                     </Button>
@@ -303,7 +319,9 @@ export function OrderNotification() {
                   <Button
                     variant="outline"
                     className="active:scale-95"
-                    onClick={() => updateOrderStatus(docId, 'cancelled')}
+                    onClick={() =>
+                      updateOrderStatus(docId, 'cancelled', receiptId)
+                    }
                   >
                     <XIcon className="mr-1 w-4 h-4" />
                     Cancel Order

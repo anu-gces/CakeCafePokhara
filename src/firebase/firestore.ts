@@ -24,9 +24,10 @@ import {
 import { app, auth } from './firebase'
 import { deleteMenuItemImage } from './firebase_storage'
 import type { AddToCart } from '@/components/restaurant_mobile/editMenu'
-import { generateReceiptId } from './firestore.utils'
-import { format } from 'date-fns'
+import { generateReceiptId, getWeeklyDocId } from './firestore.utils'
 import type { CardType as KanbanCardType } from '@/components/ui/kanbanBoard'
+import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger'
+import type { bakeryLedgerItem } from '@/routes/home/bakeryLedger'
 
 //export const db = getFirestore(app);
 
@@ -503,7 +504,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
 
   const processedBy =
     userDoc?.firstName || user.displayName || user.email || 'unknown'
-  const receiptId = generateReceiptId() // e.g., "CAKE-X8F4L9"
+  const receiptId = generateReceiptId()
   const receiptDate = new Date().toISOString()
 
   const orderData = {
@@ -513,18 +514,22 @@ export async function createOrderDocument(orderDetails: AddToCart) {
     receiptDate,
   }
 
-  const formattedDate = format(new Date(), 'dd-MMM-yyyy-HH_mm_ss')
-  const docId = `${formattedDate}_${receiptId}`
+  // Use weekly batching
+  const docId = getWeeklyDocId()
+  const batchRef = doc(collection(db, 'orderHistoryWeekly'), docId)
 
-  const orderRef = doc(collection(db, 'orderHistory'), docId)
-
-  try {
-    await setDoc(orderRef, orderData)
-    console.log('Order successfully created:', receiptId)
-  } catch (error) {
-    console.error('Error creating order document:', error)
-    throw error
+  // Get current batch
+  const batchSnap = await getDoc(batchRef)
+  let orders: any[] = []
+  if (batchSnap.exists()) {
+    orders = batchSnap.data().orders || []
   }
+
+  // Add new order
+  orders.push(orderData)
+
+  // Save back to Firestore
+  await setDoc(batchRef, { orders }, { merge: true })
 }
 
 export interface ProcessedOrder extends AddToCart {
@@ -534,39 +539,80 @@ export interface ProcessedOrder extends AddToCart {
 }
 
 export async function getAllOrders(): Promise<ProcessedOrder[]> {
-  try {
-    const ordersRef = collection(db, 'orderHistory')
-    const querySnapshot = await getDocs(ordersRef)
-
-    const orders = querySnapshot.docs.map((doc) => doc.data() as ProcessedOrder)
-
-    console.log('Orders retrieved successfully:', orders)
-    return orders
-  } catch (error) {
-    console.error('Error retrieving orders:', error)
-    throw error
-  }
+  const ordersRef = collection(db, 'orderHistoryWeekly')
+  const querySnapshot = await getDocs(ordersRef)
+  let allOrders: ProcessedOrder[] = []
+  querySnapshot.forEach((doc) => {
+    const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
+    allOrders = allOrders.concat(batchOrders)
+  })
+  // Sort by receiptDate descending
+  allOrders.sort(
+    (a, b) =>
+      new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
+  )
+  return allOrders
 }
+
+// export function listenToAllOrders(
+//   callback: (orders: (ProcessedOrder & { docId: string })[]) => void,
+// ) {
+//   // Only fetch orders where status is NOT 'cancelled'
+//   const ordersRef = collection(db, 'orderHistory')
+//   const q = query(
+//     ordersRef,
+//     where('status', 'not-in', ['cancelled', 'dismissed']),
+//     orderBy('receiptDate', 'desc'),
+//   )
+
+//   const unsubscribe = onSnapshot(
+//     q,
+//     (querySnapshot) => {
+//       const orders = querySnapshot.docs.map((doc) => ({
+//         ...(doc.data() as ProcessedOrder),
+//         docId: doc.id, // Attach Firestore document ID
+//       }))
+//       callback(orders)
+//     },
+//     (error) => {
+//       console.error('Error listening to orders:', error)
+//     },
+//   )
+
+//   return unsubscribe
+// }
 
 export function listenToAllOrders(
   callback: (orders: (ProcessedOrder & { docId: string })[]) => void,
 ) {
-  // Only fetch orders where status is NOT 'cancelled'
-  const ordersRef = collection(db, 'orderHistory')
-  const q = query(
-    ordersRef,
-    where('status', 'not-in', ['cancelled', 'dismissed']),
-    orderBy('receiptDate', 'desc'),
-  )
+  const ordersRef = collection(db, 'orderHistoryWeekly')
 
   const unsubscribe = onSnapshot(
-    q,
+    ordersRef,
     (querySnapshot) => {
-      const orders = querySnapshot.docs.map((doc) => ({
-        ...(doc.data() as ProcessedOrder),
-        docId: doc.id, // Attach Firestore document ID
-      }))
-      callback(orders)
+      let allOrders: (ProcessedOrder & { docId: string })[] = []
+      querySnapshot.forEach((doc) => {
+        const batchOrders = (doc.data().orders || []).map(
+          (order: ProcessedOrder) => ({
+            ...order,
+            docId: doc.id, // Attach batch doc ID
+          }),
+        )
+        allOrders = allOrders.concat(batchOrders)
+      })
+
+      // Filter out cancelled/dismissed
+      allOrders = allOrders.filter(
+        (order) => order.status !== 'cancelled' && order.status !== 'dismissed',
+      )
+
+      // Sort by receiptDate descending
+      allOrders.sort(
+        (a, b) =>
+          new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
+      )
+
+      callback(allOrders)
     },
     (error) => {
       console.error('Error listening to orders:', error)
@@ -576,14 +622,42 @@ export function listenToAllOrders(
   return unsubscribe
 }
 
-export async function updateOrderStatus(docId: string, status: string) {
-  const orderRef = doc(db, 'orderHistory', docId)
-  await updateDoc(orderRef, { status })
+// export async function updateOrderStatus(docId: string, status: string) {
+//   const orderRef = doc(db, 'orderHistory', docId)
+//   await updateDoc(orderRef, { status })
+// }
+
+export async function updateOrderStatus(
+  batchDocId: string,
+  status: string,
+  receiptId: string,
+) {
+  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  const orders = batchSnap.data().orders || []
+
+  const idx = orders.findIndex((o: any) => o.receiptId === receiptId)
+  if (idx === -1) throw new Error('Order not found in batch')
+
+  orders[idx].status = status
+  await setDoc(batchRef, { orders }, { merge: true })
 }
 
-export async function deleteOrder(docId: string) {
-  const orderRef = doc(db, 'orderHistory', docId)
-  await deleteDoc(orderRef)
+// export async function deleteOrder(docId: string) {
+//   const orderRef = doc(db, 'orderHistory', docId)
+//   await deleteDoc(orderRef)
+// }
+
+export async function deleteOrder(batchDocId: string, receiptId: string) {
+  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  let orders = batchSnap.data().orders || []
+  orders = orders.filter((o: any) => o.receiptId !== receiptId)
+  await setDoc(batchRef, { orders }, { merge: true })
 }
 
 export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
@@ -609,39 +683,70 @@ export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
   }
 }
 
+// export async function getOrdersInRange(
+//   from: string,
+//   to: string,
+// ): Promise<ProcessedOrder[]> {
+//   const ordersCollection = collection(db, 'orderHistory')
+//   const startDate = new Date(from).toISOString()
+//   const endDate = new Date(
+//     new Date(to).setDate(new Date(to).getDate() + 1),
+//   ).toISOString()
+
+//   const q = query(
+//     ordersCollection,
+//     where('receiptDate', '>=', startDate),
+//     where('receiptDate', '<', endDate),
+//   )
+
+//   try {
+//     const querySnapshot = await getDocs(q)
+//     const orders = querySnapshot.docs.map(
+//       (doc) =>
+//         doc.data() as AddToCart & {
+//           processedBy: string
+//           receiptDate: string
+//           receiptId: string
+//         },
+//     )
+
+//     console.log('Orders in range:', orders)
+//     return orders
+//   } catch (error) {
+//     console.error('Error fetching orders in range:', error)
+//     throw error
+//   }
+// }
+
 export async function getOrdersInRange(
   from: string,
   to: string,
 ): Promise<ProcessedOrder[]> {
-  const ordersCollection = collection(db, 'orderHistory')
-  const startDate = new Date(from).toISOString()
-  const endDate = new Date(
-    new Date(to).setDate(new Date(to).getDate() + 1),
-  ).toISOString()
+  const ordersRef = collection(db, 'orderHistoryWeekly')
+  const querySnapshot = await getDocs(ordersRef)
+  let allOrders: ProcessedOrder[] = []
+  querySnapshot.forEach((doc) => {
+    const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
+    allOrders = allOrders.concat(batchOrders)
+  })
 
-  const q = query(
-    ordersCollection,
-    where('receiptDate', '>=', startDate),
-    where('receiptDate', '<', endDate),
+  const startDate = new Date(from)
+  // Add 1 day to include the end date fully
+  const endDate = new Date(to)
+  endDate.setDate(endDate.getDate() + 1)
+
+  const filteredOrders = allOrders.filter((order) => {
+    const orderDate = new Date(order.receiptDate)
+    return orderDate >= startDate && orderDate < endDate
+  })
+
+  // Sort by receiptDate descending
+  filteredOrders.sort(
+    (a, b) =>
+      new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
   )
 
-  try {
-    const querySnapshot = await getDocs(q)
-    const orders = querySnapshot.docs.map(
-      (doc) =>
-        doc.data() as AddToCart & {
-          processedBy: string
-          receiptDate: string
-          receiptId: string
-        },
-    )
-
-    console.log('Orders in range:', orders)
-    return orders
-  } catch (error) {
-    console.error('Error fetching orders in range:', error)
-    throw error
-  }
+  return filteredOrders
 }
 
 export type Creditor = {
@@ -769,4 +874,113 @@ export async function getWaiternDepartmentFcmTokens(): Promise<string[]> {
     })
   }
   return tokens
+}
+
+// Get all kitchen ledger items (flattened from all weekly docs)
+export async function getAllKitchenLedgerItems(): Promise<KitchenLedgerItem[]> {
+  const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
+  let allItems: KitchenLedgerItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = (doc.data().items || []) as KitchenLedgerItem[]
+    allItems = allItems.concat(batchItems)
+  })
+  // Sort by addedAt descending (latest first)
+  allItems.sort(
+    (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+  )
+  return allItems
+}
+
+// Add a kitchen ledger item to the correct weekly batch
+export async function addKitchenLedgerItem(
+  newItem: Omit<KitchenLedgerItem, 'id'>,
+) {
+  const docId = getWeeklyDocId(new Date(newItem.addedAt))
+  const batchRef = doc(collection(db, 'kitchenLedgerWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  let items: KitchenLedgerItem[] = []
+  if (batchSnap.exists()) {
+    items = batchSnap.data().items || []
+  }
+  // Generate a unique id for the item
+  const id = crypto.randomUUID()
+  items.push({ ...newItem, id })
+  await setDoc(batchRef, { items }, { merge: true })
+  return { ...newItem, id }
+}
+
+// Delete a kitchen ledger item from the correct weekly batch
+export async function deleteKitchenLedgerItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
+  let batchDocId: string | null = null
+  let items: KitchenLedgerItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const newItems = items.filter((item: any) => item.id !== itemId)
+  await setDoc(
+    doc(db, 'kitchenLedgerWeekly', batchDocId),
+    { items: newItems },
+    { merge: true },
+  )
+  return itemId
+}
+
+export async function getAllBakeryLedgerItems(): Promise<bakeryLedgerItem[]> {
+  const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
+  let allItems: bakeryLedgerItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = (doc.data().items || []) as bakeryLedgerItem[]
+    allItems = allItems.concat(batchItems)
+  })
+  // Sort by addedAt descending (latest first)
+  allItems.sort(
+    (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+  )
+  return allItems
+}
+
+// Add a bakery ledger item to the correct weekly batch
+export async function addBakeryLedgerItem(
+  newItem: Omit<bakeryLedgerItem, 'id'>,
+) {
+  const docId = getWeeklyDocId(new Date(newItem.addedAt))
+  const batchRef = doc(collection(db, 'bakeryLedgerWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  let items: bakeryLedgerItem[] = []
+  if (batchSnap.exists()) {
+    items = batchSnap.data().items || []
+  }
+  // Generate a unique id for the item
+  const id = crypto.randomUUID()
+  items.push({ ...newItem, id })
+  await setDoc(batchRef, { items }, { merge: true })
+  return { ...newItem, id }
+}
+
+// Delete a bakery ledger item from the correct weekly batch
+export async function deleteBakeryLedgerItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
+  let batchDocId: string | null = null
+  let items: bakeryLedgerItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const newItems = items.filter((item: any) => item.id !== itemId)
+  await setDoc(
+    doc(db, 'bakeryLedgerWeekly', batchDocId),
+    { items: newItems },
+    { merge: true },
+  )
+  return itemId
 }

@@ -2,9 +2,8 @@ import { CalendarDateRangePicker } from '@/components/ui/daterangepicker'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useNavigate } from '@tanstack/react-router'
 import { type Tab, Route as dashboardRoute } from '../../routes/home/dashboard'
-import { Notifications } from '../notifications'
 import { Overview } from './overview'
-import { BarChartIcon, BellIcon, LayoutDashboardIcon } from 'lucide-react'
+import { BarChartIcon, LayoutDashboardIcon } from 'lucide-react'
 import { Analytics } from './analytics'
 
 export default function Dashboard() {
@@ -37,9 +36,6 @@ export default function Dashboard() {
                 <TabsTrigger value="analytics">
                   <BarChartIcon className="mr-2 w-4 h-4" /> Analytics
                 </TabsTrigger>
-                <TabsTrigger value="notifications">
-                  <BellIcon className="mr-2 w-4 h-4" /> Notifications
-                </TabsTrigger>
               </TabsList>
               <div className="flex flex-nowrap items-center gap-2 min-w-0">
                 <div className="flex-shrink">
@@ -63,10 +59,6 @@ export default function Dashboard() {
               <div className="flex flex-col gap-4 h-full">
                 <Analytics />
               </div>
-            </TabsContent>
-
-            <TabsContent value="notifications" className="space-y-4 h-full">
-              <Notifications />
             </TabsContent>
           </Tabs>
         </div>

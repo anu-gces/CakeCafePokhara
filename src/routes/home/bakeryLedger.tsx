@@ -30,11 +30,14 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '@/firebase/firestore' // adjust path as needed
+import {
+  addBakeryLedgerItem,
+  deleteBakeryLedgerItem,
+  getAllBakeryLedgerItems,
+} from '@/firebase/firestore' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 
-type bakeryLedgerItem = {
+export type bakeryLedgerItem = {
   id: string
   itemName: string
   quantity: number
@@ -59,13 +62,7 @@ function RouteComponent() {
     isError,
   } = useQuery<bakeryLedgerItem[]>({
     queryKey: ['bakeryLedger'],
-    queryFn: async () => {
-      const snapshot = await getDocs(collection(db, 'bakeryLedger'))
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<bakeryLedgerItem, 'id'>),
-      })) as bakeryLedgerItem[]
-    },
+    queryFn: getAllBakeryLedgerItems,
   })
 
   if (isLoading) {
@@ -229,10 +226,7 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
   const queryClient = useQueryClient()
 
   const deleteItemMutation = useMutation({
-    mutationFn: async (itemId: string) => {
-      await deleteDoc(doc(db, 'bakeryLedger', itemId))
-      return itemId
-    },
+    mutationFn: deleteBakeryLedgerItem,
     onSuccess: (itemId) => {
       queryClient.setQueryData<bakeryLedgerItem[]>(
         ['bakeryLedger'],
@@ -309,10 +303,7 @@ function LedgerDrawer() {
   const { userAdditional } = useFirebaseAuth()
 
   const addItemMutation = useMutation({
-    mutationFn: async (newItem: Omit<bakeryLedgerItem, 'id'>) => {
-      const docRef = await addDoc(collection(db, 'bakeryLedger'), newItem)
-      return { id: docRef.id, ...newItem }
-    },
+    mutationFn: addBakeryLedgerItem,
     onSuccess: (newItem) => {
       queryClient.setQueryData<bakeryLedgerItem[]>(
         ['bakeryLedger'],
