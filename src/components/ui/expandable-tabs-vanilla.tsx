@@ -57,7 +57,6 @@ export function ExpandableTabs({
   onChange,
 }: ExpandableTabsProps) {
   const [selected, setSelected] = React.useState<number | null>(null)
-  const outsideClickRef = React.useRef(null)
   const navigate = useNavigate({ from: to })
   const currentLocation = useLocation()
 
@@ -92,7 +91,6 @@ export function ExpandableTabs({
 
   return (
     <div
-      ref={outsideClickRef}
       className={cn(
         'flex  flex-no-wrap items-center gap-2 rounded-2xl border bg-background p-1 shadow-sm',
         className,
@@ -117,7 +115,7 @@ export function ExpandableTabs({
             }}
             transition={transition}
             className={cn(
-              'relative flex items-center rounded-xl px-4 text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
+              'relative flex flex-1 justify-center items-center rounded-xl px-4 text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
               selected === index
                 ? cn('bg-muted')
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',

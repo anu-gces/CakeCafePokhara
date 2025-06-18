@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select'
 
 import { Button } from '@/components/ui/button'
-import { LoaderIcon, Trash2Icon } from 'lucide-react'
+import { LoaderIcon, ReceiptIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import * as Yup from 'yup'
 import { Formik, Form, Field, ErrorMessage } from 'formik'
@@ -81,90 +81,144 @@ function RouteComponent() {
   }
 
   return (
-    <div className="mx-auto px-7 py-6 pb-9 max-w-xl min-h-full">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="font-bold text-primary text-2xl">Bakery Ledger</h1>
-        {userAdditional?.role !== 'employee' && <LedgerDrawer />}
-      </div>
-      <div className="space-y-6">
-        {items?.length === 0 ? (
-          <div className="text-muted-foreground text-center">
-            No Items found.
+    <div>
+      {/* Sticky Header with Total */}
+      <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
+        <div className="mx-auto px-7 py-6 max-w-xl">
+          <div className="flex justify-between items-center mb-3">
+            <h1 className="font-bold text-primary text-2xl">Bakery Ledger</h1>
+            {userAdditional?.role !== 'employee' && <LedgerDrawer />}
           </div>
-        ) : (
-          <AnimatePresence>
-            {items?.map((item, i) => (
-              <motion.div key={item.id} layout className="relative">
-                <div
-                  key={item.addedAt + item.price}
-                  className="relative bg-white dark:bg-zinc-900 shadow-md hover:shadow-lg px-6 py-5 border border-primary/10 dark:border-zinc-700 rounded-xl transition"
-                >
-                  {/* Timeline dot */}
-                  <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-white dark:border-zinc-900 rounded-full w-3 h-3" />
-                  {/* Timeline line */}
-                  {i !== items.length - 1 && (
-                    <div className="top-10 -left-[10px] absolute dark:bg-zinc-700 bg-border w-[1px] h-[calc(100%-2.5rem)]" />
-                  )}
-                  {i === items.length - 1 && (
-                    <>
-                      <div className="top-10 -left-[10px] absolute flex items-end bg-transparent dark:bg-transparent dark:border-zinc-700 border-b border-l rounded-bl-2xl w-[calc(100%-12rem)] h-[calc(100%-1.5rem)]"></div>
-                      <span className="right-0 -bottom-8 absolute px-2 py-1 rounded font-bold text-primary text-lg">
-                        Total Paid: Rs.
-                        {items.reduce(
-                          (sum, p) =>
-                            sum + Number(p.price) * Number(p.quantity),
-                          0,
-                        )}
-                      </span>
-                    </>
-                  )}
+          {/* Total Amount Card */}
+          <motion.div
+            className="hover:bg-white/30 dark:hover:bg-zinc-800/30 bg-gradient-to-r from-primary/10 dark:from-primary/20 to-primary/5 dark:to-primary/10 hover:shadow-lg hover:backdrop-blur-md p-3 border border-primary/20 hover:border-primary/40 dark:hover:border-zinc-600 rounded-lg transition-all duration-300"
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <ReceiptIcon className="w-4 h-4 text-primary" />
+                <span className="font-medium text-primary text-sm">
+                  Total Spent
+                </span>
+              </div>
+              <div className="font-bold text-primary text-lg">
+                Rs.{' '}
+                {items
+                  ?.reduce(
+                    (sum, item) =>
+                      sum + Number(item.price) * Number(item.quantity),
+                    0,
+                  )
+                  .toFixed(2)}
+              </div>
+            </div>
+            <div className="mt-1 text-muted-foreground text-xs">
+              {items?.length ?? 0} items • Last updated{' '}
+              {new Date().toLocaleDateString()}
+            </div>
+          </motion.div>
+        </div>
+      </div>
 
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="font-semibold text-primary text-lg">
-                      {item.itemName}
+      {/* Scrollable Content */}
+      <div className="mx-auto px-7 py-6 pb-20 max-w-xl">
+        <div className="space-y-4">
+          {items?.length === 0 ? (
+            <div className="py-12 text-muted-foreground text-center">
+              <ReceiptIcon className="opacity-50 mx-auto mb-4 w-12 h-12" />
+              <p>No items found.</p>
+              <p className="text-sm">
+                Add your first bakery item to get started.
+              </p>
+            </div>
+          ) : (
+            <AnimatePresence>
+              {items
+                ?.slice()
+                .sort(
+                  (a, b) =>
+                    new Date(b.addedAt).getTime() -
+                    new Date(a.addedAt).getTime(),
+                )
+                .map((item, i, arr) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    transition={{ duration: 0.3, delay: i * 0.05 }}
+                    className="relative"
+                  >
+                    <div className="relative bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md px-6 py-5 border border-primary/10 dark:border-zinc-700 rounded-xl transition-all duration-200">
+                      {/* Timeline dot */}
+                      <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-white dark:border-zinc-900 rounded-full w-3 h-3" />
+                      {/* Timeline line */}
+                      {i !== arr.length - 1 && (
+                        <div className="top-10 -left-[10px] absolute dark:bg-zinc-700 bg-border w-[1px] h-[calc(100%-2.5rem)]" />
+                      )}
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-semibold text-primary text-base">
+                              {item.itemName}
+                            </h3>
+                            <Badge variant="outline" className="text-xs">
+                              {new Date(item.addedAt).toLocaleDateString()}
+                            </Badge>
+                          </div>
+                          {/* Item details */}
+                          <div className="gap-2 grid grid-cols-2 mb-2 text-muted-foreground text-xs">
+                            <span>
+                              Qty:{' '}
+                              <span className="font-medium">
+                                {item.quantity} {item.unit}
+                              </span>
+                            </span>
+                            <span>
+                              Rate:{' '}
+                              <span className="font-medium">
+                                Rs.{item.price}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="mb-2 text-muted-foreground text-xs">
+                            Added by:{' '}
+                            <span className="font-medium">{item.addedBy}</span>
+                          </div>
+                          {item.notes && (
+                            <div className="bg-gray-50 dark:bg-zinc-800 mb-2 px-2 py-1 rounded text-muted-foreground text-xs italic">
+                              {item.notes}
+                            </div>
+                          )}
+                          {/* Item total */}
+                          <div className="flex justify-between items-center pt-2 border-gray-100 dark:border-zinc-800 border-t">
+                            <span className="text-muted-foreground text-xs">
+                              Item Total
+                            </span>
+                            <span className="font-semibold text-primary">
+                              Rs.
+                              {(
+                                Number(item.price) * Number(item.quantity)
+                              ).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Delete button */}
+                        {userAdditional?.role !== 'employee' && (
+                          <div className="ml-3">
+                            <DeleteItemDrawer id={item.id} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      {new Date(item.addedAt).toLocaleDateString()}
-                    </Badge>
-                  </div>
-                  {/* Card body */}
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-muted-foreground text-xs">
-                    <span>
-                      Qty:{' '}
-                      <span className="font-semibold">
-                        {item.quantity} {item.unit}
-                      </span>
-                    </span>
-                    <span>
-                      Price:{' '}
-                      <span className="font-semibold">Rs.{item.price}</span>
-                    </span>
-                    <span>
-                      Added By:{' '}
-                      <span className="font-semibold">{item.addedBy}</span>
-                    </span>
-                  </div>
-                  {item.notes && (
-                    <div className="mb-1 text-muted-foreground text-xs italic">
-                      {item.notes}
-                    </div>
-                  )}
-                  <div className="right-6 bottom-4 absolute font-semibold text-primary text-base">
-                    Total: Rs.{Number(item.price) * Number(item.quantity)}
-                  </div>
-                </div>
-                <div
-                  className="top-1/2 -right-6 absolute text-red-500 hover:text-red-700 active:scale-95 -translate-y-1/2"
-                  title="Delete item"
-                >
-                  {userAdditional?.role !== 'employee' && (
-                    <DeleteItemDrawer id={item.id} />
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
+                  </motion.div>
+                ))}
+            </AnimatePresence>
+          )}
+        </div>
       </div>
     </div>
   )

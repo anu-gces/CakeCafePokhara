@@ -1,23 +1,24 @@
-import { CalendarDateRangePicker } from "@/components/ui/daterangepicker";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNavigate } from "@tanstack/react-router";
-import { type Tab, Route as dashboardRoute } from "../../routes/home/dashboard";
-import { Notifications } from "../notifications";
-import { Overview } from "./overview";
-import { BellIcon, LayoutDashboardIcon } from "lucide-react";
+import { CalendarDateRangePicker } from '@/components/ui/daterangepicker'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useNavigate } from '@tanstack/react-router'
+import { type Tab, Route as dashboardRoute } from '../../routes/home/dashboard'
+import { Notifications } from '../notifications'
+import { Overview } from './overview'
+import { BarChartIcon, BellIcon, LayoutDashboardIcon } from 'lucide-react'
+import { Analytics } from './analytics'
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const { tab } = dashboardRoute.useSearch() as { tab: Tab };
+  const navigate = useNavigate()
+  const { tab } = dashboardRoute.useSearch() as { tab: Tab }
 
   const handleTabChange = (newTabUntyped: string) => {
-    const newTab: Tab = newTabUntyped as Tab;
+    const newTab: Tab = newTabUntyped as Tab
 
     navigate({
-      to: "/home/dashboard",
+      to: '/home/dashboard',
       search: (prev: { [key: string]: string }) => ({ ...prev, tab: newTab }),
-    });
-  };
+    })
+  }
   return (
     <>
       <div className="md:flex flex-col px-2 h-full">
@@ -33,9 +34,9 @@ export default function Dashboard() {
                 <TabsTrigger value="overview">
                   <LayoutDashboardIcon className="mr-2 w-4 h-4" /> Overview
                 </TabsTrigger>
-                {/* <TabsTrigger value="analytics">
+                <TabsTrigger value="analytics">
                   <BarChartIcon className="mr-2 w-4 h-4" /> Analytics
-                </TabsTrigger> */}
+                </TabsTrigger>
                 <TabsTrigger value="notifications">
                   <BellIcon className="mr-2 w-4 h-4" /> Notifications
                 </TabsTrigger>
@@ -58,6 +59,12 @@ export default function Dashboard() {
               </div>
             </TabsContent>
 
+            <TabsContent value="analytics" className="space-y-4 h-full">
+              <div className="flex flex-col gap-4 h-full">
+                <Analytics />
+              </div>
+            </TabsContent>
+
             <TabsContent value="notifications" className="space-y-4 h-full">
               <Notifications />
             </TabsContent>
@@ -65,5 +72,5 @@ export default function Dashboard() {
         </div>
       </div>
     </>
-  );
+  )
 }

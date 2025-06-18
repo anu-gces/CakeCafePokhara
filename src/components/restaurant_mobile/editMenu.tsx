@@ -95,7 +95,7 @@ export const validationSchema = Yup.object({
 function CategoryTabs() {
   return (
     <>
-      <div className="flex justify-center items-center px-4 w-full">
+      <div className="flex justify-center items-center pt-1 w-full">
         <ExpandableTabs
           tabs={[
             { title: 'Appetizers', icon: SandwichIcon, search: 'appetizers' },
@@ -106,7 +106,7 @@ function CategoryTabs() {
             { title: 'Specials', icon: SparklesIcon, search: 'specials' },
           ]}
           to="/home/editMenu"
-          className="w-fit"
+          className="min-w-full"
         />
       </div>
     </>
@@ -218,8 +218,8 @@ export function editMenu() {
       </div>
       <CategoryTabs />
       {/*  Search Input */}
-      <div className="mt-2">
-        <div className="relative py-2">
+      <div className="">
+        <div className="relative py-1">
           <SearchIcon className="top-1/2 left-4 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
           <Input
             type="text"

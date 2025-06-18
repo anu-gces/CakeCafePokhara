@@ -149,7 +149,7 @@ export function Home() {
         </div>
         <HamburgerDrawer />
       </div>
-      <div className="relative flex-grow pt-2 overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar">
+      <div className="relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar">
         <Outlet />
       </div>
       <ExpandableTabs tabs={tabs} className="min-w-fit" />
@@ -265,7 +265,7 @@ function HamburgerDrawer() {
         <DrawerHeader>
           <DrawerTitle>Business Management</DrawerTitle>
           <DrawerDescription className="text-xs text-nowrap">
-            Manage your business operations, financials, and resources.
+            Manage business and ledgers.
           </DrawerDescription>
         </DrawerHeader>
         <Separator />
