@@ -75,6 +75,7 @@ const tabs: TabItem[] = [
 
 export function Home() {
   const { loading: isLoading } = useFirebaseAuth()
+  const { userAdditional } = useFirebaseAuth()
 
   const [wasOffline, setWasOffline] = useState(false)
 
@@ -152,7 +153,15 @@ export function Home() {
       <div className="relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar">
         <Outlet />
       </div>
-      <ExpandableTabs tabs={tabs} className="min-w-fit" />
+      <ExpandableTabs
+        tabs={tabs.filter(
+          (tab) =>
+            tab.title !== 'Dashboard' ||
+            userAdditional?.role === 'admin' ||
+            userAdditional?.role === 'owner',
+        )}
+        className="min-w-fit"
+      />{' '}
     </div>
   )
 }
@@ -282,15 +291,18 @@ function HamburgerDrawer() {
             </Link>
           )}
 
-          <Link
-            to="/home/dashboard"
-            search={{ tab: 'analytics' }}
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <BarChart2Icon className="w-5 h-5" />
-            <span>Analytics</span>
-          </Link>
+          {(userAdditional?.role === 'admin' ||
+            userAdditional?.role === 'owner') && (
+            <Link
+              to="/home/dashboard"
+              search={{ tab: 'analytics' }}
+              onClick={() => setOpen(false)}
+              className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+            >
+              <BarChart2Icon className="w-5 h-5" />
+              <span>Analytics</span>
+            </Link>
+          )}
 
           <Link
             to="/home/creditors"

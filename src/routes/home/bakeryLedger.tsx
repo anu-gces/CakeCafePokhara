@@ -37,7 +37,7 @@ import {
 } from '@/firebase/firestore' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 
-export type bakeryLedgerItem = {
+export type BakeryLedgerItem = {
   id: string
   itemName: string
   quantity: number
@@ -60,7 +60,7 @@ function RouteComponent() {
     data: items,
     isLoading,
     isError,
-  } = useQuery<bakeryLedgerItem[]>({
+  } = useQuery<BakeryLedgerItem[]>({
     queryKey: ['bakeryLedger'],
     queryFn: getAllBakeryLedgerItems,
   })
@@ -228,7 +228,7 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
   const deleteItemMutation = useMutation({
     mutationFn: deleteBakeryLedgerItem,
     onSuccess: (itemId) => {
-      queryClient.setQueryData<bakeryLedgerItem[]>(
+      queryClient.setQueryData<BakeryLedgerItem[]>(
         ['bakeryLedger'],
         (oldItems) => oldItems?.filter((item) => item.id !== itemId) || [],
       )
@@ -305,7 +305,7 @@ function LedgerDrawer() {
   const addItemMutation = useMutation({
     mutationFn: addBakeryLedgerItem,
     onSuccess: (newItem) => {
-      queryClient.setQueryData<bakeryLedgerItem[]>(
+      queryClient.setQueryData<BakeryLedgerItem[]>(
         ['bakeryLedger'],
         (oldItems) => [...(oldItems || []), newItem],
       )

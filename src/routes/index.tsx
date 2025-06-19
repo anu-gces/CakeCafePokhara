@@ -1,10 +1,10 @@
-import { LandingPage } from '@/components/landingPage'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { LandingPage } from '@/components/landingPage'
 
 export const Route = createFileRoute('/')({
   component: LandingPage,
 
-  beforeLoad: async ({ context: { authentication } }) => {
+  beforeLoad: ({ context: { authentication } }) => {
     // Wait for the user to be loaded if needed
     if (!authentication.getCurrentUser()) {
       return null

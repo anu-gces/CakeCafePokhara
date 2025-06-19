@@ -1,6 +1,10 @@
-import { getOrdersInRange } from '@/firebase/firestore'
+import {
+  getBakeryLedgerInRange,
+  getKitchenLedgerInRange,
+  getOrdersInRange,
+} from '@/firebase/firestore'
 import { queryOptions } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { subDays } from 'date-fns'
 
 export type Tab = 'overview' | 'analytics' | 'reports' | 'notifications'
@@ -12,6 +16,21 @@ type Search = {
 }
 
 export const Route = createFileRoute('/home/dashboard')({
+  beforeLoad: ({ context: { authentication } }) => {
+    // Wait for authentication to be ready if needed
+
+    const userAdditional = authentication.userAdditional
+    if (
+      userAdditional &&
+      userAdditional.role !== 'admin' &&
+      userAdditional.role !== 'owner'
+    ) {
+      throw redirect({
+        to: '/home/editMenu',
+        search: { category: 'appetizers' },
+      })
+    }
+  },
   validateSearch: (search: Record<string, unknown>): Search => {
     const validTabs: Tab[] = [
       'overview',
@@ -43,13 +62,22 @@ export const Route = createFileRoute('/home/dashboard')({
   },
   loaderDeps: ({ search: { from, to } }) => ({ from, to }),
   loader: async ({ deps: { from, to }, context: { queryClient } }) => {
-    return queryClient.ensureQueryData(
-      dashboardQueryOptions({ from: from!, to: to! }),
-    )
+    const [income, kitchenLedger, bakeryLedger] = await Promise.all([
+      queryClient.ensureQueryData(
+        dashboardQueryIncomeOptions({ from: from!, to: to! }),
+      ),
+      queryClient.ensureQueryData(
+        dashboardQueryKitchenLedgerOptions({ from: from!, to: to! }),
+      ),
+      queryClient.ensureQueryData(
+        dashboardQueryBakeryLedgerOptions({ from: from!, to: to! }),
+      ),
+    ])
+    return { income, kitchenLedger, bakeryLedger }
   },
 })
 
-export const dashboardQueryOptions = ({
+const dashboardQueryIncomeOptions = ({
   from,
   to,
 }: {
@@ -57,7 +85,7 @@ export const dashboardQueryOptions = ({
   to: string
 }) =>
   queryOptions({
-    queryKey: ['orderHistory', from, to],
+    queryKey: ['orderHistoryDashboard', from, to],
     queryFn: () => getOrdersInRange(from, to),
     placeholderData: [
       {
@@ -71,6 +99,58 @@ export const dashboardQueryOptions = ({
         complementary: false,
         items: [],
         status: 'pending',
+      },
+    ],
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  })
+
+const dashboardQueryKitchenLedgerOptions = ({
+  from,
+  to,
+}: {
+  from: string
+  to: string
+}) =>
+  queryOptions({
+    queryKey: ['kitchenLedgerDashboard', from, to],
+    queryFn: () => getKitchenLedgerInRange(from, to), // Replace with getKitchenLedgerInRange if available
+    placeholderData: [
+      {
+        id: '',
+        itemName: '',
+        quantity: 0,
+        unit: '',
+        price: 0,
+        notes: '',
+        addedBy: '',
+        addedAt: '',
+      },
+    ],
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  })
+
+const dashboardQueryBakeryLedgerOptions = ({
+  from,
+  to,
+}: {
+  from: string
+  to: string
+}) =>
+  queryOptions({
+    queryKey: ['bakeryLedgerDashboard', from, to],
+    queryFn: () => getBakeryLedgerInRange(from, to), // Replace with getKitchenLedgerInRange if available
+    placeholderData: [
+      {
+        id: '',
+        itemName: '',
+        quantity: 0,
+        unit: '',
+        price: 0,
+        notes: '',
+        addedBy: '',
+        addedAt: '',
       },
     ],
     staleTime: Number.POSITIVE_INFINITY,

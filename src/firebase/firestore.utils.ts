@@ -1,4 +1,4 @@
-import { format, getDate } from 'date-fns'
+import { eachDayOfInterval, format, getDate, parseISO } from 'date-fns'
 
 export function generateReceiptId(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -14,4 +14,14 @@ export function generateReceiptId(): string {
 export function getWeeklyDocId(date: Date = new Date()): string {
   const week = Math.floor((getDate(date) - 1) / 7) + 1
   return `${format(date, 'yyyy-MM')}-Week${String(week).padStart(2, '0')}`
+}
+
+export function getWeeklyDocIdsInRange(from: string, to: string): string[] {
+  const days = eachDayOfInterval({
+    start: parseISO(from),
+    end: parseISO(to),
+  })
+
+  const uniqueWeekIds = new Set(days.map(getWeeklyDocId))
+  return Array.from(uniqueWeekIds)
 }

@@ -58,7 +58,7 @@ export function OverviewBarChart({
 
 export function Overview() {
   const navigate = useNavigate()
-  const rawOrders = useLoaderData({ from: '/home/dashboard' }) || [] // Default to empty array if no orders
+  const { income: rawOrders } = useLoaderData({ from: '/home/dashboard' }) // Default to empty array if no orders
 
   const totalRevenue = rawOrders.reduce((sum, order) => {
     const subTotal = order.items.reduce(

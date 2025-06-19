@@ -86,6 +86,9 @@ dependencies:
   date-fns:
     specifier: ^4.1.0
     version: 4.1.0
+  fast-memoize:
+    specifier: ^2.5.2
+    version: 2.5.2
   firebase:
     specifier: ^11.8.1
     version: 11.8.1
@@ -5296,6 +5299,10 @@ packages:
   /fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
     dev: true
+
+  /fast-memoize@2.5.2:
+    resolution: {integrity: sha512-Ue0LwpDYErFbmNnZSF0UH6eImUwDmogUO1jyE+JbN2gsQz/jICm1Ve7t9QT0rNSsfJt+Hs4/S3GnsDVjL4HVrw==}
+    dev: false
 
   /fast-uri@3.0.6:
     resolution: {integrity: sha512-Atfo14OibSv5wAp4VWNsFYE1AchQRTv9cBGWET4pZWHzYshFSS9NQI6I57rdKn9croWVMbYFbLhJ+yJvmZIIHw==}

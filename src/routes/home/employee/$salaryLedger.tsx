@@ -127,6 +127,34 @@ function RouteComponent() {
           </div>
         ) : (
           <AnimatePresence>
+            <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm mb-6 border-primary/10 dark:border-zinc-700 border-b">
+              <div className="mx-auto px-7 py-4 max-w-xl">
+                <motion.div
+                  className="hover:bg-white/30 dark:hover:bg-zinc-800/30 bg-gradient-to-r from-primary/10 dark:from-primary/20 to-primary/5 dark:to-primary/10 hover:shadow-lg hover:backdrop-blur-md p-3 border border-primary/20 hover:border-primary/40 dark:hover:border-zinc-600 rounded-lg transition-all duration-300"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-primary text-sm">
+                        Total Paid
+                      </span>
+                    </div>
+                    <div className="font-bold text-primary text-lg">
+                      Rs.{' '}
+                      {payments
+                        .reduce((sum, p) => sum + Number(p.amount), 0)
+                        .toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-muted-foreground text-xs">
+                    {payments.length} payments • Last updated{' '}
+                    {new Date().toLocaleDateString()}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
             {payments.map((payment, i) => (
               <motion.div key={payment.id} layout className="relative">
                 <div
@@ -138,15 +166,6 @@ function RouteComponent() {
                   {/* Timeline line */}
                   {i !== payments.length - 1 && (
                     <div className="top-10 -left-[10px] absolute dark:bg-zinc-700 bg-border w-[1px] h-[calc(100%-2.5rem)]" />
-                  )}
-                  {i === payments.length - 1 && (
-                    <>
-                      <div className="top-10 -left-[10px] absolute flex items-end bg-transparent dark:bg-transparent dark:border-zinc-700 border-b border-l rounded-bl-2xl w-[calc(100%-12rem)] h-[calc(100%-1.5rem)]"></div>
-                      <span className="right-0 -bottom-8 absolute px-2 py-1 rounded font-bold text-primary text-lg">
-                        Total Paid: Rs.
-                        {payments.reduce((sum, p) => sum + Number(p.amount), 0)}
-                      </span>
-                    </>
                   )}
 
                   <div className="flex justify-between items-center mb-2">

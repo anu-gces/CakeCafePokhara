@@ -24,10 +24,15 @@ import {
 import { app, auth } from './firebase'
 import { deleteMenuItemImage } from './firebase_storage'
 import type { AddToCart } from '@/components/restaurant_mobile/editMenu'
-import { generateReceiptId, getWeeklyDocId } from './firestore.utils'
+import {
+  generateReceiptId,
+  getWeeklyDocId,
+  getWeeklyDocIdsInRange,
+} from './firestore.utils'
 import type { CardType as KanbanCardType } from '@/components/ui/kanbanBoard'
 import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger'
-import type { bakeryLedgerItem } from '@/routes/home/bakeryLedger'
+import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger'
+import { memoize } from '@fullcalendar/core/internal'
 
 //export const db = getFirestore(app);
 
@@ -718,35 +723,105 @@ export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
 //   }
 // }
 
+// export async function getOrdersInRange(
+//   from: string,
+//   to: string,
+// ): Promise<ProcessedOrder[]> {
+//   const ordersRef = collection(db, 'orderHistoryWeekly')
+//   const querySnapshot = await getDocs(ordersRef)
+//   let allOrders: ProcessedOrder[] = []
+//   querySnapshot.forEach((doc) => {
+//     const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
+//     allOrders = allOrders.concat(batchOrders)
+//   })
+
+//   const startDate = new Date(from)
+//   // Add 1 day to include the end date fully
+//   const endDate = new Date(to)
+//   endDate.setDate(endDate.getDate() + 1)
+
+//   const filteredOrders = allOrders.filter((order) => {
+//     const orderDate = new Date(order.receiptDate)
+//     return orderDate >= startDate && orderDate < endDate
+//   })
+
+//   // Sort by receiptDate descending
+//   filteredOrders.sort(
+//     (a, b) =>
+//       new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
+//   )
+
+//   return filteredOrders
+// }
+
+// export async function getOrdersInRange(
+//   from: string,
+//   to: string,
+// ): Promise<ProcessedOrder[]> {
+//   // Generate all weekly doc IDs within the range
+//   const weekIds = getWeeklyDocIdsInRange(from, to) // returns array of strings like ['2024-05-Week01', ...]
+
+//   // Fetch all weekly docs in parallel by those IDs
+//   const docs = await Promise.all(
+//     weekIds.map((weekId) =>
+//       getDoc(doc(db, 'orderHistoryWeekly', weekId)).then((snap) => snap.data()),
+//     ),
+//   )
+
+//   // Flatten all orders from the fetched docs
+//   const allOrders: ProcessedOrder[] = docs.flatMap(
+//     (doc) => (doc?.orders || []) as ProcessedOrder[],
+//   )
+
+//   // Filter orders strictly by date range
+//   const startDate = new Date(from)
+//   const endDate = new Date(to)
+//   endDate.setDate(endDate.getDate() + 1) // make end inclusive
+
+//   return allOrders
+//     .filter((order) => {
+//       const orderDate = new Date(order.receiptDate)
+//       return orderDate >= startDate && orderDate < endDate
+//     })
+//     .sort(
+//       (a, b) =>
+//         new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
+//     )
+// }
+
+const memoizedFetchOrderWeeklyDoc = memoize(async (weekId: string) => {
+  const snap = await getDoc(doc(db, 'orderHistoryWeekly', weekId))
+  return snap.data()
+})
+
 export async function getOrdersInRange(
   from: string,
   to: string,
 ): Promise<ProcessedOrder[]> {
-  const ordersRef = collection(db, 'orderHistoryWeekly')
-  const querySnapshot = await getDocs(ordersRef)
-  let allOrders: ProcessedOrder[] = []
-  querySnapshot.forEach((doc) => {
-    const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
-    allOrders = allOrders.concat(batchOrders)
-  })
+  const weekIds = getWeeklyDocIdsInRange(from, to)
+
+  const docs = await Promise.all(
+    weekIds.map((weekId) => memoizedFetchOrderWeeklyDoc(weekId)),
+  )
+
+  // rest of your existing code unchanged
+  const allOrders: ProcessedOrder[] = docs.flatMap(
+    (doc) => (doc?.orders || []) as ProcessedOrder[],
+  )
 
   const startDate = new Date(from)
-  // Add 1 day to include the end date fully
   const endDate = new Date(to)
   endDate.setDate(endDate.getDate() + 1)
 
-  const filteredOrders = allOrders.filter((order) => {
-    const orderDate = new Date(order.receiptDate)
-    return orderDate >= startDate && orderDate < endDate
-  })
-
-  // Sort by receiptDate descending
-  filteredOrders.sort(
-    (a, b) =>
-      new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
-  )
-
-  return filteredOrders
+  return allOrders
+    .filter((order) => {
+      const orderDate = new Date(order.receiptDate)
+      return orderDate >= startDate && orderDate < endDate
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
+    )
 }
 
 export type Creditor = {
@@ -891,6 +966,39 @@ export async function getAllKitchenLedgerItems(): Promise<KitchenLedgerItem[]> {
   return allItems
 }
 
+const memoizedFetchKitchenWeeklyLedgerDoc = memoize(async (weekId: string) => {
+  const snap = await getDoc(doc(db, 'kitchenLedgerWeekly', weekId))
+  return snap.data()
+})
+
+export async function getKitchenLedgerInRange(
+  from: string,
+  to: string,
+): Promise<KitchenLedgerItem[]> {
+  const weekIds = getWeeklyDocIdsInRange(from, to)
+
+  const docs = await Promise.all(
+    weekIds.map((weekId) => memoizedFetchKitchenWeeklyLedgerDoc(weekId)),
+  )
+
+  const allItems: KitchenLedgerItem[] = docs.flatMap(
+    (doc) => (doc?.items || []) as KitchenLedgerItem[],
+  )
+
+  const startDate = new Date(from)
+  const endDate = new Date(to)
+  endDate.setDate(endDate.getDate() + 1)
+
+  return allItems
+    .filter((item) => {
+      const itemDate = new Date(item.addedAt)
+      return itemDate >= startDate && itemDate < endDate
+    })
+    .sort(
+      (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+    )
+}
+
 // Add a kitchen ledger item to the correct weekly batch
 export async function addKitchenLedgerItem(
   newItem: Omit<KitchenLedgerItem, 'id'>,
@@ -931,11 +1039,11 @@ export async function deleteKitchenLedgerItem(itemId: string) {
   return itemId
 }
 
-export async function getAllBakeryLedgerItems(): Promise<bakeryLedgerItem[]> {
+export async function getAllBakeryLedgerItems(): Promise<BakeryLedgerItem[]> {
   const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
-  let allItems: bakeryLedgerItem[] = []
+  let allItems: BakeryLedgerItem[] = []
   snapshot.forEach((doc) => {
-    const batchItems = (doc.data().items || []) as bakeryLedgerItem[]
+    const batchItems = (doc.data().items || []) as BakeryLedgerItem[]
     allItems = allItems.concat(batchItems)
   })
   // Sort by addedAt descending (latest first)
@@ -945,14 +1053,47 @@ export async function getAllBakeryLedgerItems(): Promise<bakeryLedgerItem[]> {
   return allItems
 }
 
+const memoizedFetchBakeryWeeklyLedgerDoc = memoize(async (weekId: string) => {
+  const snap = await getDoc(doc(db, 'bakeryLedgerWeekly', weekId))
+  return snap.data()
+})
+
+export async function getBakeryLedgerInRange(
+  from: string,
+  to: string,
+): Promise<BakeryLedgerItem[]> {
+  const weekIds = getWeeklyDocIdsInRange(from, to)
+
+  const docs = await Promise.all(
+    weekIds.map((weekId) => memoizedFetchBakeryWeeklyLedgerDoc(weekId)),
+  )
+
+  const allItems: BakeryLedgerItem[] = docs.flatMap(
+    (doc) => (doc?.items || []) as BakeryLedgerItem[],
+  )
+
+  const startDate = new Date(from)
+  const endDate = new Date(to)
+  endDate.setDate(endDate.getDate() + 1)
+
+  return allItems
+    .filter((item) => {
+      const itemDate = new Date(item.addedAt)
+      return itemDate >= startDate && itemDate < endDate
+    })
+    .sort(
+      (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+    )
+}
+
 // Add a bakery ledger item to the correct weekly batch
 export async function addBakeryLedgerItem(
-  newItem: Omit<bakeryLedgerItem, 'id'>,
+  newItem: Omit<BakeryLedgerItem, 'id'>,
 ) {
   const docId = getWeeklyDocId(new Date(newItem.addedAt))
   const batchRef = doc(collection(db, 'bakeryLedgerWeekly'), docId)
   const batchSnap = await getDoc(batchRef)
-  let items: bakeryLedgerItem[] = []
+  let items: BakeryLedgerItem[] = []
   if (batchSnap.exists()) {
     items = batchSnap.data().items || []
   }
@@ -967,7 +1108,7 @@ export async function addBakeryLedgerItem(
 export async function deleteBakeryLedgerItem(itemId: string) {
   const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
   let batchDocId: string | null = null
-  let items: bakeryLedgerItem[] = []
+  let items: BakeryLedgerItem[] = []
   snapshot.forEach((doc) => {
     const batchItems = doc.data().items || []
     if (batchItems.some((item: any) => item.id === itemId)) {
