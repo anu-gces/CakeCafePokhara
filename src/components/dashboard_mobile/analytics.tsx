@@ -30,6 +30,7 @@ import {
   mapToRevenueData,
 } from './analytics.utils'
 import { useLoaderData } from '@tanstack/react-router'
+import AnimatedCounter from '../ui/animatedCounter'
 
 export interface RevenueData {
   timestamp: string
@@ -213,13 +214,10 @@ export function Analytics() {
   )
   const totalOrders = revenueData.length
   //make avgchecksie upto 2 digits after decimal
-  const avgCheckSize =
-    totalOrders > 0 ? (totalIncome / totalOrders).toFixed(2) : 0
+  const avgCheckSize = totalOrders > 0 ? totalIncome / totalOrders : 0
 
   const grossProfitMargin =
-    totalIncome > 0
-      ? (((totalIncome - totalExpenditure) / totalIncome) * 100).toFixed(1)
-      : '0'
+    totalIncome > 0 ? ((totalIncome - totalExpenditure) / totalIncome) * 100 : 0
 
   return (
     <>
@@ -241,7 +239,9 @@ export function Analytics() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">Rs.{totalIncome}</div>
+            <div className="font-bold text-2xl">
+              Rs. <AnimatedCounter from={0} to={totalIncome} />
+            </div>
           </CardContent>
         </Card>
 
@@ -264,7 +264,10 @@ export function Analytics() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl"> Rs.{totalExpenditure}</div>
+            <div className="font-bold text-2xl">
+              {' '}
+              Rs. <AnimatedCounter from={0} to={totalExpenditure} />
+            </div>
           </CardContent>
         </Card>
 
@@ -288,7 +291,9 @@ export function Analytics() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">Rs.{avgCheckSize}</div>
+            <div className="font-bold text-2xl">
+              Rs. {avgCheckSize.toFixed(2)}
+            </div>
           </CardContent>
         </Card>
 
@@ -311,7 +316,9 @@ export function Analytics() {
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">{grossProfitMargin}%</div>
+            <div className="font-bold text-2xl">
+              {grossProfitMargin.toFixed(2)}%
+            </div>
           </CardContent>
         </Card>
       </div>
