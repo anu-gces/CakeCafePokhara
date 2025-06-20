@@ -5,7 +5,6 @@ import {
 } from '@/firebase/firestore'
 import { queryOptions } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { subDays } from 'date-fns'
 
 export type Tab = 'overview' | 'analytics' | 'reports' | 'notifications'
 
@@ -43,7 +42,7 @@ export const Route = createFileRoute('/home/dashboard')({
       : 'overview'
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-    const defaultFromDate = subDays(new Date(), 7)
+    const defaultFromDate = new Date()
     const defaultToDate = new Date()
     const from =
       typeof search.from === 'string' && dateRegex.test(search.from)

@@ -236,23 +236,17 @@ export function mapToRevenueData({
 }
 
 export function groupRevenueData(revenueData: RevenueData[]): RevenueData[] {
-  if (revenueData.length <= 1) return revenueData
-
-  console.log('Grouping revenue data:', revenueData)
+  if (revenueData.length < 1) return revenueData
 
   const first = parseISO(revenueData[0].timestamp)
   const last = parseISO(revenueData[revenueData.length - 1].timestamp)
   const days = Math.abs(differenceInDays(last, first))
 
-  if (days <= 1) {
+  if (format(first, 'yyyy-MM-dd') === format(last, 'yyyy-MM-dd')) {
     return groupDataByHour(revenueData)
-  } else if (days <= 14) {
+  } else if (days <= 30) {
     return groupDataByDay(revenueData)
-  } else if (days <= 90) {
-    return groupDataByWeek(revenueData)
-  } else if (days <= 730) {
-    return groupDataByMonth(revenueData)
   } else {
-    return groupDataByYear(revenueData)
+    return groupDataByMonth(revenueData)
   }
 }

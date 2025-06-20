@@ -4,6 +4,7 @@ import {
   ArrowRightIcon,
   BeerIcon,
   CoffeeIcon,
+  GhostIcon,
   IceCreamIcon,
   LoaderIcon,
   NotebookPenIcon,
@@ -244,14 +245,27 @@ export function editMenu() {
               ? food.foodCategory === category
               : food.foodName.toLowerCase().includes(search.toLowerCase()),
           )
-          .sort((a, b) => a.foodName.localeCompare(b.foodName)) // Sort alphabetically by foodName
-          .map((food) => (
-            <AnimatePresence key={food.foodId}>
-              <motion.div layout>
-                <MenuCard food={food} handleAddToCart={handleAddToCart} />
-              </motion.div>
-            </AnimatePresence>
-          ))}
+          .sort((a, b) => a.foodName.localeCompare(b.foodName)).length === 0 ? (
+          <div className="flex flex-col justify-center items-center py-12 text-muted-foreground">
+            <GhostIcon className="mb-2 w-10 h-10" />
+            <span className="text-sm">No items found</span>
+          </div>
+        ) : (
+          foods
+            .filter((food) =>
+              search === ''
+                ? food.foodCategory === category
+                : food.foodName.toLowerCase().includes(search.toLowerCase()),
+            )
+            .sort((a, b) => a.foodName.localeCompare(b.foodName))
+            .map((food) => (
+              <AnimatePresence key={food.foodId}>
+                <motion.div layout>
+                  <MenuCard food={food} handleAddToCart={handleAddToCart} />
+                </motion.div>
+              </AnimatePresence>
+            ))
+        )}
       </div>
     </div>
   )
