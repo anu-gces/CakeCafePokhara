@@ -144,7 +144,7 @@ export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
 }
 
 const COLORS = [
-  '#16A34A', // Emerald (green)
+  '#16A34A', // Emerald
   '#F59E42', // Orange
   '#2563EB', // Blue
   '#E11D48', // Rose
@@ -157,9 +157,28 @@ function AnalyticsPieChart() {
   // Aggregate income by category
   const categoryMap = income.reduce(
     (acc, order) => {
+      // Ignore complementary and unpaid orders
+
+      // Calculate subtotal for this order
+      let orderSubtotal = 0
+      order.items.forEach((item) => {
+        orderSubtotal += item.foodPrice * item.qty
+      })
+
+      // Apply discount
+      const discountedSubtotal =
+        orderSubtotal * (1 - (order.discountRate || 0) / 100)
+
+      // Apply tax
+      const taxedSubtotal =
+        discountedSubtotal * (1 + (order.taxRate || 0) / 100)
+
+      // Distribute taxedSubtotal proportionally to each item's value
       order.items.forEach((item) => {
         const category = item.foodCategory || 'Uncategorized'
-        const itemIncome = item.foodPrice * item.qty
+        const itemValue = item.foodPrice * item.qty
+        const itemIncome =
+          orderSubtotal > 0 ? (itemValue / orderSubtotal) * taxedSubtotal : 0
         acc[category] = (acc[category] || 0) + itemIncome
       })
       return acc
@@ -201,8 +220,9 @@ function AnalyticsPieChart() {
 }
 
 export function Analytics() {
-  const { income, kitchenLedger, bakeryLedger } =
-    useLoaderData({ from: '/home/dashboard' }) || [] // Default to empty array if no orders
+  const { income, kitchenLedger, bakeryLedger } = useLoaderData({
+    from: '/home/dashboard',
+  }) // Default to empty array if no orders
 
   const revenueData = mapToRevenueData({ income, kitchenLedger, bakeryLedger })
 

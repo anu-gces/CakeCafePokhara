@@ -213,13 +213,25 @@ export function mapToRevenueData({
     entry.expenditure += expenditureDelta
   }
 
+  // Process income (orders)
   for (const order of income) {
+    // Exclude complementary and unpaid orders
+
     const date = order.receiptDate
-    const orderIncome = order.items.reduce(
+    const orderSubtotal = order.items.reduce(
       (acc, item) => acc + item.foodPrice * item.qty,
       0,
     )
-    push(date, orderIncome, 0)
+    // Apply discount
+    const discountedSubtotal =
+      orderSubtotal * (1 - (order.discountRate || 0) / 100)
+    // Apply tax
+    const taxedSubtotal = discountedSubtotal * (1 + (order.taxRate || 0) / 100)
+
+    if (!dataMap.has(date)) {
+      dataMap.set(date, { timestamp: date, income: 0, expenditure: 0 })
+    }
+    dataMap.get(date)!.income += taxedSubtotal
   }
 
   for (const item of kitchenLedger) {

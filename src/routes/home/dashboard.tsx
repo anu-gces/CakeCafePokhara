@@ -72,7 +72,12 @@ export const Route = createFileRoute('/home/dashboard')({
         dashboardQueryBakeryLedgerOptions({ from: from!, to: to! }),
       ),
     ])
-    return { income, kitchenLedger, bakeryLedger }
+    const filteredIncome = income.filter(
+      (order) =>
+        !order.complementary &&
+        (order.status === 'paid' || order.status === 'dismissed'),
+    )
+    return { income: filteredIncome, kitchenLedger, bakeryLedger }
   },
 })
 
