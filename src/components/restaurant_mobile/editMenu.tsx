@@ -4,6 +4,7 @@ import {
   ArrowRightIcon,
   BeerIcon,
   CoffeeIcon,
+  DonutIcon,
   GhostIcon,
   IceCreamIcon,
   LoaderIcon,
@@ -101,6 +102,7 @@ function CategoryTabs() {
           tabs={[
             { title: 'Appetizers', icon: SandwichIcon, search: 'appetizers' },
             { title: 'Main Courses', icon: PizzaIcon, search: 'main_courses' },
+            { title: 'Bakery', icon: DonutIcon, search: 'bakery' },
             { title: 'Desserts', icon: IceCreamIcon, search: 'desserts' },
             { title: 'Beverages', icon: CoffeeIcon, search: 'beverages' },
             { title: 'Hard Drinks', icon: BeerIcon, search: 'hard_drinks' },
@@ -827,6 +829,7 @@ function AddDrawer() {
                         <SelectItem value="main_courses">
                           Main Course
                         </SelectItem>
+                        <SelectItem value="bakery">Bakery</SelectItem>
                         <SelectItem value="desserts">Dessert</SelectItem>
                         <SelectItem value="beverages">Beverages</SelectItem>
                         <SelectItem value="hard_drinks">Hard Drinks</SelectItem>
