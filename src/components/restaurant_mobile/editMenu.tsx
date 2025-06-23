@@ -452,11 +452,9 @@ function CreateOrderDrawer({
           <motion.button
             className={cn(
               'flex justify-center items-center gap-2 bg-primary px-4 py-2 rounded-md w-full text-white',
-              selectedTable === -1 && 'opacity-50 cursor-not-allowed',
             )}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             onClick={() => setStep(!step)}
-            disabled={selectedTable === -1}
           >
             {step ? (
               <motion.span
@@ -486,7 +484,9 @@ function CreateOrderDrawer({
           </motion.button>
           <Button
             disabled={
-              enterOrderMutation.isPending || addToCart.items.length === 0 // Disable if no items in order
+              !step ||
+              enterOrderMutation.isPending ||
+              addToCart.items.length === 0
             }
             onClick={() => {
               // console.log("Order Details:", addToCart);

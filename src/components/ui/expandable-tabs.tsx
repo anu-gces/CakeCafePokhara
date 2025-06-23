@@ -163,9 +163,12 @@ export function ExpandableTabs({
       const now = Date.now()
       let shouldPlaySound = false
 
+      console.log('userAdditional 169:', userAdditional)
       orders.forEach((order) => {
         // Only notify for new orders within the last 5 seconds, not created by self
-        const receiptTime = new Date(order.receiptDate).getTime()
+        console.log('userAdditional:170', userAdditional)
+
+        const receiptTime = new Date(order.updatedAt).getTime()
         if (
           now - receiptTime <= THRESHOLD_MS &&
           userAdditional?.firstName !== order.processedBy // skip if you created it
@@ -190,7 +193,7 @@ export function ExpandableTabs({
       }
     })
     return () => unsub()
-  }, [])
+  }, [userAdditional])
 
   const Separator = () => (
     <div className="mx-1 bg-border w-[1.2px] h-[24px]" aria-hidden="true" />

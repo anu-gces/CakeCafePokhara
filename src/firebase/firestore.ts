@@ -517,6 +517,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
     processedBy,
     receiptId,
     receiptDate,
+    updatedAt: receiptDate,
   }
 
   // Use weekly batching
@@ -540,6 +541,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
 export interface ProcessedOrder extends AddToCart {
   processedBy: string
   receiptDate: string
+  updatedAt: string
   receiptId: string
 }
 
@@ -647,6 +649,8 @@ export async function updateOrderStatus(
   if (idx === -1) throw new Error('Order not found in batch')
 
   orders[idx].status = status
+  orders[idx].updatedAt = new Date().toISOString()
+
   await setDoc(batchRef, { orders }, { merge: true })
 }
 
@@ -677,6 +681,7 @@ export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
           processedBy: string
           receiptDate: string
           receiptId: string
+          updatedAt: string
         },
     )
 

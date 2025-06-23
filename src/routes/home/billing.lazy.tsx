@@ -5,8 +5,11 @@ import { columns } from '@/components/restaurant_mobile/billing'
 export const Route = createLazyFileRoute('/home/billing')({
   component: () => {
     const rawOrders = useLoaderData({ from: '/home/billing' })
+    const filteredOrders = rawOrders.filter(
+      (order) => order.status === 'paid' || order.status === 'dismissed',
+    )
 
-    const orders = rawOrders.map((order) => {
+    const orders = filteredOrders.map((order) => {
       const subTotalAmount = order.items.reduce(
         (sum, item) => sum + item.foodPrice * item.qty,
         0,

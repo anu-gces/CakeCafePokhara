@@ -32,6 +32,7 @@ export function AppProvider() {
   if (authentication.loading) {
     return <SplashScreen />
   }
+
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} context={{ authentication }} />

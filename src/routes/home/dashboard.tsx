@@ -95,6 +95,7 @@ const dashboardQueryIncomeOptions = ({
       {
         receiptId: '',
         receiptDate: '',
+        updatedAt: '',
         processedBy: '',
         discountRate: 0,
         taxRate: 0,
