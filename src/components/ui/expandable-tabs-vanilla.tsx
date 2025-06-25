@@ -121,7 +121,7 @@ export function ExpandableTabs({
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
-            <Icon size={20} />
+            <Icon className="w-3.5 tiny:w-5" />
             <AnimatePresence initial={false}>
               {selected === index && (
                 <motion.span
