@@ -38,7 +38,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'], // Precaches Vite build output
         runtimeCaching: [
           {
-            // ✅ Only cache non-streaming Firestore routes
+            //  Only cache non-streaming Firestore routes
             urlPattern: ({ url }) =>
               url.hostname === 'firestore.googleapis.com' &&
               !url.pathname.includes('/Listen/channel'),
@@ -86,7 +86,7 @@ export default defineConfig({
           },
           {
             urlPattern: /\/assets\/.*\.(js|css)/, // Vite static assets
-            handler: 'NetworkFirst',
+            handler: 'CacheFirst',
             options: {
               cacheName: 'static-resources',
               expiration: {

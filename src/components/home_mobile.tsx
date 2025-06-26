@@ -8,6 +8,8 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
+import { motion, animate, useMotionValue, useTransform } from 'motion/react'
+import { RefreshCcwIcon } from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
@@ -29,7 +31,7 @@ import {
   WifiIcon,
   WifiOffIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
@@ -105,15 +107,6 @@ export function Home() {
   }, [wasOffline])
 
   useEffect(() => {
-    if (
-      typeof Notification !== 'undefined' &&
-      Notification.permission === 'default'
-    ) {
-      Notification.requestPermission()
-    }
-  }, [])
-
-  useEffect(() => {
     async function fetchAndSaveFcmToken() {
       if (
         typeof Notification !== 'undefined' &&
@@ -140,29 +133,33 @@ export function Home() {
   }
 
   return (
-    <div
-      data-vaul-drawer-wrapper=""
-      className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip"
-    >
-      <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-b border-border">
-        <div className="flex items-center gap-2">
-          <AvatarDrawer />
+    <>
+      <NotificationPermissionDrawer />
+      <div
+        data-vaul-drawer-wrapper=""
+        className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip"
+      >
+        <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <AvatarDrawer />
+          </div>
+          <HamburgerDrawer />
         </div>
-        <HamburgerDrawer />
+        <div className="relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar">
+          <PullToRefresh />
+          <Outlet />
+        </div>
+        <ExpandableTabs
+          tabs={tabs.filter(
+            (tab) =>
+              tab.title !== 'Dashboard' ||
+              userAdditional?.role === 'admin' ||
+              userAdditional?.role === 'owner',
+          )}
+          className="min-w-fit"
+        />{' '}
       </div>
-      <div className="relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar">
-        <Outlet />
-      </div>
-      <ExpandableTabs
-        tabs={tabs.filter(
-          (tab) =>
-            tab.title !== 'Dashboard' ||
-            userAdditional?.role === 'admin' ||
-            userAdditional?.role === 'owner',
-        )}
-        className="min-w-fit"
-      />{' '}
-    </div>
+    </>
   )
 }
 
@@ -349,5 +346,123 @@ function HamburgerDrawer() {
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
+  )
+}
+
+function NotificationPermissionDrawer() {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (
+      typeof Notification !== 'undefined' &&
+      Notification.permission === 'default'
+    ) {
+      setOpen(true)
+    }
+  }, [])
+
+  const handleEnableNotifications = async () => {
+    setOpen(false)
+    if (typeof Notification !== 'undefined') {
+      await Notification.requestPermission()
+    }
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Enable Notifications</DrawerTitle>
+        </DrawerHeader>
+        <div className="px-4 pb-4">
+          <p className="mb-4 text-sm">
+            Would you like to enable notifications for Cake Cafe? You’ll receive
+            important updates and alerts.
+          </p>
+          <DrawerFooter>
+            <Button onClick={handleEnableNotifications}>
+              <motion.span
+                className="inline-block mr-2"
+                animate={{ rotate: [0, -15, 15, -10, 10, 0] }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 1.2,
+                  ease: 'easeInOut',
+                }}
+              >
+                <BellIcon color="white" />
+              </motion.span>
+              Enable Notifications
+            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Maybe Later
+            </Button>
+          </DrawerFooter>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+export function PullToRefresh() {
+  const y = useMotionValue(0)
+  const rotate = useTransform(y, (value) => value * 2)
+  const startY = useRef<number | null>(null)
+
+  useEffect(() => {
+    function handleTouchStart(e: TouchEvent) {
+      if (window.scrollY === 0) {
+        startY.current = e.touches[0].clientY
+      }
+    }
+    function handleTouchMove(e: TouchEvent) {
+      if (startY.current !== null && window.scrollY === 0) {
+        const deltaY = e.touches[0].clientY - startY.current
+        if (deltaY > 0) {
+          y.set(Math.min(deltaY, 100))
+        }
+      }
+    }
+    function handleTouchEnd() {
+      const shouldReload = y.get() >= 80
+      animate(y, 0, {
+        type: 'spring',
+        stiffness: 300,
+        damping: 30,
+        onComplete: () => {
+          if (shouldReload) {
+            window.location.reload()
+          }
+        },
+      })
+      startY.current = null
+    }
+    window.addEventListener('touchstart', handleTouchStart)
+    window.addEventListener('touchmove', handleTouchMove)
+    window.addEventListener('touchend', handleTouchEnd)
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart)
+      window.removeEventListener('touchmove', handleTouchMove)
+      window.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [y])
+
+  return (
+    <motion.div
+      style={{ y }}
+      className="-top-20 right-0 left-0 z-50 fixed flex justify-center items-center h-16"
+    >
+      <div className="relative flex justify-center items-center w-12 h-12">
+        <div className="absolute inset-0 bg-background shadow-lg rounded-full" />
+        <motion.div
+          className="z-10 absolute inset-0 flex justify-center items-center"
+          style={{
+            rotate,
+          }}
+        >
+          <RefreshCcwIcon className="drop-shadow w-7 h-7 text-rose-500" />
+        </motion.div>
+      </div>
+    </motion.div>
   )
 }

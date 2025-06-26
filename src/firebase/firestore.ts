@@ -403,7 +403,7 @@ export async function enterFoodItem(foodItem: FoodItemProps) {
   const user = auth.currentUser
 
   if (user) {
-    const foodItemWithUid = { ...foodItem, uid: user.displayName } // Add uid to the food item object
+    const foodItemWithUid = { ...foodItem, uid: user.uid } // Add uid to the food item object
     // console.log("food item with uid", foodItemWithUid);
     const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
 
@@ -851,15 +851,14 @@ export async function getAllCreditors(): Promise<Creditor[]> {
 }
 
 export async function getCreditorOrdersByNickname(nickname: string) {
-  const q = query(
-    collection(db, 'orderHistory'),
-    where('creditor', '==', nickname),
-  )
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as ProcessedOrder),
-  }))
+  const weeklySnapshots = await getDocs(collection(db, 'orderHistoryWeekly'))
+  let allOrders: ProcessedOrder[] = []
+  weeklySnapshots.forEach((doc) => {
+    const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
+    allOrders = allOrders.concat(batchOrders)
+  })
+  // Filter by creditor nickname
+  return allOrders.filter((order) => order.creditor === nickname)
 }
 
 export async function updateCreditor(
