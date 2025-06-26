@@ -44,7 +44,6 @@ import SplashScreen from './splashscreen'
 import { messaging } from '@/firebase/firebase'
 import { getToken } from 'firebase/messaging'
 import { saveUserFcmToken } from '@/firebase/firestore'
-import { cn } from '@/lib/utils'
 
 const tabs: TabItem[] = [
   {
@@ -79,8 +78,6 @@ const tabs: TabItem[] = [
 export function Home() {
   const { loading: isLoading } = useFirebaseAuth()
   const { userAdditional } = useFirebaseAuth()
-  const isIPhone =
-    typeof navigator !== 'undefined' && /iPhone/.test(navigator.userAgent)
 
   const [wasOffline, setWasOffline] = useState(false)
 
@@ -149,12 +146,11 @@ export function Home() {
           <HamburgerDrawer />
         </div>
         <div
-          className={cn(
-            'relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar',
-            isIPhone && 'overscroll-y-contain',
-          )}
+          className={
+            'relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar overscroll-contain'
+          }
         >
-          {isIPhone && <PullToRefresh />}
+          <PullToRefresh />
           <Outlet />
         </div>
         <ExpandableTabs
@@ -492,7 +488,7 @@ function PullToRefresh() {
   return (
     <motion.div
       style={{ y }}
-      className="-top-20 right-0 left-0 z-50 fixed flex justify-center items-center h-16"
+      className="-top-20 right-0 left-0 z-50 absolute flex justify-center items-center h-16"
     >
       <div className="relative flex justify-center items-center w-12 h-12">
         <div className="absolute inset-0 bg-background shadow-lg rounded-full" />
