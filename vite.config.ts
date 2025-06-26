@@ -10,7 +10,7 @@ export default defineConfig({
     TanStackRouterVite({ target: 'react', autoCodeSplitting: true }),
     react(),
     VitePWA({
-      registerType: 'prompt', // Auto update service worker
+      registerType: 'autoUpdate', // Auto update service worker
       includeAssets: ['favicon.ico', 'CakeCafeLogo.png', 'robots.txt'],
       manifest: {
         name: 'Cake Cafe',
