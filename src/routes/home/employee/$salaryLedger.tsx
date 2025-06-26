@@ -39,7 +39,8 @@ export const Route = createFileRoute('/home/employee/$salaryLedger')({
 function RouteComponent() {
   const navigate = useNavigate()
   const { salaryLedger } = Route.useParams()
-  const { userAdditional: loggedinUser } = useFirebaseAuth()
+  const { user: userAuth, userAdditional } = useFirebaseAuth()
+  const loggedinUser = { ...userAuth, ...userAdditional }
 
   const {
     data: user,
@@ -118,6 +119,14 @@ function RouteComponent() {
           <span className="font-semibold">Department:</span>{' '}
           <span>{user?.department}</span>
         </div>
+        {userAuth?.metadata?.creationTime && (
+          <div className="text-xs">
+            <span className="font-semibold">Join Date:</span>{' '}
+            <span>
+              {new Date(userAuth.metadata.creationTime).toLocaleDateString()}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="space-y-6">
