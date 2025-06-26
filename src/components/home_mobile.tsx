@@ -44,6 +44,7 @@ import SplashScreen from './splashscreen'
 import { messaging } from '@/firebase/firebase'
 import { getToken } from 'firebase/messaging'
 import { saveUserFcmToken } from '@/firebase/firestore'
+import { cn } from '@/lib/utils'
 
 const tabs: TabItem[] = [
   {
@@ -78,6 +79,8 @@ const tabs: TabItem[] = [
 export function Home() {
   const { loading: isLoading } = useFirebaseAuth()
   const { userAdditional } = useFirebaseAuth()
+  const isIPhone =
+    typeof navigator !== 'undefined' && /iPhone/.test(navigator.userAgent)
 
   const [wasOffline, setWasOffline] = useState(false)
 
@@ -145,8 +148,13 @@ export function Home() {
           </div>
           <HamburgerDrawer />
         </div>
-        <div className="relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar">
-          <PullToRefresh />
+        <div
+          className={cn(
+            'relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar',
+            isIPhone && 'overscroll-y-contain',
+          )}
+        >
+          {isIPhone && <PullToRefresh />}
           <Outlet />
         </div>
         <ExpandableTabs
@@ -428,18 +436,28 @@ function PullToRefresh() {
     function handleTouchStart(e: TouchEvent) {
       const touchTarget = e.target as HTMLElement
       const scrollable = findScrollable(touchTarget)
-      if (scrollable && scrollable.scrollTop === 0) {
+
+      // Fallback to window if no scrollable parent found
+      const isScrollableAtTop =
+        scrollable?.scrollTop === 0 ||
+        (scrollable == null && window.scrollY === 0)
+
+      if (isScrollableAtTop) {
         startY.current = e.touches[0].clientY
-        scrollEl.current = scrollable
+        scrollEl.current = scrollable // can be null
       }
     }
 
     function handleTouchMove(e: TouchEvent) {
-      if (startY.current !== null && scrollEl.current?.scrollTop === 0) {
+      if (
+        startY.current !== null &&
+        (scrollEl.current?.scrollTop === 0 ||
+          (scrollEl.current == null && window.scrollY === 0))
+      ) {
         const deltaY = e.touches[0].clientY - startY.current
         if (deltaY > 0) {
           y.set(Math.min(deltaY, 100))
-          e.preventDefault() // stop native pull-to-refresh
+          e.preventDefault()
         }
       }
     }
