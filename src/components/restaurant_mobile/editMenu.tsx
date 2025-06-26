@@ -193,7 +193,7 @@ export function editMenu() {
   return (
     <div className="">
       <div className="w-full">
-        <div className="right-4 bottom-28 z-50 absolute flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
+        <div className="right-4 bottom-40 z-50 fixed flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
           <RotateCwIcon
             className="text-rose-600 dark:text-white"
             onClick={() => {
@@ -378,7 +378,7 @@ function CreateOrderDrawer({
       shouldScaleBackground={true}
       setBackgroundColorOnScale={true}
     >
-      <DrawerTrigger className="right-4 bottom-16 z-50 absolute flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
+      <DrawerTrigger className="right-4 bottom-28 z-50 fixed flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
         <>
           <span
             className={cn(
@@ -754,7 +754,7 @@ function AddDrawer() {
       onOpenChange={setOpen}
     >
       <DrawerTrigger asChild>
-        <div className="right-4 bottom-4 z-50 absolute flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
+        <div className="right-4 bottom-16 z-50 fixed flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
           <PlusIcon className="text-rose-600 dark:text-white" />
         </div>
       </DrawerTrigger>

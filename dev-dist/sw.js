@@ -82,7 +82,7 @@ define(['./workbox-f70c5944'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.4ic3nfiq10o"
+    "revision": "0.pfeposp7dvg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -118,7 +118,7 @@ define(['./workbox-f70c5944'], (function (workbox) { 'use strict';
       maxAgeSeconds: 2592000
     })]
   }), 'GET');
-  workbox.registerRoute(/\/assets\/.*\.(js|css)/, new workbox.NetworkFirst({
+  workbox.registerRoute(/\/assets\/.*\.(js|css)/, new workbox.CacheFirst({
     "cacheName": "static-resources",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 100,

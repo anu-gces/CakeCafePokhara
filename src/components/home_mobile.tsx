@@ -404,25 +404,46 @@ function NotificationPermissionDrawer() {
   )
 }
 
-export function PullToRefresh() {
+function PullToRefresh() {
   const y = useMotionValue(0)
-  const rotate = useTransform(y, (value) => value * 2)
+  const rotate = useTransform(y, (v) => v * 2)
   const startY = useRef<number | null>(null)
+  const scrollEl = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
+    function findScrollable(el: HTMLElement | null): HTMLElement | null {
+      while (el) {
+        const overflowY = getComputedStyle(el).overflowY
+        if (
+          (overflowY === 'auto' || overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight
+        ) {
+          return el
+        }
+        el = el.parentElement
+      }
+      return null
+    }
+
     function handleTouchStart(e: TouchEvent) {
-      if (window.scrollY === 0) {
+      const touchTarget = e.target as HTMLElement
+      const scrollable = findScrollable(touchTarget)
+      if (scrollable && scrollable.scrollTop === 0) {
         startY.current = e.touches[0].clientY
+        scrollEl.current = scrollable
       }
     }
+
     function handleTouchMove(e: TouchEvent) {
-      if (startY.current !== null && window.scrollY === 0) {
+      if (startY.current !== null && scrollEl.current?.scrollTop === 0) {
         const deltaY = e.touches[0].clientY - startY.current
         if (deltaY > 0) {
           y.set(Math.min(deltaY, 100))
+          e.preventDefault() // stop native pull-to-refresh
         }
       }
     }
+
     function handleTouchEnd() {
       const shouldReload = y.get() >= 80
       animate(y, 0, {
@@ -436,10 +457,13 @@ export function PullToRefresh() {
         },
       })
       startY.current = null
+      scrollEl.current = null
     }
-    window.addEventListener('touchstart', handleTouchStart)
-    window.addEventListener('touchmove', handleTouchMove)
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true })
+    window.addEventListener('touchmove', handleTouchMove, { passive: false })
     window.addEventListener('touchend', handleTouchEnd)
+
     return () => {
       window.removeEventListener('touchstart', handleTouchStart)
       window.removeEventListener('touchmove', handleTouchMove)
@@ -456,9 +480,7 @@ export function PullToRefresh() {
         <div className="absolute inset-0 bg-background shadow-lg rounded-full" />
         <motion.div
           className="z-10 absolute inset-0 flex justify-center items-center"
-          style={{
-            rotate,
-          }}
+          style={{ rotate }}
         >
           <RefreshCcwIcon className="drop-shadow w-7 h-7 text-rose-500" />
         </motion.div>
