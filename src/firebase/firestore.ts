@@ -386,8 +386,14 @@ export async function getFoodItems(): Promise<FoodItemProps[]> {
 
     if (data && data.foodItems) {
       data.foodItems = data.foodItems.map(
-        (item: FoodItemProps & { uid: string }) => {
-          const { uid, ...rest } = item // Extract uid and the rest of the properties
+        (
+          item: FoodItemProps & {
+            uid: string
+            dateAdded: string
+            dateModified: string
+          },
+        ) => {
+          const { uid, dateAdded, dateModified, ...rest } = item // Extract uid and the rest of the properties
           return rest // Return the rest of the properties
         },
       )
@@ -403,7 +409,14 @@ export async function enterFoodItem(foodItem: FoodItemProps) {
   const user = auth.currentUser
 
   if (user) {
-    const foodItemWithUid = { ...foodItem, uid: user.uid } // Add uid to the food item object
+    const now = new Date().toISOString()
+
+    const foodItemWithUid = {
+      ...foodItem,
+      uid: user.uid,
+      dateAdded: now,
+      dateModified: now,
+    } // Add uid to the food item object
     // console.log("food item with uid", foodItemWithUid);
     const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
 
@@ -431,7 +444,8 @@ export async function editFoodItem(foodItem: FoodItemProps) {
   const user = auth.currentUser
 
   if (user) {
-    const foodItemWithUid = { ...foodItem, uid: user.displayName! } // Add uid to the food item object
+    const now = new Date().toISOString()
+    const foodItemWithUid = { ...foodItem, uid: user.uid!, dateModified: now } // Add uid to the food item object
     const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
 
     // Get the existing data
