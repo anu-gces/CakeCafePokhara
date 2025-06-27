@@ -1,8 +1,8 @@
 import { addDays, differenceInDays, format, parseISO } from 'date-fns'
 import type { RevenueData } from './analytics'
 import type { ProcessedOrder } from '@/firebase/firestore'
-import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger'
-import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger'
+import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
+import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
 
 export function groupDataByHour(dataArray: RevenueData[]) {
   return Object.values(

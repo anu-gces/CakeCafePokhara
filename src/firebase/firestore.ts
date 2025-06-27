@@ -30,8 +30,9 @@ import {
   getWeeklyDocIdsInRange,
 } from './firestore.utils'
 import type { CardType as KanbanCardType } from '@/components/ui/kanbanBoard'
-import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger'
-import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger'
+import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
+import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
+import type { InventoryItem } from '@/routes/home/inventory.lazy'
 import { memoize } from '@fullcalendar/core/internal'
 
 //export const db = getFirestore(app);
@@ -1138,6 +1139,77 @@ export async function deleteBakeryLedgerItem(itemId: string) {
   const newItems = items.filter((item: any) => item.id !== itemId)
   await setDoc(
     doc(db, 'bakeryLedgerWeekly', batchDocId),
+    { items: newItems },
+    { merge: true },
+  )
+  return itemId
+}
+
+// Get all inventory items (flattened from all weekly docs)
+export async function getAllInventoryItems(): Promise<InventoryItem[]> {
+  const snapshot = await getDocs(collection(db, 'inventoryWeekly'))
+  let allItems: InventoryItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = (doc.data().items || []) as InventoryItem[]
+    allItems = allItems.concat(batchItems)
+  })
+  // Sort by lastUpdated descending (latest first)
+  allItems.sort(
+    (a, b) =>
+      new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
+  )
+  return allItems
+}
+
+// Add an inventory item to the correct weekly batch
+export async function addInventoryItem(newItem: Omit<InventoryItem, 'id'>) {
+  const docId = getWeeklyDocId(new Date(newItem.lastUpdated))
+  const batchRef = doc(collection(db, 'inventoryWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  let items: InventoryItem[] = []
+  if (batchSnap.exists()) {
+    items = batchSnap.data().items || []
+  }
+  // Generate a unique id for the item
+  const id = crypto.randomUUID()
+  items.push({ ...newItem, id })
+  await setDoc(batchRef, { items }, { merge: true })
+  return { ...newItem, id }
+}
+
+// Edit an inventory item in the correct weekly batch
+export async function editInventoryItem(updatedItem: InventoryItem) {
+  // Find the batch doc by lastUpdated date
+  const docId = getWeeklyDocId(new Date(updatedItem.lastUpdated))
+  const batchRef = doc(collection(db, 'inventoryWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  let items: InventoryItem[] = batchSnap.data().items || []
+  const idx = items.findIndex((item: any) => item.id === updatedItem.id)
+  if (idx === -1) throw new Error('Item not found in batch')
+
+  items[idx] = { ...updatedItem }
+  await setDoc(batchRef, { items }, { merge: true })
+  return updatedItem
+}
+
+// Delete an inventory item from the correct weekly batch
+export async function deleteInventoryItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'inventoryWeekly'))
+  let batchDocId: string | null = null
+  let items: InventoryItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const newItems = items.filter((item: any) => item.id !== itemId)
+  await setDoc(
+    doc(db, 'inventoryWeekly', batchDocId),
     { items: newItems },
     { merge: true },
   )

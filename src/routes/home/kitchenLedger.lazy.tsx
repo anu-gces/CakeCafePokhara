@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createLazyFileRoute } from '@tanstack/react-router'
 import { Badge } from '@/components/ui/badge'
 import { motion, AnimatePresence } from 'motion/react'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
@@ -31,13 +31,76 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  addBakeryLedgerItem,
-  deleteBakeryLedgerItem,
-  getAllBakeryLedgerItems,
+  addKitchenLedgerItem,
+  deleteKitchenLedgerItem,
+  getAllKitchenLedgerItems,
 } from '@/firebase/firestore' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 
-export type BakeryLedgerItem = {
+// const items = [
+//   {
+//     id: '1',
+//     itemName: 'Tomato',
+//     quantity: 10,
+//     unit: 'kg',
+//     price: 5.0,
+//     notes: 'Fresh and organic',
+//     addedBy: 'John Doe',
+//     addedAt: '2023-11-01T10:00:00Z',
+//   },
+//   {
+//     id: '2',
+//     itemName: 'Potato',
+//     quantity: 20,
+//     unit: 'kg',
+//     price: 2.0,
+//     notes: 'Locally sourced',
+//     addedBy: 'Jane Smith',
+//     addedAt: '2023-11-02T11:30:00Z',
+//   },
+//   {
+//     id: '3',
+//     itemName: 'Rice',
+//     quantity: 50,
+//     unit: 'kg',
+//     price: 1.5,
+//     notes: 'Long grain, premium quality',
+//     addedBy: 'Alice Johnson',
+//     addedAt: '2023-11-03T09:15:00Z',
+//   },
+//   {
+//     id: '4',
+//     itemName: 'milk',
+//     quantity: 5,
+//     unit: 'liters',
+//     price: 3.0,
+//     notes: 'Organic milk from local farm',
+//     addedBy: 'Bob Brown',
+//     addedAt: '2023-11-04T14:45:00Z',
+//   },
+//   {
+//     id: '5',
+//     itemName: 'Eggs',
+//     quantity: 30,
+//     unit: 'dozen',
+//     price: 2.5,
+//     notes: 'Free-range eggs',
+//     addedBy: 'Charlie Green',
+//     addedAt: '2023-11-05T08:20:00Z',
+//   },
+//   {
+//     id: '6',
+//     itemName: 'Bread',
+//     quantity: 15,
+//     unit: 'loaves',
+//     price: 1.0,
+//     notes: 'Whole grain bread',
+//     addedBy: 'Diana White',
+//     addedAt: '2023-11-06T12:00:00Z',
+//   },
+// ]
+
+export type KitchenLedgerItem = {
   id: string
   itemName: string
   quantity: number
@@ -48,21 +111,21 @@ export type BakeryLedgerItem = {
   addedAt: string // ISO date string
 }
 
-export const Route = createFileRoute('/home/bakeryLedger')({
+export const Route = createLazyFileRoute('/home/kitchenLedger')({
   component: RouteComponent,
 })
 
 function RouteComponent() {
   const { userAdditional } = useFirebaseAuth()
 
-  // Fetch bakeryLedger collection
+  // Fetch kitchenLedger collection
   const {
     data: items,
     isLoading,
     isError,
-  } = useQuery<BakeryLedgerItem[]>({
-    queryKey: ['bakeryLedger'],
-    queryFn: getAllBakeryLedgerItems,
+  } = useQuery<KitchenLedgerItem[]>({
+    queryKey: ['kitchenLedger'],
+    queryFn: getAllKitchenLedgerItems,
   })
 
   if (isLoading) {
@@ -72,7 +135,7 @@ function RouteComponent() {
   if (isError) {
     return (
       <div className="top-1/2 left-1/2 absolute text-red-500 -translate-x-1/2 -translate-y-1/2">
-        Error loading bakery ledger items.
+        Error loading kitchen ledger items.
       </div>
     )
   }
@@ -83,7 +146,7 @@ function RouteComponent() {
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-7 py-6 max-w-xl">
           <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-primary text-2xl">Bakery Ledger</h1>
+            <h1 className="font-bold text-primary text-2xl">Kitchen Ledger</h1>
             {userAdditional?.role !== 'employee' && <LedgerDrawer />}
           </div>
           {/* Total Amount Card */}
@@ -95,7 +158,7 @@ function RouteComponent() {
           >
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <ReceiptIcon className="w-4 h-4 text-primary" />
+                <ReceiptIcon />
                 <span className="font-medium text-primary text-sm">
                   Total Spent
                 </span>
@@ -123,23 +186,23 @@ function RouteComponent() {
       <div className="mx-auto px-7 py-6 pb-20 max-w-xl">
         <div className="space-y-4">
           {items?.length === 0 ? (
-            <div className="py-12 text-muted-foreground text-center">
-              <ReceiptIcon className="opacity-50 mx-auto mb-4 w-12 h-12" />
+            <div className="flex flex-col items-center py-12 text-muted-foreground text-center">
+              <ReceiptIcon />
               <p>No items found.</p>
               <p className="text-sm">
-                Add your first bakery item to get started.
+                Add your first kitchen item to get started.
               </p>
             </div>
           ) : (
             <AnimatePresence>
               {items
-                ?.slice()
+                ?.slice() // copy to avoid mutating original
                 .sort(
                   (a, b) =>
                     new Date(b.addedAt).getTime() -
                     new Date(a.addedAt).getTime(),
                 )
-                .map((item, i, arr) => (
+                .map((item, i) => (
                   <motion.div
                     key={item.id}
                     layout
@@ -153,7 +216,7 @@ function RouteComponent() {
                       {/* Timeline dot */}
                       <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-white dark:border-zinc-900 rounded-full w-3 h-3" />
                       {/* Timeline line */}
-                      {i !== arr.length - 1 && (
+                      {i !== items.length - 1 && (
                         <div className="top-10 -left-[10px] absolute dark:bg-zinc-700 bg-border w-[1px] h-[calc(100%-2.5rem)]" />
                       )}
                       <div className="flex justify-between items-start mb-3">
@@ -226,10 +289,10 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
   const queryClient = useQueryClient()
 
   const deleteItemMutation = useMutation({
-    mutationFn: deleteBakeryLedgerItem,
+    mutationFn: deleteKitchenLedgerItem,
     onSuccess: (itemId) => {
-      queryClient.setQueryData<BakeryLedgerItem[]>(
-        ['bakeryLedger'],
+      queryClient.setQueryData<KitchenLedgerItem[]>(
+        ['kitchenLedger'],
         (oldItems) => oldItems?.filter((item) => item.id !== itemId) || [],
       )
       toast.success('Item deleted successfully!')
@@ -247,7 +310,7 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
       shouldScaleBackground={true}
       setBackgroundColorOnScale={true}
     >
-      <DrawerTrigger>
+      <DrawerTrigger className="hover:bg-red-100 dark:hover:bg-zinc-800/50 p-1 rounded-full transition-colors duration-200">
         <Trash2Icon className="w-5 h-5" />
       </DrawerTrigger>
       <DrawerContent>
@@ -303,10 +366,10 @@ function LedgerDrawer() {
   const { userAdditional } = useFirebaseAuth()
 
   const addItemMutation = useMutation({
-    mutationFn: addBakeryLedgerItem,
+    mutationFn: addKitchenLedgerItem,
     onSuccess: (newItem) => {
-      queryClient.setQueryData<BakeryLedgerItem[]>(
-        ['bakeryLedger'],
+      queryClient.setQueryData<KitchenLedgerItem[]>(
+        ['kitchenLedger'],
         (oldItems) => [...(oldItems || []), newItem],
       )
       toast.success('Item added successfully!')

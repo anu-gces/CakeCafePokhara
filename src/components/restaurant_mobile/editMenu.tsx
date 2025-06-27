@@ -219,10 +219,11 @@ export function editMenu() {
 
         {userAdditional?.role !== 'employee' && <AddDrawer />}
       </div>
-      <CategoryTabs />
-      {/*  Search Input */}
-      <div className="">
-        <div className="relative py-1">
+      {/* Sticky Category Tabs */}
+      <div className="top-0 z-20 sticky bg-transparent backdrop-blur-md">
+        <CategoryTabs />
+        {/* Sticky Search Input */}
+        <div className="top-[48px] z-10 sticky py-2">
           <SearchIcon className="top-1/2 left-4 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
           <Input
             type="text"
@@ -233,7 +234,8 @@ export function editMenu() {
           />
         </div>
       </div>
-      <div className="gap-0 grid grid-cols-1">
+      {/* Scrollable menu list only */}
+      <div className="flex-1 gap-0 grid grid-cols-1 min-h-0 overflow-y-auto">
         {/* filter will disregard category and show it all */}
         {search !== '' && (
           <p className="mb-2 ml-4 text-gray-500 text-xs italic">

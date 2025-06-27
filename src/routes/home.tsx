@@ -4,8 +4,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/home')({
   component: Home,
-  beforeLoad: ({ context: { authentication } }) => {
-    // Wait for authentication to be ready if needed
+  beforeLoad: async ({ context: { authentication } }) => {
     const user = authentication.getCurrentUser()
 
     if (!user) {
@@ -13,9 +12,11 @@ export const Route = createFileRoute('/home')({
         to: '/',
       })
     }
-    const userAdditional = authentication.userAdditional
 
-    if (!userAdditional?.isProfileComplete) {
+    // Check if the user's profile is complete using the async method
+    const profileIsComplete = await authentication.isUserProfileComplete()
+
+    if (!profileIsComplete) {
       throw redirect({
         to: '/profileComplete',
       })

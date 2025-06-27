@@ -9,7 +9,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
-import { RefreshCcwIcon } from 'lucide-react'
+import { BoxIcon, RefreshCcwIcon } from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
@@ -330,6 +330,7 @@ function HamburgerDrawer() {
             <DonutIcon className="w-5 h-5" />
             <span>Bakery Ledger</span>
           </Link>
+
           {userAdditional?.role === 'admin' ||
             (userAdditional?.role === 'owner' && (
               <Link
@@ -341,6 +342,14 @@ function HamburgerDrawer() {
                 <span>Barista Ledger</span>
               </Link>
             ))}
+          <Link
+            to="/home/inventory"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <BoxIcon className="w-5 h-5" />
+            <span>Inventory</span>
+          </Link>
         </div>
         <Separator />
         <DrawerFooter>
@@ -430,17 +439,19 @@ function PullToRefresh() {
     }
 
     function handleTouchStart(e: TouchEvent) {
+      // Skip pull-to-refresh if any drawer is open
+      if (document.querySelector('[data-state="open"]')) return
+
       const touchTarget = e.target as HTMLElement
       const scrollable = findScrollable(touchTarget)
 
-      // Fallback to window if no scrollable parent found
       const isScrollableAtTop =
         scrollable?.scrollTop === 0 ||
         (scrollable == null && window.scrollY === 0)
 
       if (isScrollableAtTop) {
         startY.current = e.touches[0].clientY
-        scrollEl.current = scrollable // can be null
+        scrollEl.current = scrollable
       }
     }
 
