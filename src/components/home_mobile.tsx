@@ -9,7 +9,12 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
-import { BoxIcon, RefreshCcwIcon } from 'lucide-react'
+import {
+  BoxIcon,
+  MicrowaveIcon,
+  PartyPopperIcon,
+  RefreshCcwIcon,
+} from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
@@ -349,6 +354,22 @@ function HamburgerDrawer() {
           >
             <BoxIcon className="w-5 h-5" />
             <span>Inventory</span>
+          </Link>
+          <Link
+            to="/home/equipment"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <MicrowaveIcon className="w-5 h-5" />
+            <span>Equipment</span>
+          </Link>
+          <Link
+            to="/home/accessories"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <PartyPopperIcon className="w-5 h-5" />
+            <span>Accessories</span>
           </Link>
         </div>
         <Separator />

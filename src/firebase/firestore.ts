@@ -33,6 +33,9 @@ import type { CardType as KanbanCardType } from '@/components/ui/kanbanBoard'
 import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
 import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
 import type { InventoryItem } from '@/routes/home/inventory.lazy'
+import type { EquipmentItem } from '@/routes/home/equipment.lazy'
+import type { AccessoriesItem } from '@/routes/home/accessories.lazy'
+
 import { memoize } from '@fullcalendar/core/internal'
 
 //export const db = getFirestore(app);
@@ -1210,6 +1213,148 @@ export async function deleteInventoryItem(itemId: string) {
   const newItems = items.filter((item: any) => item.id !== itemId)
   await setDoc(
     doc(db, 'inventoryWeekly', batchDocId),
+    { items: newItems },
+    { merge: true },
+  )
+  return itemId
+}
+
+// Get all equipment items (flattened from all weekly docs)
+export async function getAllEquipmentItems(): Promise<EquipmentItem[]> {
+  const snapshot = await getDocs(collection(db, 'equipmentWeekly'))
+  let allItems: EquipmentItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = (doc.data().items || []) as EquipmentItem[]
+    allItems = allItems.concat(batchItems)
+  })
+  // Sort by lastUpdated descending (latest first)
+  allItems.sort(
+    (a, b) =>
+      new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
+  )
+  return allItems
+}
+
+// Add an equipment item to the correct weekly batch
+export async function addEquipmentItem(newItem: Omit<EquipmentItem, 'id'>) {
+  const docId = getWeeklyDocId(new Date(newItem.lastUpdated))
+  const batchRef = doc(collection(db, 'equipmentWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  let items: EquipmentItem[] = []
+  if (batchSnap.exists()) {
+    items = batchSnap.data().items || []
+  }
+  // Generate a unique id for the item
+  const id = crypto.randomUUID()
+  items.push({ ...newItem, id })
+  await setDoc(batchRef, { items }, { merge: true })
+  return { ...newItem, id }
+}
+
+// Edit an equipment item in the correct weekly batch
+export async function editEquipmentItem(updatedItem: EquipmentItem) {
+  // Find the batch doc by lastUpdated date
+  const docId = getWeeklyDocId(new Date(updatedItem.lastUpdated))
+  const batchRef = doc(collection(db, 'equipmentWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  let items: EquipmentItem[] = batchSnap.data().items || []
+  const idx = items.findIndex((item: any) => item.id === updatedItem.id)
+  if (idx === -1) throw new Error('Item not found in batch')
+
+  items[idx] = { ...updatedItem }
+  await setDoc(batchRef, { items }, { merge: true })
+  return updatedItem
+}
+
+// Delete an equipment item from the correct weekly batch
+export async function deleteEquipmentItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'equipmentWeekly'))
+  let batchDocId: string | null = null
+  let items: EquipmentItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const newItems = items.filter((item: any) => item.id !== itemId)
+  await setDoc(
+    doc(db, 'equipmentWeekly', batchDocId),
+    { items: newItems },
+    { merge: true },
+  )
+  return itemId
+}
+
+// Get all accessories items (flattened from all weekly docs)
+export async function getAllAccessoriesItems(): Promise<AccessoriesItem[]> {
+  const snapshot = await getDocs(collection(db, 'accessoriesWeekly'))
+  let allItems: AccessoriesItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = (doc.data().items || []) as AccessoriesItem[]
+    allItems = allItems.concat(batchItems)
+  })
+  // Sort by lastUpdated descending (latest first)
+  allItems.sort(
+    (a, b) =>
+      new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
+  )
+  return allItems
+}
+
+// Add an accessories item to the correct weekly batch
+export async function addAccessoriesItem(newItem: Omit<AccessoriesItem, 'id'>) {
+  const docId = getWeeklyDocId(new Date(newItem.lastUpdated))
+  const batchRef = doc(collection(db, 'accessoriesWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  let items: AccessoriesItem[] = []
+  if (batchSnap.exists()) {
+    items = batchSnap.data().items || []
+  }
+  // Generate a unique id for the item
+  const id = crypto.randomUUID()
+  items.push({ ...newItem, id })
+  await setDoc(batchRef, { items }, { merge: true })
+  return { ...newItem, id }
+}
+
+// Edit an accessories item in the correct weekly batch
+export async function editAccessoriesItem(updatedItem: AccessoriesItem) {
+  // Find the batch doc by lastUpdated date
+  const docId = getWeeklyDocId(new Date(updatedItem.lastUpdated))
+  const batchRef = doc(collection(db, 'accessoriesWeekly'), docId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  let items: AccessoriesItem[] = batchSnap.data().items || []
+  const idx = items.findIndex((item: any) => item.id === updatedItem.id)
+  if (idx === -1) throw new Error('Item not found in batch')
+
+  items[idx] = { ...updatedItem }
+  await setDoc(batchRef, { items }, { merge: true })
+  return updatedItem
+}
+
+// Delete an accessories item from the correct weekly batch
+export async function deleteAccessoriesItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'accessoriesWeekly'))
+  let batchDocId: string | null = null
+  let items: AccessoriesItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const newItems = items.filter((item: any) => item.id !== itemId)
+  await setDoc(
+    doc(db, 'accessoriesWeekly', batchDocId),
     { items: newItems },
     { merge: true },
   )

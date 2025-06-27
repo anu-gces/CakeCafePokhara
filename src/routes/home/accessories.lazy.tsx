@@ -1,6 +1,6 @@
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Package, PlusIcon, LoaderIcon, Pencil, Trash2 } from 'lucide-react'
+import { GiftIcon, PlusIcon, LoaderIcon, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -20,60 +20,55 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  getAllInventoryItems,
-  addInventoryItem,
-  editInventoryItem,
-  deleteInventoryItem,
+  getAllAccessoriesItems,
+  addAccessoriesItem,
+  editAccessoriesItem,
+  deleteAccessoriesItem,
 } from '@/firebase/firestore'
 import SplashScreen from '@/components/splashscreen'
 
-export const Route = createLazyFileRoute('/home/inventory')({
+export const Route = createLazyFileRoute('/home/accessories')({
   component: RouteComponent,
 })
 
 function RouteComponent() {
-  return <InventoryTracker />
+  return <AccessoriesTracker />
 }
 
-export interface InventoryItem {
+export interface AccessoriesItem {
   id: string
   name: string
   quantity: number
   lastUpdated: string
 }
 
-export default function InventoryTracker() {
+export default function AccessoriesTracker() {
   const {
-    data: inventory = [],
+    data: accessories = [],
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: getAllInventoryItems,
+    queryKey: ['accessories'],
+    queryFn: getAllAccessoriesItems,
   })
 
-  if (isLoading) {
-    return <SplashScreen />
-  }
-
-  if (isError) {
+  if (isLoading) return <SplashScreen />
+  if (isError)
     return (
       <div className="flex flex-col justify-center items-center min-h-[40vh] text-red-500">
-        Error loading inventory items.
+        Error loading accessories items.
       </div>
     )
-  }
 
   return (
     <div>
-      {/* Sticky Header with Total */}
       <div className="top-0 z-10 sticky bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="mx-auto px-7 py-6 max-w-5xl">
           <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-primary text-2xl">Inventory</h1>
-            <AddInventoryDrawer />
+            <h1 className="font-bold text-primary text-2xl">Accessories</h1>
+            <AddAccessoriesDrawer />
           </div>
-          {/* Total Items Card */}
+          {/* Total Accessories Card */}
           <motion.div
             className="hover:bg-primary/10 bg-gradient-to-r from-primary/10 to-primary/5 hover:shadow-lg hover:backdrop-blur-md p-3 border border-primary/20 hover:border-primary/40 rounded-lg transition-all duration-300"
             initial={{ scale: 0.95, opacity: 0 }}
@@ -82,13 +77,13 @@ export default function InventoryTracker() {
           >
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-primary" />
+                <GiftIcon className="w-4 h-4 text-primary" />
                 <span className="font-medium text-primary text-sm">
-                  Total Items
+                  Total Accessories
                 </span>
               </div>
               <div className="font-bold text-primary text-lg">
-                {inventory.length}
+                {accessories.length}
               </div>
             </div>
             <div className="mt-1 text-muted-foreground text-xs">
@@ -97,24 +92,22 @@ export default function InventoryTracker() {
           </motion.div>
         </div>
       </div>
-
-      {/* Scrollable Content */}
       <div className="mx-auto px-7 py-6 pb-20 max-w-5xl">
         <div className="space-y-4">
-          {inventory.length === 0 ? (
+          {accessories.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-muted-foreground text-center">
-              <Package className="opacity-50 mb-4 w-12 h-12" />
-              <p>No items found.</p>
+              <GiftIcon className="opacity-50 mb-4 w-12 h-12" />
+              <p>No accessories found.</p>
               <p className="text-sm">
-                Add your first inventory item to get started.
+                Add your first accessory to get started.
               </p>
             </div>
           ) : (
             <AnimatePresence>
-              {inventory
+              {accessories
                 .slice()
                 .sort((a, b) => a.name.localeCompare(b.name))
-                .map((item, i, arr) => (
+                .map((item, i) => (
                   <motion.div
                     key={item.id}
                     layout
@@ -125,12 +118,6 @@ export default function InventoryTracker() {
                     className="relative"
                   >
                     <div className="relative bg-card shadow-sm hover:shadow-md px-6 py-5 border border-border rounded-xl transition-all duration-200">
-                      {/* Timeline dot */}
-                      <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-card rounded-full w-3 h-3" />
-                      {/* Timeline line */}
-                      {i !== arr.length - 1 && (
-                        <div className="top-10 -left-[10px] absolute bg-border w-[1px] h-[calc(100%-2.5rem)]" />
-                      )}
                       <div className="flex justify-between items-start mb-1">
                         <div className="flex-1">
                           <div className="flex justify-between items-center mb-2">
@@ -138,7 +125,6 @@ export default function InventoryTracker() {
                               {item.name}
                             </h3>
                           </div>
-                          {/* Item details - only quantity and last updated */}
                           <div className="gap-2 grid grid-cols-2 mb-2 text-muted-foreground text-xs">
                             <span>
                               Qty:{' '}
@@ -156,8 +142,8 @@ export default function InventoryTracker() {
                           </div>
                         </div>
                         <div className="flex gap-2 ml-3">
-                          <EditInventoryDrawer item={item} />
-                          <DeleteInventoryDrawer item={item} />
+                          <EditAccessoriesDrawer item={item} />
+                          <DeleteAccessoriesDrawer item={item} />
                         </div>
                       </div>
                     </div>
@@ -171,25 +157,25 @@ export default function InventoryTracker() {
   )
 }
 
-function AddInventoryDrawer() {
+function AddAccessoriesDrawer() {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const addMutation = useMutation({
-    mutationFn: addInventoryItem,
+    mutationFn: addAccessoriesItem,
     onSuccess: (newItem) => {
-      queryClient.setQueryData(['inventory'], (old: InventoryItem[] = []) => [
-        ...old,
-        newItem,
-      ])
-      toast.success('Item added successfully!')
+      queryClient.setQueryData(
+        ['accessories'],
+        (old: AccessoriesItem[] = []) => [...old, newItem],
+      )
+      toast.success('Accessory added successfully!')
       setOpen(false)
     },
     onError: (error) => {
-      toast.error(`Error adding item: ${error.message}`)
+      toast.error(`Error adding accessory: ${error.message}`)
     },
   })
-  const InventorySchema = Yup.object().shape({
-    name: Yup.string().required('Item name is required'),
+  const AccessoriesSchema = Yup.object().shape({
+    name: Yup.string().required('Accessory name is required'),
     quantity: Yup.number()
       .typeError('Quantity must be a number')
       .positive('Quantity must be greater than zero')
@@ -205,13 +191,13 @@ function AddInventoryDrawer() {
       <DrawerTrigger asChild>
         <Button onClick={() => setOpen(true)}>
           <PlusIcon color="white" className="w-4 h-4" />
-          Add Item
+          Add Accessory
         </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="font-semibold text-xl">
-            Add New Item
+            Add New Accessory
           </DrawerTitle>
         </DrawerHeader>
         <Formik
@@ -219,7 +205,7 @@ function AddInventoryDrawer() {
             name: '',
             quantity: '',
           }}
-          validationSchema={InventorySchema}
+          validationSchema={AccessoriesSchema}
           onSubmit={(values, { resetForm }) => {
             addMutation.mutate({
               name: values.name,
@@ -236,13 +222,13 @@ function AddInventoryDrawer() {
                   htmlFor="name"
                   className="font-medium text-gray-700 text-sm"
                 >
-                  Item Name
+                  Accessory Name
                 </Label>
                 <Field
                   as={Input}
                   id="name"
                   name="name"
-                  placeholder="Enter item name"
+                  placeholder="Enter accessory name"
                 />
                 <ErrorMessage
                   name="name"
@@ -278,7 +264,7 @@ function AddInventoryDrawer() {
                       Saving...
                     </span>
                   ) : (
-                    'Add Item'
+                    'Add Accessory'
                   )}
                 </Button>
                 <DrawerClose asChild>
@@ -295,24 +281,24 @@ function AddInventoryDrawer() {
   )
 }
 
-function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
+function EditAccessoriesDrawer({ item }: { item: AccessoriesItem | null }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const editMutation = useMutation({
-    mutationFn: editInventoryItem,
+    mutationFn: editAccessoriesItem,
     onSuccess: (updatedItem) => {
-      queryClient.setQueryData(['inventory'], (old: InventoryItem[] = []) =>
+      queryClient.setQueryData(['accessories'], (old: AccessoriesItem[] = []) =>
         old.map((i) => (i.id === updatedItem.id ? updatedItem : i)),
       )
-      toast.success('Item updated successfully!')
+      toast.success('Accessory updated successfully!')
       setOpen(false)
     },
     onError: (error) => {
-      toast.error(`Error updating item: ${error.message}`)
+      toast.error(`Error updating accessory: ${error.message}`)
     },
   })
-  const InventorySchema = Yup.object().shape({
-    name: Yup.string().required('Item name is required'),
+  const AccessoriesSchema = Yup.object().shape({
+    name: Yup.string().required('Accessory name is required'),
     quantity: Yup.number()
       .typeError('Quantity must be a number')
       .positive('Quantity must be greater than zero')
@@ -332,7 +318,7 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle className="font-semibold text-xl">
-              Edit Item
+              Edit Accessory
             </DrawerTitle>
           </DrawerHeader>
           <Formik
@@ -340,7 +326,7 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
               name: item?.name || '',
               quantity: item?.quantity?.toString() || '',
             }}
-            validationSchema={InventorySchema}
+            validationSchema={AccessoriesSchema}
             onSubmit={(values, { resetForm }) => {
               if (!item) return
               editMutation.mutate({
@@ -360,13 +346,13 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
                     htmlFor="edit-name"
                     className="font-medium text-gray-700 text-sm"
                   >
-                    Item Name
+                    Accessory Name
                   </Label>
                   <Field
                     as={Input}
                     id="edit-name"
                     name="name"
-                    placeholder="Enter item name"
+                    placeholder="Enter accessory name"
                   />
                   <ErrorMessage
                     name="name"
@@ -420,20 +406,20 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
   )
 }
 
-function DeleteInventoryDrawer({ item }: { item: InventoryItem | null }) {
+function DeleteAccessoriesDrawer({ item }: { item: AccessoriesItem | null }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const deleteMutation = useMutation({
-    mutationFn: () => deleteInventoryItem(item?.id ?? ''),
+    mutationFn: () => deleteAccessoriesItem(item?.id ?? ''),
     onSuccess: () => {
-      queryClient.setQueryData(['inventory'], (old: InventoryItem[] = []) =>
+      queryClient.setQueryData(['accessories'], (old: AccessoriesItem[] = []) =>
         old.filter((i) => i.id !== item?.id),
       )
-      toast.success('Item deleted successfully!')
+      toast.success('Accessory deleted successfully!')
       setOpen(false)
     },
     onError: (error) => {
-      toast.error(`Error deleting item: ${error.message}`)
+      toast.error(`Error deleting accessory: ${error.message}`)
     },
   })
   return (
@@ -450,7 +436,7 @@ function DeleteInventoryDrawer({ item }: { item: InventoryItem | null }) {
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle className="font-semibold text-xl">
-              Delete Item
+              Delete Accessory
             </DrawerTitle>
             <DrawerDescription>
               Are you sure you want to delete "{item?.name}"? This action cannot

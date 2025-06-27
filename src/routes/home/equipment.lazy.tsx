@@ -20,36 +20,36 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  getAllInventoryItems,
-  addInventoryItem,
-  editInventoryItem,
-  deleteInventoryItem,
+  getAllEquipmentItems,
+  addEquipmentItem,
+  editEquipmentItem,
+  deleteEquipmentItem,
 } from '@/firebase/firestore'
 import SplashScreen from '@/components/splashscreen'
 
-export const Route = createLazyFileRoute('/home/inventory')({
+export const Route = createLazyFileRoute('/home/equipment')({
   component: RouteComponent,
 })
 
 function RouteComponent() {
-  return <InventoryTracker />
+  return <EquipmentTracker />
 }
 
-export interface InventoryItem {
+export interface EquipmentItem {
   id: string
   name: string
   quantity: number
   lastUpdated: string
 }
 
-export default function InventoryTracker() {
+export default function EquipmentTracker() {
   const {
-    data: inventory = [],
+    data: equipment = [],
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ['inventory'],
-    queryFn: getAllInventoryItems,
+    queryKey: ['equipment'],
+    queryFn: getAllEquipmentItems,
   })
 
   if (isLoading) {
@@ -59,7 +59,7 @@ export default function InventoryTracker() {
   if (isError) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[40vh] text-red-500">
-        Error loading inventory items.
+        Error loading equipment items.
       </div>
     )
   }
@@ -70,8 +70,8 @@ export default function InventoryTracker() {
       <div className="top-0 z-10 sticky bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="mx-auto px-7 py-6 max-w-5xl">
           <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-primary text-2xl">Inventory</h1>
-            <AddInventoryDrawer />
+            <h1 className="font-bold text-primary text-2xl">Equipment</h1>
+            <AddEquipmentDrawer />
           </div>
           {/* Total Items Card */}
           <motion.div
@@ -88,7 +88,7 @@ export default function InventoryTracker() {
                 </span>
               </div>
               <div className="font-bold text-primary text-lg">
-                {inventory.length}
+                {equipment.length}
               </div>
             </div>
             <div className="mt-1 text-muted-foreground text-xs">
@@ -101,17 +101,17 @@ export default function InventoryTracker() {
       {/* Scrollable Content */}
       <div className="mx-auto px-7 py-6 pb-20 max-w-5xl">
         <div className="space-y-4">
-          {inventory.length === 0 ? (
+          {equipment.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-muted-foreground text-center">
               <Package className="opacity-50 mb-4 w-12 h-12" />
               <p>No items found.</p>
               <p className="text-sm">
-                Add your first inventory item to get started.
+                Add your first equipment item to get started.
               </p>
             </div>
           ) : (
             <AnimatePresence>
-              {inventory
+              {equipment
                 .slice()
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((item, i, arr) => (
@@ -156,8 +156,8 @@ export default function InventoryTracker() {
                           </div>
                         </div>
                         <div className="flex gap-2 ml-3">
-                          <EditInventoryDrawer item={item} />
-                          <DeleteInventoryDrawer item={item} />
+                          <EditEquipmentDrawer item={item} />
+                          <DeleteEquipmentDrawer item={item} />
                         </div>
                       </div>
                     </div>
@@ -171,13 +171,13 @@ export default function InventoryTracker() {
   )
 }
 
-function AddInventoryDrawer() {
+function AddEquipmentDrawer() {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const addMutation = useMutation({
-    mutationFn: addInventoryItem,
+    mutationFn: addEquipmentItem,
     onSuccess: (newItem) => {
-      queryClient.setQueryData(['inventory'], (old: InventoryItem[] = []) => [
+      queryClient.setQueryData(['equipment'], (old: EquipmentItem[] = []) => [
         ...old,
         newItem,
       ])
@@ -188,7 +188,7 @@ function AddInventoryDrawer() {
       toast.error(`Error adding item: ${error.message}`)
     },
   })
-  const InventorySchema = Yup.object().shape({
+  const EquipmentSchema = Yup.object().shape({
     name: Yup.string().required('Item name is required'),
     quantity: Yup.number()
       .typeError('Quantity must be a number')
@@ -219,7 +219,7 @@ function AddInventoryDrawer() {
             name: '',
             quantity: '',
           }}
-          validationSchema={InventorySchema}
+          validationSchema={EquipmentSchema}
           onSubmit={(values, { resetForm }) => {
             addMutation.mutate({
               name: values.name,
@@ -295,13 +295,13 @@ function AddInventoryDrawer() {
   )
 }
 
-function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
+function EditEquipmentDrawer({ item }: { item: EquipmentItem | null }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const editMutation = useMutation({
-    mutationFn: editInventoryItem,
+    mutationFn: editEquipmentItem,
     onSuccess: (updatedItem) => {
-      queryClient.setQueryData(['inventory'], (old: InventoryItem[] = []) =>
+      queryClient.setQueryData(['equipment'], (old: EquipmentItem[] = []) =>
         old.map((i) => (i.id === updatedItem.id ? updatedItem : i)),
       )
       toast.success('Item updated successfully!')
@@ -311,7 +311,7 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
       toast.error(`Error updating item: ${error.message}`)
     },
   })
-  const InventorySchema = Yup.object().shape({
+  const EquipmentSchema = Yup.object().shape({
     name: Yup.string().required('Item name is required'),
     quantity: Yup.number()
       .typeError('Quantity must be a number')
@@ -340,7 +340,7 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
               name: item?.name || '',
               quantity: item?.quantity?.toString() || '',
             }}
-            validationSchema={InventorySchema}
+            validationSchema={EquipmentSchema}
             onSubmit={(values, { resetForm }) => {
               if (!item) return
               editMutation.mutate({
@@ -420,13 +420,13 @@ function EditInventoryDrawer({ item }: { item: InventoryItem | null }) {
   )
 }
 
-function DeleteInventoryDrawer({ item }: { item: InventoryItem | null }) {
+function DeleteEquipmentDrawer({ item }: { item: EquipmentItem | null }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
   const deleteMutation = useMutation({
-    mutationFn: () => deleteInventoryItem(item?.id ?? ''),
+    mutationFn: () => deleteEquipmentItem(item?.id ?? ''),
     onSuccess: () => {
-      queryClient.setQueryData(['inventory'], (old: InventoryItem[] = []) =>
+      queryClient.setQueryData(['equipment'], (old: EquipmentItem[] = []) =>
         old.filter((i) => i.id !== item?.id),
       )
       toast.success('Item deleted successfully!')

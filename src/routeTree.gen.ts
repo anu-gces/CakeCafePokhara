@@ -36,10 +36,12 @@ const HomeSettingsLazyImport = createFileRoute('/home/settings')()
 const HomeKitchenLedgerLazyImport = createFileRoute('/home/kitchenLedger')()
 const HomeInventoryLazyImport = createFileRoute('/home/inventory')()
 const HomeHelpLazyImport = createFileRoute('/home/help')()
+const HomeEquipmentLazyImport = createFileRoute('/home/equipment')()
 const HomeCalendarLazyImport = createFileRoute('/home/calendar')()
 const HomeBaristaLedgerLazyImport = createFileRoute('/home/baristaLedger')()
 const HomeBakeryLedgerLazyImport = createFileRoute('/home/bakeryLedger')()
 const HomeAccountLazyImport = createFileRoute('/home/account')()
+const HomeAccessoriesLazyImport = createFileRoute('/home/accessories')()
 
 // Create/Update Routes
 
@@ -97,6 +99,14 @@ const HomeHelpLazyRoute = HomeHelpLazyImport.update({
   getParentRoute: () => HomeRoute,
 } as any).lazy(() => import('./routes/home/help.lazy').then((d) => d.Route))
 
+const HomeEquipmentLazyRoute = HomeEquipmentLazyImport.update({
+  id: '/equipment',
+  path: '/equipment',
+  getParentRoute: () => HomeRoute,
+} as any).lazy(() =>
+  import('./routes/home/equipment.lazy').then((d) => d.Route),
+)
+
 const HomeCalendarLazyRoute = HomeCalendarLazyImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -124,6 +134,14 @@ const HomeAccountLazyRoute = HomeAccountLazyImport.update({
   path: '/account',
   getParentRoute: () => HomeRoute,
 } as any).lazy(() => import('./routes/home/account.lazy').then((d) => d.Route))
+
+const HomeAccessoriesLazyRoute = HomeAccessoriesLazyImport.update({
+  id: '/accessories',
+  path: '/accessories',
+  getParentRoute: () => HomeRoute,
+} as any).lazy(() =>
+  import('./routes/home/accessories.lazy').then((d) => d.Route),
+)
 
 const HomeStockRoute = HomeStockImport.update({
   id: '/stock',
@@ -291,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeStockImport
       parentRoute: typeof HomeImport
     }
+    '/home/accessories': {
+      id: '/home/accessories'
+      path: '/accessories'
+      fullPath: '/home/accessories'
+      preLoaderRoute: typeof HomeAccessoriesLazyImport
+      parentRoute: typeof HomeImport
+    }
     '/home/account': {
       id: '/home/account'
       path: '/account'
@@ -317,6 +342,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/home/calendar'
       preLoaderRoute: typeof HomeCalendarLazyImport
+      parentRoute: typeof HomeImport
+    }
+    '/home/equipment': {
+      id: '/home/equipment'
+      path: '/equipment'
+      fullPath: '/home/equipment'
+      preLoaderRoute: typeof HomeEquipmentLazyImport
       parentRoute: typeof HomeImport
     }
     '/home/help': {
@@ -418,10 +450,12 @@ interface HomeRouteChildren {
   HomeEmployeeRoute: typeof HomeEmployeeRouteWithChildren
   HomeNotificationsRoute: typeof HomeNotificationsRouteWithChildren
   HomeStockRoute: typeof HomeStockRoute
+  HomeAccessoriesLazyRoute: typeof HomeAccessoriesLazyRoute
   HomeAccountLazyRoute: typeof HomeAccountLazyRoute
   HomeBakeryLedgerLazyRoute: typeof HomeBakeryLedgerLazyRoute
   HomeBaristaLedgerLazyRoute: typeof HomeBaristaLedgerLazyRoute
   HomeCalendarLazyRoute: typeof HomeCalendarLazyRoute
+  HomeEquipmentLazyRoute: typeof HomeEquipmentLazyRoute
   HomeHelpLazyRoute: typeof HomeHelpLazyRoute
   HomeInventoryLazyRoute: typeof HomeInventoryLazyRoute
   HomeKitchenLedgerLazyRoute: typeof HomeKitchenLedgerLazyRoute
@@ -437,10 +471,12 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeEmployeeRoute: HomeEmployeeRouteWithChildren,
   HomeNotificationsRoute: HomeNotificationsRouteWithChildren,
   HomeStockRoute: HomeStockRoute,
+  HomeAccessoriesLazyRoute: HomeAccessoriesLazyRoute,
   HomeAccountLazyRoute: HomeAccountLazyRoute,
   HomeBakeryLedgerLazyRoute: HomeBakeryLedgerLazyRoute,
   HomeBaristaLedgerLazyRoute: HomeBaristaLedgerLazyRoute,
   HomeCalendarLazyRoute: HomeCalendarLazyRoute,
+  HomeEquipmentLazyRoute: HomeEquipmentLazyRoute,
   HomeHelpLazyRoute: HomeHelpLazyRoute,
   HomeInventoryLazyRoute: HomeInventoryLazyRoute,
   HomeKitchenLedgerLazyRoute: HomeKitchenLedgerLazyRoute,
@@ -462,10 +498,12 @@ export interface FileRoutesByFullPath {
   '/home/employee': typeof HomeEmployeeRouteWithChildren
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
+  '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
+  '/home/equipment': typeof HomeEquipmentLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
@@ -489,10 +527,12 @@ export interface FileRoutesByTo {
   '/home/employee': typeof HomeEmployeeRouteWithChildren
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
+  '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
+  '/home/equipment': typeof HomeEquipmentLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
@@ -517,10 +557,12 @@ export interface FileRoutesById {
   '/home/employee': typeof HomeEmployeeRouteWithChildren
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
+  '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
+  '/home/equipment': typeof HomeEquipmentLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
@@ -546,10 +588,12 @@ export interface FileRouteTypes {
     | '/home/employee'
     | '/home/notifications'
     | '/home/stock'
+    | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/calendar'
+    | '/home/equipment'
     | '/home/help'
     | '/home/inventory'
     | '/home/kitchenLedger'
@@ -572,10 +616,12 @@ export interface FileRouteTypes {
     | '/home/employee'
     | '/home/notifications'
     | '/home/stock'
+    | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/calendar'
+    | '/home/equipment'
     | '/home/help'
     | '/home/inventory'
     | '/home/kitchenLedger'
@@ -598,10 +644,12 @@ export interface FileRouteTypes {
     | '/home/employee'
     | '/home/notifications'
     | '/home/stock'
+    | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/calendar'
+    | '/home/equipment'
     | '/home/help'
     | '/home/inventory'
     | '/home/kitchenLedger'
@@ -660,10 +708,12 @@ export const routeTree = rootRoute
         "/home/employee",
         "/home/notifications",
         "/home/stock",
+        "/home/accessories",
         "/home/account",
         "/home/bakeryLedger",
         "/home/baristaLedger",
         "/home/calendar",
+        "/home/equipment",
         "/home/help",
         "/home/inventory",
         "/home/kitchenLedger",
@@ -713,6 +763,10 @@ export const routeTree = rootRoute
       "filePath": "home/stock.tsx",
       "parent": "/home"
     },
+    "/home/accessories": {
+      "filePath": "home/accessories.lazy.tsx",
+      "parent": "/home"
+    },
     "/home/account": {
       "filePath": "home/account.lazy.tsx",
       "parent": "/home"
@@ -727,6 +781,10 @@ export const routeTree = rootRoute
     },
     "/home/calendar": {
       "filePath": "home/calendar.lazy.tsx",
+      "parent": "/home"
+    },
+    "/home/equipment": {
+      "filePath": "home/equipment.lazy.tsx",
       "parent": "/home"
     },
     "/home/help": {
