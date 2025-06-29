@@ -70,7 +70,7 @@ export function profileComplete() {
     },
     onSuccess: () => {
       toast.success('Profile updated successfully!')
-      navigate({ to: '/home/editMenu', search: { category: 'appetizers' } })
+      navigate({ to: '/home/takeOrder', search: { category: 'appetizers' } })
     },
     onError: (error: any) => {
       toast.error(error.message)

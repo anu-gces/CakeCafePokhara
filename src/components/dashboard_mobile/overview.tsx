@@ -67,7 +67,7 @@ export function Overview() {
     )
     const discount = subTotal * (order.discountRate / 100)
     const tax = (subTotal - discount) * (order.taxRate / 100)
-    const total = subTotal - discount + tax
+    const total = subTotal - discount + tax + (order.manualRounding || 0)
     return sum + total
   }, 0)
 

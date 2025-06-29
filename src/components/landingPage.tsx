@@ -62,7 +62,7 @@ function LoginForm() {
           navigate({ to: '/profileComplete' })
         } else {
           navigate({
-            to: '/home/editMenu',
+            to: '/home/takeOrder',
             search: { category: 'appetizers' },
           })
         }

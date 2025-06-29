@@ -1,8 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ReceiptIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { AddToCart } from '@/components/restaurant_mobile/editMenu'
-import { getCreditorOrdersByNickname } from '@/firebase/firestore'
+import type { AddToCart } from './takeOrder'
+import {
+  getCreditorOrdersByNickname,
+  updateOrderStatus,
+} from '@/firebase/firestore'
 import SplashScreen from '@/components/splashscreen'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +16,7 @@ function getTotal(
   items: AddToCart['items'],
   discountRate: number,
   taxRate: number,
+  manualRounding: number,
 ) {
   const subtotal = items.reduce(
     (sum, item) => sum + item.qty * item.foodPrice,
@@ -20,7 +24,7 @@ function getTotal(
   )
   const discount = subtotal * (discountRate / 100)
   const taxed = (subtotal - discount) * (taxRate / 100)
-  return Math.round(subtotal - discount + taxed)
+  return Math.round(subtotal - discount + taxed + manualRounding)
 }
 
 export const Route = createFileRoute('/home/$nickname')({
@@ -98,7 +102,13 @@ function RouteComponent() {
                 Rs.{' '}
                 {orders.reduce(
                   (sum, o) =>
-                    sum + getTotal(o.items, o.discountRate, o.taxRate),
+                    sum +
+                    getTotal(
+                      o.items,
+                      o.discountRate,
+                      o.taxRate,
+                      o.manualRounding,
+                    ),
                   0,
                 )}
               </div>
@@ -136,6 +146,29 @@ function RouteComponent() {
                   <div className="font-semibold text-primary text-lg">
                     #{order.receiptId}
                   </div>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+        ${
+          order.status === 'pending'
+            ? 'bg-yellow-100 text-yellow-800'
+            : order.status === 'ready_to_serve'
+              ? 'bg-green-100 text-green-800'
+              : order.status === 'ready_to_pay'
+                ? 'bg-blue-100 text-blue-800'
+                : order.status === 'paid'
+                  ? 'bg-rose-100 text-rose-800'
+                  : order.status === 'credited'
+                    ? 'bg-purple-100 text-purple-800'
+                    : order.status === 'cancelled'
+                      ? 'bg-gray-200 text-gray-600'
+                      : 'bg-muted text-muted-foreground'
+        }
+      `}
+                  >
+                    {order.status
+                      .replace(/_/g, ' ')
+                      .replace(/\b\w/g, (l) => l.toUpperCase())}
+                  </span>
                   <div className="text-muted-foreground text-xs">
                     <Badge variant="outline">
                       {format(
@@ -149,8 +182,14 @@ function RouteComponent() {
                   {order.items.map((item, idx) => (
                     <li key={idx} className="flex justify-between text-sm">
                       <span className="truncate">
-                        {item.foodName}{' '}
+                        {item.foodName}
+                        {item.selectedSubcategory ? (
+                          <span className="ml-1 text-primary/80 text-xs">
+                            ({item.selectedSubcategory.name})
+                          </span>
+                        ) : null}
                         <span className="text-muted-foreground">
+                          {' '}
                           × {item.qty}
                         </span>
                       </span>
@@ -172,6 +211,13 @@ function RouteComponent() {
                     Table:{' '}
                     <span className="font-semibold">{order.tableNumber}</span>
                   </span>
+                  <span>
+                    Rounding:{' '}
+                    <span className="font-semibold">
+                      {order.manualRounding >= 0 ? '+' : '-'} Rs.{' '}
+                      {Math.abs(order.manualRounding)}
+                    </span>
+                  </span>
                   {order.complementary && (
                     <span className="font-semibold text-green-600 dark:text-green-400">
                       Complementary
@@ -187,12 +233,35 @@ function RouteComponent() {
                   Processed by:{' '}
                   <span className="font-semibold">{order.processedBy}</span>
                 </div>
-                <div className="flex justify-end items-center mt-2">
+
+                <div className="flex justify-end items-center gap-2 mt-2">
+                  {order.status === 'credited' && (
+                    <div className="flex justify-end mt-2">
+                      <Button
+                        className="active:scale-95"
+                        onClick={async () => {
+                          // You may want to show a loader/toast here
+                          await updateOrderStatus(
+                            order.docId,
+                            'paid',
+                            order.receiptId,
+                          )
+                        }}
+                      >
+                        Mark as Paid
+                      </Button>
+                    </div>
+                  )}
                   <span className="font-bold text-primary text-base">
                     Total:{' '}
                     <span className="ml-1">
                       Rs.{' '}
-                      {getTotal(order.items, order.discountRate, order.taxRate)}
+                      {getTotal(
+                        order.items,
+                        order.discountRate,
+                        order.taxRate,
+                        order.manualRounding,
+                      )}
                     </span>
                   </span>
                 </div>

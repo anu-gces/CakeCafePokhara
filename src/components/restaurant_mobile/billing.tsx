@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
-import type { AddToCart } from './editMenu'
+import type { AddToCart } from '@/routes/home/takeOrder'
 import { Button } from '../ui/button'
 import { ArrowUpDownIcon } from 'lucide-react'
 

@@ -101,7 +101,6 @@ export function useFirebaseAuth() {
       }
       return { ...result, isProfileComplete }
     } catch (error) {
-      console.error('Error signing in with Google: ', error)
       throw error
     }
   }

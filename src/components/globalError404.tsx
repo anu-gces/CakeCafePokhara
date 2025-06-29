@@ -22,7 +22,7 @@ export function globalError404() {
         for doesn't exist, isn't available or was loading incorrectly.
       </p>
       <Link
-        to="/home/editMenu"
+        to="/home/takeOrder"
         search={{ category: 'appetizers' }}
         className="bg-primary mt-8 px-6 py-3 rounded font-med font-bold text-white text-lg"
       >

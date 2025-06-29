@@ -25,7 +25,7 @@ export const Route = createFileRoute('/home/dashboard')({
       userAdditional.role !== 'owner'
     ) {
       throw redirect({
-        to: '/home/editMenu',
+        to: '/home/takeOrder',
         search: { category: 'appetizers' },
       })
     }
@@ -101,6 +101,7 @@ const dashboardQueryIncomeOptions = ({
         taxRate: 0,
         tableNumber: -1,
         remarks: '',
+        manualRounding: 0,
         complementary: false,
         items: [],
         status: 'pending',

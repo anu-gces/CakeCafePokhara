@@ -23,7 +23,7 @@ export const Route = createFileRoute('/home/employee/table')({
     if (userAdditional?.role !== 'owner' && userAdditional?.role !== 'admin') {
       // If the user is not an owner or admin, navigate to the home page
       throw redirect({
-        to: '/home/editMenu',
+        to: '/home/takeOrder',
         search: { category: 'appetizers' },
       })
     }

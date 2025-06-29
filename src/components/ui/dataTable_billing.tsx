@@ -45,7 +45,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from './drawer'
-import { type AddToCart } from '../restaurant_mobile/editMenu'
+import type { AddToCart } from '@/routes/home/takeOrder'
 import CakeCafeLogo from '@/assets/Logob.png'
 import { format } from 'date-fns'
 import { ScrollArea } from '@radix-ui/react-scroll-area'

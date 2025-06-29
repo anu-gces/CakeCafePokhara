@@ -163,10 +163,8 @@ export function ExpandableTabs({
       const now = Date.now()
       let shouldPlaySound = false
 
-      console.log('userAdditional 169:', userAdditional)
       orders.forEach((order) => {
         // Only notify for new orders within the last 5 seconds, not created by self
-        console.log('userAdditional:170', userAdditional)
 
         const receiptTime = new Date(order.updatedAt).getTime()
         if (

@@ -27,7 +27,10 @@ export function Error404() {
         className="mt-8 px-6 py-3 font-med text-background text-lg"
         variant="default"
         onClick={() => {
-          navigate({ to: '/home/editMenu', search: { category: 'appetizers' } })
+          navigate({
+            to: '/home/takeOrder',
+            search: { category: 'appetizers' },
+          })
         }}
       >
         Back To Home

@@ -5,7 +5,18 @@ import type { LucideIcon } from 'lucide-react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import type { kanbanCategory } from '../stock'
-import type { MenuCategory } from '@/routes/home/editMenu'
+
+type MenuCategory =
+  | 'appetizers'
+  | 'main_courses'
+  | 'desserts'
+  | 'beverages'
+  | 'bakery'
+  | 'kitchen'
+  | 'orders'
+  | 'specials'
+  | 'hard_drinks'
+  | 'accessories'
 
 interface Tab {
   title: string
@@ -50,6 +61,59 @@ const spanVariants = {
 
 const transition = { delay: 0.1, type: 'spring', bounce: 0, duration: 0.6 }
 
+const Separator = React.memo(() => (
+  <div className="mx-1 bg-border w-[1.2px] h-[24px]" aria-hidden="true" />
+))
+
+const TabButton = React.memo(function TabButton({
+  tab,
+  index,
+  selected,
+  handleSelect,
+}: {
+  tab: Tab
+  index: number
+  selected: boolean
+  handleSelect: (index: number) => void
+}) {
+  const Icon = tab.icon
+  return (
+    <motion.button
+      key={tab.title}
+      variants={buttonVariants}
+      initial={false}
+      animate="animate"
+      custom={selected}
+      onClick={() => {
+        handleSelect(index)
+      }}
+      transition={transition}
+      className={cn(
+        'relative flex flex-1 justify-center items-center rounded-xl px-4 text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
+        selected
+          ? cn('bg-muted')
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+      )}
+    >
+      <Icon className="w-3.5 tiny:w-5" />
+      <AnimatePresence initial={false}>
+        {selected && (
+          <motion.span
+            variants={spanVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={transition}
+            className="overflow-hidden text-[12px]"
+          >
+            {tab.title}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
+  )
+})
+
 export function ExpandableTabs({
   tabs,
   to,
@@ -58,7 +122,6 @@ export function ExpandableTabs({
 }: ExpandableTabsProps) {
   const [selected, setSelected] = React.useState<number | null>(null)
   const navigate = useNavigate({ from: to })
-  const currentLocation = useLocation()
 
   const handleSelect = (index: number) => {
     setSelected(index)
@@ -71,24 +134,6 @@ export function ExpandableTabs({
     }
   }
 
-  React.useEffect(() => {
-    // Get the current category from the search parameters
-    const currentCategory = currentLocation.search?.category
-
-    // Find the index of the tab that matches the current category
-    const selectedIndex = tabs.findIndex(
-      (tab) => 'search' in tab && tab.search === currentCategory,
-    )
-
-    if (selectedIndex !== -1) {
-      setSelected(selectedIndex) // Update the selected tab index
-    }
-  }, [tabs, currentLocation])
-
-  const Separator = () => (
-    <div className="mx-1 bg-border w-[1.2px] h-[24px]" aria-hidden="true" />
-  )
-
   return (
     <div
       className={cn(
@@ -96,49 +141,19 @@ export function ExpandableTabs({
         className,
       )}
     >
-      {tabs.map((tab, index) => {
-        if (tab.type === 'separator') {
-          return <Separator key={`separator-${index}`} />
-        }
-
-        const Icon = tab.icon
-        return (
-          <motion.button
+      {tabs.map((tab, index) =>
+        tab.type === 'separator' ? (
+          <Separator key={`separator-${index}`} />
+        ) : (
+          <TabButton
             key={tab.title}
-            variants={buttonVariants}
-            initial={false}
-            animate="animate"
-            custom={selected === index}
-            onClick={() => {
-              handleSelect(index)
-              navigate({ to: to, search: { category: `${tab.search}` } })
-            }}
-            transition={transition}
-            className={cn(
-              'relative flex flex-1 justify-center items-center rounded-xl px-4 text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
-              selected === index
-                ? cn('bg-muted')
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-            )}
-          >
-            <Icon className="w-3.5 tiny:w-5" />
-            <AnimatePresence initial={false}>
-              {selected === index && (
-                <motion.span
-                  variants={spanVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  transition={transition}
-                  className="overflow-hidden text-[12px]"
-                >
-                  {tab.title}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </motion.button>
-        )
-      })}
+            tab={tab}
+            index={index}
+            selected={selected === index}
+            handleSelect={handleSelect}
+          />
+        ),
+      )}
     </div>
   )
 }

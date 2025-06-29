@@ -14,7 +14,7 @@ export const Route = createFileRoute('/')({
 
     if (userAdditional?.isProfileComplete) {
       throw redirect({
-        to: '/home/editMenu',
+        to: '/home/takeOrder',
         search: { category: 'appetizers' },
       })
     } else {

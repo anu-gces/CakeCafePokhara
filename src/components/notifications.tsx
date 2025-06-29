@@ -207,6 +207,7 @@ export function OrderNotification() {
           items,
           remarks,
           receiptDate,
+          creditor,
         }) => (
           <div
             key={receiptId}
@@ -252,7 +253,13 @@ export function OrderNotification() {
             </div>
 
             <div className="mb-1 text-muted-foreground text-sm">
-              {items.map((item) => `${item.foodName} ×${item.qty}`).join(', ')}
+              {items
+                .map((item) =>
+                  item.selectedSubcategory
+                    ? `${item.foodName} (${item.selectedSubcategory.name}) ×${item.qty}`
+                    : `${item.foodName} ×${item.qty}`,
+                )
+                .join(', ')}
             </div>
 
             {remarks && (
@@ -293,13 +300,17 @@ export function OrderNotification() {
                     <Button
                       className="active:scale-95"
                       onClick={() =>
-                        updateOrderStatus(docId, 'paid', receiptId)
+                        updateOrderStatus(
+                          docId,
+                          creditor ? 'credited' : 'paid', // Use 'credited' if creditor exists
+                          receiptId,
+                        )
                       }
                     >
-                      Mark as Paid
+                      {creditor ? 'Mark as Credited' : 'Mark as Paid'}
                     </Button>
                   )}
-                {status === 'paid' &&
+                {(status === 'paid' || status === 'credited') &&
                   (userAdditional?.department === 'billing' ||
                     userAdditional?.role === 'owner') && (
                     <Button

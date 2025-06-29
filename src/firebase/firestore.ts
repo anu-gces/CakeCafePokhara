@@ -1,5 +1,5 @@
 import type { calendarEventProps } from '@/components/calendar_mobile'
-import type { FoodItemProps } from '@/components/restaurant_mobile/editMenu'
+import type { FoodItemProps } from '@/components/restaurant_mobile/MenuManagement'
 // import { FirebaseError } from "firebase/app";
 import { type User, onAuthStateChanged } from 'firebase/auth'
 import { type User as UserType } from '@/components/employee'
@@ -23,7 +23,7 @@ import {
 } from 'firebase/firestore'
 import { app, auth } from './firebase'
 import { deleteMenuItemImage } from './firebase_storage'
-import type { AddToCart } from '@/components/restaurant_mobile/editMenu'
+import type { AddToCart } from '@/routes/home/takeOrder'
 import {
   generateReceiptId,
   getWeeklyDocId,
@@ -382,7 +382,7 @@ export async function enterCalendarEvent(event: calendarEventProps[]) {
 }
 
 export async function getFoodItems(): Promise<FoodItemProps[]> {
-  const foodItemsRef = doc(db, 'menu', 'allFoodItems')
+  const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory')
   const foodItemsSnap = await getDoc(foodItemsRef)
 
   if (foodItemsSnap.exists()) {
@@ -422,7 +422,7 @@ export async function enterFoodItem(foodItem: FoodItemProps) {
       dateModified: now,
     } // Add uid to the food item object
     // console.log("food item with uid", foodItemWithUid);
-    const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
+    const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory') // Reference to the 'allFoodItems' document
 
     // Get the existing data
     const docSnap = await getDoc(foodItemsRef)
@@ -450,7 +450,7 @@ export async function editFoodItem(foodItem: FoodItemProps) {
   if (user) {
     const now = new Date().toISOString()
     const foodItemWithUid = { ...foodItem, uid: user.uid!, dateModified: now } // Add uid to the food item object
-    const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
+    const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory') // Reference to the 'allFoodItems' document
 
     // Get the existing data
     const docSnap = await getDoc(foodItemsRef)
@@ -484,7 +484,7 @@ export async function deleteFoodItem(foodIdToDelete: string) {
 
   if (!user) return
 
-  const foodItemsRef = doc(db, 'menu', 'allFoodItems')
+  const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory')
 
   try {
     const docSnap = await getDoc(foodItemsRef)
@@ -548,12 +548,22 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   if (batchSnap.exists()) {
     orders = batchSnap.data().orders || []
   }
+  console.log('Order data before push:', JSON.stringify(orderData, null, 2)) // <-- Add this line
 
   // Add new order
+
   orders.push(orderData)
 
   // Save back to Firestore
-  await setDoc(batchRef, { orders }, { merge: true })
+  // Save back to Firestore
+  try {
+    await setDoc(batchRef, { orders }, { merge: true })
+  } catch (err) {
+    console.error('FIRESTORE ERROR on setDoc:', err)
+    // Optionally, log the problematic data for easier debugging:
+    console.error('Problematic orderData:', JSON.stringify(orderData, null, 2))
+    throw err // rethrow if you want the error to propagate
+  }
 }
 
 export interface ProcessedOrder extends AddToCart {
@@ -870,10 +880,15 @@ export async function getAllCreditors(): Promise<Creditor[]> {
 
 export async function getCreditorOrdersByNickname(nickname: string) {
   const weeklySnapshots = await getDocs(collection(db, 'orderHistoryWeekly'))
-  let allOrders: ProcessedOrder[] = []
+  let allOrders: (ProcessedOrder & { docId: string })[] = []
   weeklySnapshots.forEach((doc) => {
     const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
-    allOrders = allOrders.concat(batchOrders)
+    // Attach docId to each order
+    const batchOrdersWithDocId = batchOrders.map((order) => ({
+      ...order,
+      docId: doc.id,
+    }))
+    allOrders = allOrders.concat(batchOrdersWithDocId)
   })
   // Filter by creditor nickname
   return allOrders.filter((order) => order.creditor === nickname)

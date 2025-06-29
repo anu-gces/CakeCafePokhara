@@ -11,6 +11,7 @@ import {
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
 import {
   BoxIcon,
+  HammerIcon,
   MicrowaveIcon,
   PartyPopperIcon,
   RefreshCcwIcon,
@@ -52,9 +53,14 @@ import { saveUserFcmToken } from '@/firebase/firestore'
 
 const tabs: TabItem[] = [
   {
-    title: 'Order',
-    icon: UtensilsIcon,
-    to: '/home/editMenu?category="appetizers"',
+    title: 'Take Order',
+    icon: CoffeeIcon,
+    to: '/home/takeOrder?category="appetizers"',
+  },
+  {
+    title: 'Menu Management',
+    icon: HammerIcon,
+    to: '/home/menuManagement?category="appetizers"',
   },
   {
     title: 'Notifications',
@@ -520,7 +526,7 @@ function PullToRefresh() {
   return (
     <motion.div
       style={{ y }}
-      className="-top-20 right-0 left-0 z-50 absolute flex justify-center items-center h-16"
+      className="-top-20 right-0 left-0 z-100 absolute flex justify-center items-center h-16"
     >
       <div className="relative flex justify-center items-center w-12 h-12">
         <div className="absolute inset-0 bg-background shadow-lg rounded-full" />

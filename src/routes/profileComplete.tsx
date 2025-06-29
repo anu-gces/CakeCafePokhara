@@ -19,7 +19,7 @@ export const Route = createFileRoute('/profileComplete')({
     if (profileIsComplete) {
       // If the profile is complete, navigate to the home page
       throw redirect({
-        to: '/home/editMenu',
+        to: '/home/takeOrder',
         search: { category: 'appetizers' },
       })
     }
