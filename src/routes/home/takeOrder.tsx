@@ -46,7 +46,7 @@ import {
   type FoodItemProps,
   type SubcategoryOption,
   categories,
-} from '@/components/restaurant_mobile/MenuManagement'
+} from '@/components/restaurant_mobile/menuManagement'
 import { type Search } from './menuManagement'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import DonutImage from '@/assets/donutImage'

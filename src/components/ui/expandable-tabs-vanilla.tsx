@@ -2,7 +2,7 @@ import * as React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
-import { useLocation, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import type { kanbanCategory } from '../stock'
 
