@@ -494,9 +494,10 @@ function CartDrawer({
                       </div>
                     </div>
                   ))}
-                  <div className="flex gap-2">
+                  {/* Discount, Tax, and Manual Rounding: now stacked vertically for mobile */}
+                  <div className="flex flex-col gap-2">
                     {/* Discount Section */}
-                    <div className="flex flex-col justify-center w-1/3">
+                    <div className="flex flex-col justify-center">
                       <div className="flex justify-between items-center bg-gray-50 dark:bg-muted p-4 rounded-lg">
                         <span className="font-semibold">Discount</span>
                         <div className="flex items-center gap-2">
@@ -527,7 +528,7 @@ function CartDrawer({
                       </div>
                     </div>
                     {/* Tax Section */}
-                    <div className="flex flex-col justify-center w-1/3">
+                    <div className="flex flex-col justify-center">
                       <div className="flex justify-between items-center bg-gray-50 dark:bg-muted p-4 rounded-lg">
                         <span className="font-semibold">Tax</span>
                         <div className="flex items-center gap-2">
@@ -556,7 +557,7 @@ function CartDrawer({
                       </div>
                     </div>
                     {/* Manual Rounding Section */}
-                    <div className="flex flex-col justify-center w-1/3">
+                    <div className="flex flex-col justify-center">
                       <div className="flex justify-between items-center bg-gray-50 dark:bg-muted p-4 rounded-lg">
                         <span className="font-semibold">Rounding</span>
                         <div className="flex items-center gap-2">
@@ -608,10 +609,10 @@ function CartDrawer({
                       </div>
                     </div>
                   </div>
-                  {/* New row: Is Complementary and Creditor Select */}
-                  <div className="flex gap-2">
+                  {/* Complimentary and Creditor: now stacked vertically for mobile */}
+                  <div className="flex flex-col gap-2 mt-2">
                     {/* Is Complementary Toggle */}
-                    <div className="flex flex-col justify-center w-1/2">
+                    <div className="flex flex-col justify-center">
                       <div className="flex justify-between items-center bg-gray-50 dark:bg-muted p-4 rounded-lg">
                         <span className="font-semibold">Is Complementary?</span>
                         <input
@@ -623,7 +624,7 @@ function CartDrawer({
                       </div>
                     </div>
                     {/* Creditor Select */}
-                    <div className="flex flex-col justify-center w-1/2">
+                    <div className="flex flex-col justify-center">
                       <div className="flex justify-center items-center gap-2 bg-gray-50 dark:bg-muted p-2 rounded-lg">
                         <Label
                           htmlFor="creditor"
