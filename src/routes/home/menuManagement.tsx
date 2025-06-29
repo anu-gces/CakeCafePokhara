@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { MenuManagement } from '@/components/restaurant_mobile/MenuManagement'
-import { categories } from '@/components/restaurant_mobile/MenuManagement'
+import { MenuManagement } from '@/components/restaurant_mobile/menuManagement'
+import { categories } from '@/components/restaurant_mobile/menuManagement'
 
 export type Search = {
   category: (typeof categories)[number]['id'] | ''

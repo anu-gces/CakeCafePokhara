@@ -1,5 +1,5 @@
 import type { calendarEventProps } from '@/components/calendar_mobile'
-import type { FoodItemProps } from '@/components/restaurant_mobile/MenuManagement'
+import type { FoodItemProps } from '@/components/restaurant_mobile/menuManagement'
 // import { FirebaseError } from "firebase/app";
 import { type User, onAuthStateChanged } from 'firebase/auth'
 import { type User as UserType } from '@/components/employee'
