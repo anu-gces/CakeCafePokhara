@@ -240,7 +240,6 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('Navigating to Salary Ledger for user:', user.uid)
                   navigate({
                     to: '/home/employee/$salaryLedger',
                     params: { salaryLedger: user.uid },

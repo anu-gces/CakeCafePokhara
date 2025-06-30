@@ -67,7 +67,6 @@ function LoginForm() {
           })
         }
       } catch (error) {
-        console.error('Error signing in with Google: ', error)
         setErrorMessage(
           'Error signing in with Google: ' + (error as Error).message,
         )

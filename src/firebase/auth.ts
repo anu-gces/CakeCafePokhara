@@ -19,9 +19,7 @@ export const doCreateUserWithEmailAndPassword = async (
 ) => {
   try {
     await createUserWithEmailAndPassword(auth, email, password)
-  } catch (error) {
-    console.error('Error creating user: ', error)
-  }
+  } catch (error) {}
 }
 
 export const doSignInWithEmailAndPassword = async (
@@ -31,7 +29,6 @@ export const doSignInWithEmailAndPassword = async (
   try {
     await signInWithEmailAndPassword(auth, email, password)
   } catch (error) {
-    console.error('Error signing in: ', error)
     let userFriendlyMessage = ''
     switch ((error as Error).message) {
       case 'Firebase: Error (auth/invalid-email).':
@@ -81,7 +78,6 @@ export const doSignInWithGoogle = async () => {
 
     return { ...result, isProfileComplete }
   } catch (error) {
-    console.error('Error signing in with Google: ', error)
     throw error
   }
 }
@@ -91,7 +87,6 @@ export const doSignOut = async (): Promise<boolean> => {
     await signOut(auth)
     return true
   } catch (error) {
-    console.error('Error signing out: ', error)
     throw error // This will cause the error to be thrown to the caller
   }
 }
@@ -99,9 +94,7 @@ export const doSignOut = async (): Promise<boolean> => {
 export const doPasswordReset = async (email: string) => {
   try {
     await sendPasswordResetEmail(auth, email)
-  } catch (error) {
-    console.error('Error sending password reset email: ', error)
-  }
+  } catch (error) {}
 }
 
 export const doPasswordUpdate = async (password: string) => {
@@ -109,9 +102,7 @@ export const doPasswordUpdate = async (password: string) => {
     if (auth.currentUser) {
       await updatePassword(auth.currentUser, password)
     }
-  } catch (error) {
-    console.error('Error updating password: ', error)
-  }
+  } catch (error) {}
 }
 
 export const doDeleteUser = async () => {
@@ -119,9 +110,7 @@ export const doDeleteUser = async () => {
     if (auth.currentUser) {
       await deleteUser(auth.currentUser)
     }
-  } catch (error) {
-    console.error('Error deleting user: ', error)
-  }
+  } catch (error) {}
 }
 
 export const doSendEmailVerification = async () => {
@@ -134,7 +123,5 @@ export const doSendEmailVerification = async () => {
       }
       await sendEmailVerification(auth.currentUser, actionCodeSettings)
     }
-  } catch (error) {
-    console.error('Error sending email verification: ', error)
-  }
+  } catch (error) {}
 }

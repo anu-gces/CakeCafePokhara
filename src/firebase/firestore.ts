@@ -265,9 +265,7 @@ export async function editUserDetails(updatedDetails: {
   try {
     // Update the user document with the merged data
     await updateDoc(userRef, updatedUserData)
-    console.log(`User with UID ${uid} has been updated successfully.`)
   } catch (error) {
-    console.error('Error updating user details:', error)
     throw new Error('Failed to update user details.')
   }
 }
@@ -301,9 +299,7 @@ export async function deleteUser(uidToDelete: string): Promise<void> {
 
   try {
     await deleteDoc(userRef)
-    console.log(`User with UID ${uidToDelete} has been deleted`)
   } catch (error) {
-    console.error('Error deleting user:', error)
     throw new Error('Failed to delete user')
   }
 }
@@ -490,7 +486,6 @@ export async function deleteFoodItem(foodIdToDelete: string) {
     const docSnap = await getDoc(foodItemsRef)
 
     if (!docSnap.exists()) {
-      console.error('No food items document found.')
       return
     }
 
@@ -514,9 +509,7 @@ export async function deleteFoodItem(foodIdToDelete: string) {
         error,
       )
     }
-  } catch (error) {
-    console.error('Failed to delete food item:', error)
-  }
+  } catch (error) {}
 }
 
 export async function createOrderDocument(orderDetails: AddToCart) {
@@ -548,7 +541,6 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   if (batchSnap.exists()) {
     orders = batchSnap.data().orders || []
   }
-  console.log('Order data before push:', JSON.stringify(orderData, null, 2)) // <-- Add this line
 
   // Add new order
 
@@ -559,9 +551,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   try {
     await setDoc(batchRef, { orders }, { merge: true })
   } catch (err) {
-    console.error('FIRESTORE ERROR on setDoc:', err)
     // Optionally, log the problematic data for easier debugging:
-    console.error('Problematic orderData:', JSON.stringify(orderData, null, 2))
     throw err // rethrow if you want the error to propagate
   }
 }
@@ -732,10 +722,8 @@ export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
         },
     )
 
-    console.log('Last N Orders:', lastNOrders)
     return lastNOrders
   } catch (error) {
-    console.error('Error fetching last N orders:', error)
     throw error
   }
 }

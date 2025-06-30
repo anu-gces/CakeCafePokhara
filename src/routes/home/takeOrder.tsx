@@ -357,12 +357,9 @@ function CartDrawer({
             await deleteUserFcmTokenByUid(uid, token)
           }
         }
-      } catch (err) {
-        console.error('Failed to send FCM notification:', err)
-      }
+      } catch (err) {}
     },
     onError: (error: any) => {
-      console.error('Error placing order:', error)
       toast.error(`Error: ${error.message}`)
     },
   })
@@ -400,7 +397,6 @@ function CartDrawer({
       status: 'pending',
       dismissed: false, // Set dismissed to false by default
     }
-    console.log('Submitting order:', addToCart)
     enterOrderMutation.mutate(addToCart)
   }
 
@@ -777,7 +773,10 @@ function CartDrawer({
               >
                 {enterOrderMutation.isPending ? (
                   <>
-                    <LoaderIcon className="mr-2 w-4 h-4 text-white animate-spin" />
+                    <LoaderIcon
+                      color="white"
+                      className="mr-2 w-4 h-4 text-white animate-spin"
+                    />
                     Submitting...
                   </>
                 ) : (

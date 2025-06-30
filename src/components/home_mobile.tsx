@@ -126,9 +126,7 @@ export function Home() {
           if (token) {
             await saveUserFcmToken(token)
           }
-        } catch (err) {
-          console.error('Failed to get or save FCM token:', err)
-        }
+        } catch (err) {}
       }
     }
     fetchAndSaveFcmToken()

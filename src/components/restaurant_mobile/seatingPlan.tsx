@@ -5,14 +5,19 @@ const tables = [
   { tableNo: 1, colStart: 1, rowStart: 1 },
   { tableNo: 2, colStart: 1, rowStart: 2 },
   { tableNo: 3, colStart: 1, rowStart: 3 },
-  { tableNo: 4, colStart: 3, rowStart: 4 },
-  { tableNo: 5, colStart: 5, rowStart: 4 },
-  { tableNo: 6, colStart: 3, rowStart: 5 },
-  { tableNo: 7, colStart: 5, rowStart: 5 },
-  { tableNo: 8, colStart: 3, rowStart: 6 },
-  { tableNo: 9, colStart: 5, rowStart: 6 },
-  { tableNo: 10, colStart: 2, rowStart: 9 },
-  { tableNo: 11, colStart: 4, rowStart: 9 },
+  { tableNo: 4, colStart: 2, rowStart: 1 },
+
+  { tableNo: 5, colStart: 3, rowStart: 4 },
+  { tableNo: 6, colStart: 5, rowStart: 4 },
+  { tableNo: 7, colStart: 3, rowStart: 5 },
+  { tableNo: 8, colStart: 5, rowStart: 5 },
+  { tableNo: 9, colStart: 3, rowStart: 6 },
+  { tableNo: 10, colStart: 5, rowStart: 6 },
+  { tableNo: 11, colStart: 4, rowStart: 7 },
+  { tableNo: 12, colStart: 4, rowStart: 8 },
+  { tableNo: 13, colStart: 4, rowStart: 9 },
+  { tableNo: 14, colStart: 2, rowStart: 11 },
+  { tableNo: 15, colStart: 4, rowStart: 11 },
 ]
 
 export function SeatingPlan({
@@ -36,13 +41,13 @@ export function SeatingPlan({
       <div className="col-span-5 mb-2 text-muted-foreground text-xs text-center italic">
         Leave unselected for takeout/delivery (table will be set to -1)
       </div>
-      <div className="gap-4 grid grid-cols-5 grid-rows-9 auto-rows-min dark:bg-black mx-auto p-4 border-1 max-w-sm aspect-square">
+      <div className="gap-4 grid grid-cols-5 grid-rows-11 auto-rows-min dark:bg-black mx-auto p-4 border-1 max-w-sm aspect-square">
         {tables.map(({ tableNo, colStart, rowStart }) => (
           <Button
             key={tableNo}
             onClick={() => toggleTable(tableNo)}
             className={cn(
-              'flex  justify-center bg-secondary items-center p-4 rounded-none text-center hover:text-white text-foreground h-full',
+              'flex justify-center bg-secondary items-center py-3 rounded-none text-center hover:text-white text-foreground h-full ',
               `col-start-${colStart} row-start-${rowStart}`,
               selectedTable === tableNo &&
                 'ring-2 ring-primary ring-offset-2 bg-primary text-gray-200',
@@ -63,10 +68,10 @@ export function SeatingPlan({
         </div>
 
         {/* Billing area */}
-        <div className="flex justify-center items-center col-span-5 col-start-1 row-start-8 bg-indigo-300 p-4 text-white text-center">
+        <div className="flex justify-center items-center col-span-5 col-start-1 row-start-10 bg-indigo-300 p-3 text-white text-center">
           Billing Area
         </div>
-        <div className="col-start-2 row-start-1" />
+        {/* Dummy divs for empty spaces to maintain layout */}
         <div className="col-start-3 row-start-3" />
         <div className="col-start-4 row-start-3" />
         <div className="col-start-5 row-start-3" />
@@ -79,9 +84,9 @@ export function SeatingPlan({
         <div className="col-start-1 row-start-7" />
         <div className="col-start-2 row-start-7" />
         <div className="col-start-3 row-start-7" />
-        <div className="col-start-4 row-start-7" />
         <div className="col-start-5 row-start-7" />
         <div className="col-start-1 row-start-9" />
+        <div className="col-start-2 row-start-9" />
         <div className="col-start-3 row-start-9" />
         <div className="col-start-5 row-start-9" />
       </div>
