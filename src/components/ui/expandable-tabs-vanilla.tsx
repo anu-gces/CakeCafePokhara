@@ -120,7 +120,7 @@ export function ExpandableTabs({
   className,
   onChange,
 }: ExpandableTabsProps) {
-  const [selected, setSelected] = React.useState<number | null>(null)
+  const [selected, setSelected] = React.useState<number | null>(0)
   const navigate = useNavigate({ from: to })
 
   const handleSelect = (index: number) => {

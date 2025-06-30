@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  dismissOrderNotification,
   listenToAllOrders,
   listenToKanbanCardDocument,
   updateOrderStatus,
@@ -208,6 +209,7 @@ export function OrderNotification() {
           remarks,
           receiptDate,
           creditor,
+          dismissed,
         }) => (
           <div
             key={receiptId}
@@ -268,7 +270,7 @@ export function OrderNotification() {
               </div>
             )}
 
-            {status !== 'dismissed' && (
+            {!dismissed && (
               <div className="flex gap-2 mt-2">
                 {status === 'pending' &&
                   (userAdditional?.department === 'kitchen' ||
@@ -315,9 +317,7 @@ export function OrderNotification() {
                     userAdditional?.role === 'owner') && (
                     <Button
                       className="active:scale-95"
-                      onClick={() =>
-                        updateOrderStatus(docId, 'dismissed', receiptId)
-                      }
+                      onClick={() => dismissOrderNotification(docId, receiptId)}
                     >
                       Dismiss Notification
                     </Button>

@@ -638,7 +638,7 @@ export function listenToAllOrders(
 
       // Filter out cancelled/dismissed
       allOrders = allOrders.filter(
-        (order) => order.status !== 'cancelled' && order.status !== 'dismissed',
+        (order) => order.status !== 'cancelled' && order.dismissed !== true,
       )
 
       // Sort by receiptDate descending
@@ -677,6 +677,25 @@ export async function updateOrderStatus(
   if (idx === -1) throw new Error('Order not found in batch')
 
   orders[idx].status = status
+  orders[idx].updatedAt = new Date().toISOString()
+
+  await setDoc(batchRef, { orders }, { merge: true })
+}
+
+export async function dismissOrderNotification(
+  batchDocId: string,
+  receiptId: string,
+) {
+  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  const orders = batchSnap.data().orders || []
+
+  const idx = orders.findIndex((o: any) => o.receiptId === receiptId)
+  if (idx === -1) throw new Error('Order not found in batch')
+
+  orders[idx].dismissed = true
   orders[idx].updatedAt = new Date().toISOString()
 
   await setDoc(batchRef, { orders }, { merge: true })
@@ -869,11 +888,17 @@ export async function addCreditorToFirestore(creditor: Creditor) {
   return docRef.id
 }
 
-export async function getAllCreditors(): Promise<Creditor[]> {
+export async function getAllCreditors(): Promise<
+  (Creditor & { id: string })[]
+> {
   const creditorsRef = collection(db, 'creditors')
   const querySnapshot = await getDocs(creditorsRef)
-  const creditors: Creditor[] = querySnapshot.docs.map(
-    (doc) => doc.data() as Creditor,
+  const creditors = querySnapshot.docs.map(
+    (doc) =>
+      ({
+        id: doc.id, // <-- include Firestore doc ID
+        ...doc.data(),
+      }) as Creditor & { id: string },
   )
   return creditors
 }

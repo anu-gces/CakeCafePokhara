@@ -45,12 +45,12 @@ export const Route = createRootRouteWithContext<{
                 },
               }}
             />
-            <TanStackRouterDevtools position="bottom-left" />
+            {/* <TanStackRouterDevtools position="bottom-left" />
             <ReactQueryDevtools
               buttonPosition="bottom-left"
               position="bottom"
               initialIsOpen={false}
-            />
+            /> */}
           </AuthProvider>
         </div>
       </ThemeProvider>

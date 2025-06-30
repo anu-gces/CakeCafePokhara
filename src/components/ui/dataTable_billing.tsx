@@ -353,6 +353,7 @@ function ReceiptDrawer({
                 {format(new Date(data.receiptDate), "yyyy-MM-dd '@' hh:mm a")}
               </div>
             </div>
+
             <ScrollArea className="h-72 overflow-y-auto">
               <Table className="table-fixed">
                 <TableHeader>
@@ -365,10 +366,25 @@ function ReceiptDrawer({
                 <TableBody>
                   {data.items.map((item) => (
                     <TableRow key={item.foodId}>
-                      <TableCell>{item.foodName}</TableCell>
+                      <TableCell>
+                        {item.foodName}
+                        {item.selectedSubcategory &&
+                          item.selectedSubcategory.name && (
+                            <span className="ml-1 text-muted-foreground text-xs">
+                              &mdash; {item.selectedSubcategory.name}
+                            </span>
+                          )}
+                      </TableCell>
                       <TableCell className="text-center">{item.qty}</TableCell>
                       <TableCell className="text-right">
-                        Rs.{(item.qty * item.foodPrice).toFixed(2)}
+                        Rs.
+                        {(
+                          item.qty *
+                          (item.selectedSubcategory &&
+                          typeof item.selectedSubcategory.price === 'number'
+                            ? item.selectedSubcategory.price
+                            : item.foodPrice)
+                        ).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -381,7 +397,13 @@ function ReceiptDrawer({
                       Rs.
                       {data.items
                         .reduce(
-                          (sum, item) => sum + item.foodPrice * item.qty,
+                          (sum, item) =>
+                            sum +
+                            item.qty *
+                              (item.selectedSubcategory &&
+                              typeof item.selectedSubcategory.price === 'number'
+                                ? item.selectedSubcategory.price
+                                : item.foodPrice),
                           0,
                         )
                         .toFixed(2)}
@@ -396,7 +418,13 @@ function ReceiptDrawer({
                       - Rs.
                       {(
                         data.items.reduce(
-                          (sum, item) => sum + item.foodPrice * item.qty,
+                          (sum, item) =>
+                            sum +
+                            item.qty *
+                              (item.selectedSubcategory &&
+                              typeof item.selectedSubcategory.price === 'number'
+                                ? item.selectedSubcategory.price
+                                : item.foodPrice),
                           0,
                         ) *
                         (data.discountRate / 100)
@@ -412,11 +440,24 @@ function ReceiptDrawer({
                       + Rs.
                       {(
                         (data.items.reduce(
-                          (sum, item) => sum + item.foodPrice * item.qty,
+                          (sum, item) =>
+                            sum +
+                            item.qty *
+                              (item.selectedSubcategory &&
+                              typeof item.selectedSubcategory.price === 'number'
+                                ? item.selectedSubcategory.price
+                                : item.foodPrice),
                           0,
                         ) -
                           data.items.reduce(
-                            (sum, item) => sum + item.foodPrice * item.qty,
+                            (sum, item) =>
+                              sum +
+                              item.qty *
+                                (item.selectedSubcategory &&
+                                typeof item.selectedSubcategory.price ===
+                                  'number'
+                                  ? item.selectedSubcategory.price
+                                  : item.foodPrice),
                             0,
                           ) *
                             (data.discountRate / 100)) *
@@ -436,11 +477,24 @@ function ReceiptDrawer({
                       Rs.
                       {(
                         (data.items.reduce(
-                          (sum, item) => sum + item.foodPrice * item.qty,
+                          (sum, item) =>
+                            sum +
+                            item.qty *
+                              (item.selectedSubcategory &&
+                              typeof item.selectedSubcategory.price === 'number'
+                                ? item.selectedSubcategory.price
+                                : item.foodPrice),
                           0,
                         ) -
                           data.items.reduce(
-                            (sum, item) => sum + item.foodPrice * item.qty,
+                            (sum, item) =>
+                              sum +
+                              item.qty *
+                                (item.selectedSubcategory &&
+                                typeof item.selectedSubcategory.price ===
+                                  'number'
+                                  ? item.selectedSubcategory.price
+                                  : item.foodPrice),
                             0,
                           ) *
                             (data.discountRate / 100)) *
@@ -450,6 +504,28 @@ function ReceiptDrawer({
                   </TableRow>
                 </TableBody>
               </Table>
+              {/* Order Meta Info below Processed By */}
+              <div className="space-y-1 mt-4 text-xs">
+                {data.remarks && (
+                  <div>
+                    <span className="font-semibold">Remarks:</span>{' '}
+                    {data.remarks}
+                  </div>
+                )}
+                {data.creditor && (
+                  <div>
+                    <span className="font-semibold">Creditor:</span>{' '}
+                    {data.creditor}
+                  </div>
+                )}
+                {data.complementary && (
+                  <div>
+                    <span className="font-semibold text-green-600">
+                      Complementary
+                    </span>
+                  </div>
+                )}
+              </div>
             </ScrollArea>
           </div>
         </div>

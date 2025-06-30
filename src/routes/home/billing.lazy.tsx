@@ -6,12 +6,18 @@ export const Route = createLazyFileRoute('/home/billing')({
   component: () => {
     const rawOrders = useLoaderData({ from: '/home/billing' })
     const filteredOrders = rawOrders.filter(
-      (order) => order.status === 'paid' || order.status === 'dismissed',
+      (order) => order.status === 'paid' || order.status === 'credited',
     )
 
     const orders = filteredOrders.map((order) => {
       const subTotalAmount = order.items.reduce(
-        (sum, item) => sum + item.foodPrice * item.qty,
+        (sum, item) =>
+          sum +
+          item.qty *
+            (item.selectedSubcategory &&
+            typeof item.selectedSubcategory.price === 'number'
+              ? item.selectedSubcategory.price
+              : item.foodPrice),
         0,
       )
       const discountAmount = subTotalAmount * (order.discountRate / 100)

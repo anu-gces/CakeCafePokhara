@@ -31,6 +31,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
+import { ScrollArea } from '@radix-ui/react-scroll-area'
 
 export const Route = createFileRoute('/home/employee/$salaryLedger')({
   component: RouteComponent,
@@ -375,74 +376,76 @@ function LedgerDrawer({ salary }: { salary: number }) {
         >
           {({ setFieldValue, values }) => (
             <Form className="space-y-2 p-4">
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Field
-                  as={Input}
-                  id="amount"
-                  name="amount"
-                  type="number"
-                  required
-                />
-                <ErrorMessage
-                  name="amount"
-                  component="div"
-                  className="text-red-500 text-xs"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <DatePickerWithPresets
-                  selected={values.date ? new Date(values.date) : undefined}
-                  onSelect={(date) =>
-                    setFieldValue(
-                      'date',
-                      date ? date.toLocaleDateString('en-CA') : '',
-                    )
-                  }
-                />
-                <ErrorMessage
-                  name="date"
-                  component="div"
-                  className="text-red-500 text-xs"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="paidBy">Paid By</Label>
-                <Field as={Input} id="paidBy" name="paidBy" required />
-                <ErrorMessage
-                  name="paidBy"
-                  component="div"
-                  className="text-red-500 text-xs"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method</Label>
-                <Field as={Input} id="paymentMethod" name="paymentMethod" />
-                <ErrorMessage
-                  name="paymentMethod"
-                  component="div"
-                  className="text-red-500 text-xs"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reference">Reference</Label>
-                <Field as={Input} id="reference" name="reference" />
-                <ErrorMessage
-                  name="reference"
-                  component="div"
-                  className="text-red-500 text-xs"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Field as={Textarea} id="notes" name="notes" />
-                <ErrorMessage
-                  name="notes"
-                  component="div"
-                  className="text-red-500 text-xs"
-                />
-              </div>
+              <ScrollArea className="max-h-64 overflow-y-auto">
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount</Label>
+                  <Field
+                    as={Input}
+                    id="amount"
+                    name="amount"
+                    type="number"
+                    required
+                  />
+                  <ErrorMessage
+                    name="amount"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <DatePickerWithPresets
+                    selected={values.date ? new Date(values.date) : undefined}
+                    onSelect={(date) =>
+                      setFieldValue(
+                        'date',
+                        date ? date.toLocaleDateString('en-CA') : '',
+                      )
+                    }
+                  />
+                  <ErrorMessage
+                    name="date"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paidBy">Paid By</Label>
+                  <Field as={Input} id="paidBy" name="paidBy" required />
+                  <ErrorMessage
+                    name="paidBy"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentMethod">Payment Method</Label>
+                  <Field as={Input} id="paymentMethod" name="paymentMethod" />
+                  <ErrorMessage
+                    name="paymentMethod"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reference">Reference</Label>
+                  <Field as={Input} id="reference" name="reference" />
+                  <ErrorMessage
+                    name="reference"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Field as={Textarea} id="notes" name="notes" />
+                  <ErrorMessage
+                    name="notes"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+              </ScrollArea>
               <DrawerFooter>
                 <Button type="submit" disabled={enterPaymentMutation.isPending}>
                   {enterPaymentMutation.isPending ? (

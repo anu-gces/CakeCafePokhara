@@ -45,6 +45,7 @@ import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteUser, editUserDetails } from '@/firebase/firestore'
 import { useNavigate } from '@tanstack/react-router'
+import { ScrollArea } from './ui/scroll-area'
 
 export type User = {
   uid: string
@@ -292,210 +293,216 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
               >
                 {(formik) => (
                   <Form>
-                    <div className="gap-4 grid py-4">
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label htmlFor="uid" className="text-right">
-                          UID
-                        </Label>
-                        <Input
-                          id="uid"
-                          type="text"
-                          name="uid"
-                          placeholder="UID"
-                          className="col-span-3"
-                          onChange={formik.handleChange}
-                          onBlur={formik.handleBlur}
-                          value={formik.values.uid}
-                          disabled
-                        />
-                      </div>
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label className="text-right" htmlFor="email">
-                          Email
-                        </Label>
-                        <div className="space-y-1 col-span-3">
+                    <ScrollArea className="max-h-84 overflow-y-auto">
+                      <div className="gap-4 grid py-4">
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label htmlFor="uid" className="text-right">
+                            UID
+                          </Label>
                           <Input
-                            id="email"
+                            id="uid"
                             type="text"
-                            name="email"
+                            name="uid"
+                            placeholder="UID"
+                            className="col-span-3"
+                            onChange={formik.handleChange}
+                            onBlur={formik.handleBlur}
+                            value={formik.values.uid}
                             disabled
-                            placeholder="Email"
-                            className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.email && formik.errors.email ? 'border-red-500 mb-1' : ''}`}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            value={formik.values.email}
                           />
-                          {formik.touched.email && formik.errors.email ? (
-                            <p className="text-red-500 text-xs italic">
-                              {formik.errors.email}
-                            </p>
-                          ) : null}
                         </div>
-                      </div>
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label className="text-right" htmlFor="firstName">
-                          First Name
-                        </Label>
-                        <div className="space-y-1 col-span-3">
-                          <Input
-                            id="firstName"
-                            type="text"
-                            name="firstName"
-                            placeholder="First Name"
-                            className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.firstName && formik.errors.firstName ? 'border-red-500 mb-1' : ''}`}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            value={formik.values.firstName}
-                          />
-                          {formik.touched.firstName &&
-                          formik.errors.firstName ? (
-                            <p className="text-red-500 text-xs italic">
-                              {formik.errors.firstName}
-                            </p>
-                          ) : null}
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label className="text-right" htmlFor="email">
+                            Email
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Input
+                              id="email"
+                              type="text"
+                              name="email"
+                              disabled
+                              placeholder="Email"
+                              className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.email && formik.errors.email ? 'border-red-500 mb-1' : ''}`}
+                              onChange={formik.handleChange}
+                              onBlur={formik.handleBlur}
+                              value={formik.values.email}
+                            />
+                            {formik.touched.email && formik.errors.email ? (
+                              <p className="text-red-500 text-xs italic">
+                                {formik.errors.email}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label className="text-right" htmlFor="lastName">
-                          Last Name
-                        </Label>
-                        <div className="space-y-1 col-span-3">
-                          <Input
-                            id="lastName"
-                            type="text"
-                            name="lastName"
-                            placeholder="Last Name"
-                            className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.lastName && formik.errors.lastName ? 'border-red-500 mb-1' : ''}`}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            value={formik.values.lastName}
-                          />
-                          {formik.touched.lastName && formik.errors.lastName ? (
-                            <p className="text-red-500 text-xs italic">
-                              {formik.errors.lastName}
-                            </p>
-                          ) : null}
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label className="text-right" htmlFor="firstName">
+                            First Name
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Input
+                              id="firstName"
+                              type="text"
+                              name="firstName"
+                              placeholder="First Name"
+                              className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.firstName && formik.errors.firstName ? 'border-red-500 mb-1' : ''}`}
+                              onChange={formik.handleChange}
+                              onBlur={formik.handleBlur}
+                              value={formik.values.firstName}
+                            />
+                            {formik.touched.firstName &&
+                            formik.errors.firstName ? (
+                              <p className="text-red-500 text-xs italic">
+                                {formik.errors.firstName}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label
-                          className="text-right text-nowrap"
-                          htmlFor="phoneNumber"
-                        >
-                          Phone Number
-                        </Label>
-                        <div className="space-y-1 col-span-3">
-                          <Input
-                            id="phoneNumber"
-                            type="text"
-                            name="phoneNumber"
-                            placeholder="Phone Number"
-                            className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.phoneNumber && formik.errors.phoneNumber ? 'border-red-500 mb-1' : ''}`}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            value={formik.values.phoneNumber}
-                          />
-                          {formik.touched.phoneNumber &&
-                          formik.errors.phoneNumber ? (
-                            <p className="text-red-500 text-xs italic">
-                              {formik.errors.phoneNumber}
-                            </p>
-                          ) : null}
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label className="text-right" htmlFor="lastName">
+                            Last Name
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Input
+                              id="lastName"
+                              type="text"
+                              name="lastName"
+                              placeholder="Last Name"
+                              className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.lastName && formik.errors.lastName ? 'border-red-500 mb-1' : ''}`}
+                              onChange={formik.handleChange}
+                              onBlur={formik.handleBlur}
+                              value={formik.values.lastName}
+                            />
+                            {formik.touched.lastName &&
+                            formik.errors.lastName ? (
+                              <p className="text-red-500 text-xs italic">
+                                {formik.errors.lastName}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label
+                            className="text-right text-nowrap"
+                            htmlFor="phoneNumber"
+                          >
+                            Phone Number
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Input
+                              id="phoneNumber"
+                              type="text"
+                              name="phoneNumber"
+                              placeholder="Phone Number"
+                              className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.phoneNumber && formik.errors.phoneNumber ? 'border-red-500 mb-1' : ''}`}
+                              onChange={formik.handleChange}
+                              onBlur={formik.handleBlur}
+                              value={formik.values.phoneNumber}
+                            />
+                            {formik.touched.phoneNumber &&
+                            formik.errors.phoneNumber ? (
+                              <p className="text-red-500 text-xs italic">
+                                {formik.errors.phoneNumber}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
 
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label className="text-right" htmlFor="department">
-                          Department
-                        </Label>
-                        <div className="space-y-1 col-span-3">
-                          <Select
-                            name="department"
-                            value={formik.values.department}
-                            onValueChange={(value) =>
-                              formik.setFieldValue('department', value)
-                            }
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label className="text-right" htmlFor="department">
+                            Department
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Select
+                              name="department"
+                              value={formik.values.department}
+                              onValueChange={(value) =>
+                                formik.setFieldValue('department', value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select Department" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="kitchen">Kitchen</SelectItem>
+                                <SelectItem value="waiter">Waiter</SelectItem>
+                                <SelectItem value="operations">
+                                  Operations
+                                </SelectItem>
+                                <SelectItem value="management">
+                                  Management
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {formik.touched.department &&
+                            formik.errors.department ? (
+                              <div className="text-red-500">
+                                {formik.errors.department}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label className="text-right" htmlFor="role">
+                            Role
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Select
+                              name="role"
+                              value={formik.values.role}
+                              onValueChange={(value) => {
+                                formik.setFieldValue('role', value)
+                                formik.validateField('role')
+                              }}
+                            >
+                              <SelectTrigger>
+                                {formik.values.role || 'Select Role'}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="employee">
+                                  Employee
+                                </SelectItem>
+                                <SelectItem value="owner">Owner</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {formik.touched.role && formik.errors.role ? (
+                              <p className="text-red-500 text-xs italic">
+                                {formik.errors.role}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="items-center gap-4 grid grid-cols-4">
+                          <Label
+                            className="text-right text-nowrap"
+                            htmlFor="salary"
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="kitchen">Kitchen</SelectItem>
-                              <SelectItem value="waiter">Waiter</SelectItem>
-                              <SelectItem value="operations">
-                                Operations
-                              </SelectItem>
-                              <SelectItem value="management">
-                                Management
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {formik.touched.department &&
-                          formik.errors.department ? (
-                            <div className="text-red-500">
-                              {formik.errors.department}
-                            </div>
-                          ) : null}
+                            Salary
+                          </Label>
+                          <div className="space-y-1 col-span-3">
+                            <Input
+                              id="salary"
+                              type="text"
+                              name="salary"
+                              placeholder="Salary"
+                              className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.salary && formik.errors.salary ? 'border-red-500 mb-1' : ''}`}
+                              onChange={formik.handleChange}
+                              onBlur={formik.handleBlur}
+                              value={formik.values.salary}
+                            />
+                            {formik.touched.salary && formik.errors.salary ? (
+                              <p className="text-red-500 text-xs italic">
+                                {formik.errors.salary}
+                              </p>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label className="text-right" htmlFor="role">
-                          Role
-                        </Label>
-                        <div className="space-y-1 col-span-3">
-                          <Select
-                            name="role"
-                            value={formik.values.role}
-                            onValueChange={(value) => {
-                              formik.setFieldValue('role', value)
-                              formik.validateField('role')
-                            }}
-                          >
-                            <SelectTrigger>
-                              {formik.values.role || 'Select Role'}
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="employee">Employee</SelectItem>
-                              <SelectItem value="owner">Owner</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          {formik.touched.role && formik.errors.role ? (
-                            <p className="text-red-500 text-xs italic">
-                              {formik.errors.role}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="items-center gap-4 grid grid-cols-4">
-                        <Label
-                          className="text-right text-nowrap"
-                          htmlFor="salary"
-                        >
-                          Salary
-                        </Label>
-                        <div className="space-y-1 col-span-3">
-                          <Input
-                            id="salary"
-                            type="text"
-                            name="salary"
-                            placeholder="Salary"
-                            className={`appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${formik.touched.salary && formik.errors.salary ? 'border-red-500 mb-1' : ''}`}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            value={formik.values.salary}
-                          />
-                          {formik.touched.salary && formik.errors.salary ? (
-                            <p className="text-red-500 text-xs italic">
-                              {formik.errors.salary}
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
+                    </ScrollArea>
+
                     <DrawerFooter>
                       <Button type="submit">Submit</Button>
-                      <DrawerClose>
+                      <DrawerClose asChild>
                         <Button
                           variant="outline"
                           className="w-full"

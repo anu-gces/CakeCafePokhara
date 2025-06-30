@@ -73,9 +73,7 @@ export const Route = createFileRoute('/home/dashboard')({
       ),
     ])
     const filteredIncome = income.filter(
-      (order) =>
-        !order.complementary &&
-        (order.status === 'paid' || order.status === 'dismissed'),
+      (order) => !order.complementary && order.status === 'paid',
     )
     return { income: filteredIncome, kitchenLedger, bakeryLedger }
   },
@@ -105,6 +103,7 @@ const dashboardQueryIncomeOptions = ({
         complementary: false,
         items: [],
         status: 'pending',
+        dismissed: false,
       },
     ],
     staleTime: Number.POSITIVE_INFINITY,

@@ -151,7 +151,7 @@ export function ExpandableTabs({
     const unsub = listenToAllOrders((orders) => {
       // Example: count all orders that are not paid or dismissed
       const count = orders.filter(
-        (order) => order.status !== 'paid' && order.status !== 'dismissed',
+        (order) => order.status !== 'paid' && !order.dismissed,
       ).length
       setNotificationCount(count)
     })
@@ -223,7 +223,7 @@ export function ExpandableTabs({
             }}
             transition={transition}
             className={cn(
-              'relative flex items-center flex-1 rounded-xl px-4 py-2 text-sm font-medium text-center justify-center transition-colors duration-300',
+              'relative flex items-center flex-1 text-xs tiny:text-sm text-nowrap rounded-xl px-4 py-2 font-medium text-center justify-center transition-colors duration-300',
               selected === index
                 ? cn('bg-muted', activeColor)
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -239,7 +239,7 @@ export function ExpandableTabs({
                   </div>
                 </>
               )}
-              <Icon size={24} />
+              <Icon className="size-3 tiny:size-5" />
             </div>
             <AnimatePresence initial={false}>
               {selected === index && (

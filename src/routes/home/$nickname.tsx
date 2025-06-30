@@ -19,7 +19,13 @@ function getTotal(
   manualRounding: number,
 ) {
   const subtotal = items.reduce(
-    (sum, item) => sum + item.qty * item.foodPrice,
+    (sum, item) =>
+      sum +
+      item.qty *
+        (item.selectedSubcategory &&
+        typeof item.selectedSubcategory.price === 'number'
+          ? item.selectedSubcategory.price
+          : item.foodPrice),
     0,
   )
   const discount = subtotal * (discountRate / 100)
@@ -194,7 +200,14 @@ function RouteComponent() {
                         </span>
                       </span>
                       <span className="font-medium">
-                        Rs. {item.foodPrice * item.qty}
+                        Rs.{' '}
+                        {(
+                          item.qty *
+                          (item.selectedSubcategory &&
+                          typeof item.selectedSubcategory.price === 'number'
+                            ? item.selectedSubcategory.price
+                            : item.foodPrice)
+                        ).toFixed(2)}
                       </span>
                     </li>
                   ))}

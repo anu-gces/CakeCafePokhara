@@ -37,6 +37,7 @@ import {
   SparklesIcon,
   UtensilsCrossedIcon,
   SearchIcon,
+  ArrowLeftIcon,
 } from 'lucide-react'
 import {
   getFoodItems,
@@ -53,6 +54,7 @@ import { uploadMenuItemImage } from '@/firebase/firebase_storage'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import { useSearch } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 
 // Food categories configuration
 export const categories = [
@@ -796,7 +798,12 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
   })
 
   return (
-    <Drawer open={open} onOpenChange={setOpen}>
+    <Drawer
+      open={open}
+      onOpenChange={setOpen}
+      shouldScaleBackground
+      setBackgroundColorOnScale
+    >
       <DrawerTrigger asChild>
         <Button variant="outline" size="icon">
           <Trash2Icon className="w-4 h-4" />
@@ -888,6 +895,16 @@ export function MenuManagement() {
       <div className="top-0 z-50 sticky bg-transparent backdrop-blur border-b">
         <div className="flex justify-between items-center p-4">
           <div>
+            <Link
+              to="/home/takeOrder"
+              search={{ category: 'appetizers' }}
+              viewTransition={{ types: ['slide-right'] }}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:text-primary transition-colors"
+              title="Go to Orders"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+              <span className="font-medium text-sm">Go To Take Orders</span>
+            </Link>
             <h1 className="font-bold text-xl">Menu Management</h1>
             <p className="text-muted-foreground text-sm">
               Manage your restaurant menu items

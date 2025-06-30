@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from '@tanstack/react-router'
+import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
@@ -33,6 +33,7 @@ import {
   ArrowRightIcon,
   LoaderIcon,
   SearchIcon,
+  SquarePenIcon,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -62,6 +63,8 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
 export const Route = createFileRoute('/home/takeOrder')({
   validateSearch: (search: Record<string, unknown>): Search => {
@@ -164,6 +167,8 @@ function MenuCard({
       <Drawer
         open={subcategoryDrawerOpen}
         onOpenChange={setSubcategoryDrawerOpen}
+        shouldScaleBackground
+        setBackgroundColorOnScale
       >
         <DrawerContent>
           <DrawerHeader>
@@ -171,26 +176,28 @@ function MenuCard({
             <DrawerDescription>Choose your preferred option</DrawerDescription>
           </DrawerHeader>
 
-          <div className="px-4 pb-4">
-            <div className="space-y-2">
-              {food.subcategories?.map((subcategory) => (
-                <Button
-                  key={subcategory.id}
-                  variant="outline"
-                  className="justify-between bg-transparent hover:bg-primary/5 p-4 w-full h-auto"
-                  onClick={() => handleSubcategorySelect(subcategory)}
-                >
-                  <div className="text-left">
-                    <div className="font-medium">{subcategory.name}</div>
-                    <div className="text-muted-foreground text-sm">
-                      Rs. {subcategory.price.toFixed(2)}
+          <ScrollArea className="overflow-y-auto">
+            <div className="px-4 pb-4">
+              <div className="space-y-2">
+                {food.subcategories?.map((subcategory) => (
+                  <Button
+                    key={subcategory.id}
+                    variant="outline"
+                    className="justify-between bg-transparent hover:bg-primary/5 p-4 w-full h-auto"
+                    onClick={() => handleSubcategorySelect(subcategory)}
+                  >
+                    <div className="text-left">
+                      <div className="font-medium">{subcategory.name}</div>
+                      <div className="text-muted-foreground text-sm">
+                        Rs. {subcategory.price.toFixed(2)}
+                      </div>
                     </div>
-                  </div>
-                  <PlusIcon className="w-5 h-5" />
-                </Button>
-              ))}
+                    <PlusIcon className="w-5 h-5" />
+                  </Button>
+                ))}
+              </div>
             </div>
-          </div>
+          </ScrollArea>
 
           <DrawerFooter>
             <DrawerClose asChild>
@@ -260,7 +267,7 @@ export type AddToCart = {
     | 'paid'
     | 'credited'
     | 'cancelled'
-    | 'dismissed'
+  dismissed: boolean // Optional dismissed field
 }
 
 // Cart Drawer Component
@@ -391,13 +398,19 @@ function CartDrawer({
       manualRounding,
       creditor: selectedCreditor || null,
       status: 'pending',
+      dismissed: false, // Set dismissed to false by default
     }
     console.log('Submitting order:', addToCart)
     enterOrderMutation.mutate(addToCart)
   }
 
   return (
-    <Drawer open={isOpen} onOpenChange={onOpenChange}>
+    <Drawer
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      shouldScaleBackground
+      setBackgroundColorOnScale
+    >
       <TransitioningDrawerContent>
         <DrawerHeader>
           <DrawerTitle>
@@ -810,7 +823,7 @@ export function TakeOrder() {
     queryKey: ['foods'],
     queryFn: getFoodItems,
   })
-
+  const { userAdditional } = useFirebaseAuth()
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
   const { category: selectedCategory } = useSearch({ from: '/home/takeOrder' })
@@ -833,7 +846,7 @@ export function TakeOrder() {
     food: FoodItemProps,
     subcategory?: SubcategoryOption,
   ) => {
-    const finalPrice = food.foodPrice + (subcategory?.price || 0)
+    const finalPrice = subcategory ? subcategory.price : food.foodPrice
 
     setCart((prev) => {
       const existing = prev.find(
@@ -904,6 +917,19 @@ export function TakeOrder() {
       <div className="top-0 z-50 sticky bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur border-b">
         <div className="flex justify-between items-center p-4">
           <div>
+            {(userAdditional?.role === 'admin' ||
+              userAdditional?.role === 'owner') && (
+              <Link
+                to="/home/menuManagement"
+                search={{ category: 'appetizers' }}
+                viewTransition={{ types: ['slide-left'] }}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:text-primary transition-colors"
+                title="Go to Orders"
+              >
+                <span className="font-medium text-sm">Edit Menu</span>
+                <SquarePenIcon className="size-4" />
+              </Link>
+            )}
             <h1 className="font-bold text-xl">Order System</h1>
           </div>
           <div className="flex items-center gap-2">

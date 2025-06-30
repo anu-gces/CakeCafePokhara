@@ -11,7 +11,6 @@ import {
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
 import {
   BoxIcon,
-  HammerIcon,
   MicrowaveIcon,
   PartyPopperIcon,
   RefreshCcwIcon,
@@ -57,11 +56,7 @@ const tabs: TabItem[] = [
     icon: CoffeeIcon,
     to: '/home/takeOrder?category="appetizers"',
   },
-  {
-    title: 'Menu Management',
-    icon: HammerIcon,
-    to: '/home/menuManagement?category="appetizers"',
-  },
+
   {
     title: 'Notifications',
     icon: BellIcon,
