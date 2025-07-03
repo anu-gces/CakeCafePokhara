@@ -437,9 +437,15 @@ function NotificationPermissionDrawer() {
   )
 }
 
+function rubberBand(distance: number, max: number, resistance: number = 0.3) {
+  if (distance < max) return distance
+  return max + (distance - max) * resistance
+}
+
 function PullToRefresh() {
   const y = useMotionValue(0)
   const rotate = useTransform(y, (v) => v * 2)
+  const startX = useRef<number | null>(null)
   const startY = useRef<number | null>(null)
   const scrollEl = useRef<HTMLElement | null>(null)
 
@@ -471,19 +477,30 @@ function PullToRefresh() {
 
       if (isScrollableAtTop) {
         startY.current = e.touches[0].clientY
+        startX.current = e.touches[0].clientX
         scrollEl.current = scrollable
       }
     }
 
     function handleTouchMove(e: TouchEvent) {
+      if (window.__kanbanDragging) return
       if (
         startY.current !== null &&
         (scrollEl.current?.scrollTop === 0 ||
           (scrollEl.current == null && window.scrollY === 0))
       ) {
         const deltaY = e.touches[0].clientY - startY.current
+        const deltaX = e.touches[0].clientX - (startX.current ?? 0)
+        // If horizontal movement is significant, cancel pull-to-refresh
+        if (Math.abs(deltaX) > 30) {
+          startY.current = null
+          startX.current = null
+          scrollEl.current = null
+          y.set(0)
+          return
+        }
         if (deltaY > 0) {
-          y.set(Math.min(deltaY, 100))
+          y.set(rubberBand(deltaY, 100, 0.3))
           e.preventDefault()
         }
       }
@@ -502,6 +519,7 @@ function PullToRefresh() {
         },
       })
       startY.current = null
+      startX.current = null
       scrollEl.current = null
     }
 

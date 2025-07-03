@@ -49,6 +49,13 @@ import { Label } from './label'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
+declare global {
+  interface Window {
+    __kanbanDragging: boolean
+  }
+}
+
+window.__kanbanDragging = false
 type ColumnType = 'inStock' | 'runningLow' | 'outOfStock' | 'restocked'
 
 export type CardType = {
@@ -378,7 +385,7 @@ const KanbanColumn = ({
   })
 
   return (
-    <div className="flex flex-col flex-[50%] landscape:w-full max-w-[50%] h-[50%] landscape:h-full overflow-x-hidden">
+    <div className="flex flex-col flex-[50%] landscape:w-full max-w-[50%] h-[50%] landscape:h-full">
       <div className="flex justify-between items-center mb-3 p-2 px-3 border-b-2">
         <h3 className={`font-medium ${headingColor}`}>{title}</h3>
         <span className="rounded text-neutral-400 text-sm">
@@ -390,7 +397,7 @@ const KanbanColumn = ({
         onDrop={handleDragEnd}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`h-full w-full p-2 overflow-y-scroll  pr-12 transition-colors rounded ${active ? 'bg-input/100' : 'bg-black/0'}`}
+        className={`h-full w-full p-2 overflow-y-scroll overflow-x-hidden  pr-12 transition-colors rounded ${active ? 'bg-input/100' : 'bg-black/0'}`}
       >
         <KanbanAddCard column={column} setCards={setCards} />
 
@@ -583,7 +590,13 @@ const KanbanCard = ({ card, handleCardUpdate, handleDragStart }: CardProps) => {
         onClick={() => {
           setOpen(true)
         }}
-        onDragStart={(e) => handleDragStart(e, card)}
+        onDragStart={(e) => {
+          window.__kanbanDragging = true
+          handleDragStart(e, card)
+        }}
+        onDragEnd={() => {
+          window.__kanbanDragging = false
+        }}
         className="flex flex-row gap-2 bg-card shadow-sm p-2 border rounded-lg text-card-foreground cursor-grab active:cursor-grabbing"
       >
         <div className="flex-shrink-0">

@@ -34,6 +34,7 @@ import {
   LoaderIcon,
   SearchIcon,
   SquarePenIcon,
+  PartyPopperIcon,
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -807,6 +808,7 @@ function CategoryTabs() {
             { title: 'Beverages', icon: CoffeeIcon, search: 'beverages' },
             { title: 'Hard Drinks', icon: BeerIcon, search: 'hard_drinks' },
             { title: 'Specials', icon: SparklesIcon, search: 'specials' },
+            { title: 'Others', icon: PartyPopperIcon, search: 'others' },
           ]}
           to="/home/takeOrder"
           className="min-w-full"

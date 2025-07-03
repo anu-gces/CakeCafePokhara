@@ -87,7 +87,6 @@ export const uploadMenuItemImage = async (foodId: string, foodPhoto: File) => {
       throw new Error('Upload failed')
     }
   } catch (error) {
-    console.error('Error uploading to Cloudinary:', error)
     throw error
   }
 }

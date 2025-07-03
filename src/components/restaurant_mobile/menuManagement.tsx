@@ -38,6 +38,7 @@ import {
   UtensilsCrossedIcon,
   SearchIcon,
   ArrowLeftIcon,
+  PartyPopperIcon,
 } from 'lucide-react'
 import {
   getFoodItems,
@@ -65,6 +66,7 @@ export const categories = [
   { id: 'beverages', name: 'Beverages' },
   { id: 'hard_drinks', name: 'Hard Drinks' },
   { id: 'specials', name: 'Specials' },
+  { id: 'others', name: 'Others' },
 ]
 
 export type SubcategoryOption = {
@@ -96,6 +98,7 @@ function CategoryTabs() {
             { title: 'Beverages', icon: CoffeeIcon, search: 'beverages' },
             { title: 'Hard Drinks', icon: BeerIcon, search: 'hard_drinks' },
             { title: 'Specials', icon: SparklesIcon, search: 'specials' },
+            { title: 'Others', icon: PartyPopperIcon, search: 'others' },
           ]}
           to="/home/menuManagement"
           className="min-w-full"
@@ -328,6 +331,7 @@ export function AddFoodDrawer() {
                             Hard Drinks
                           </SelectItem>
                           <SelectItem value="specials">Specials</SelectItem>
+                          <SelectItem value="others">Others</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

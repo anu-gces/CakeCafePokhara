@@ -16,7 +16,7 @@ type MenuCategory =
   | 'orders'
   | 'specials'
   | 'hard_drinks'
-  | 'accessories'
+  | 'others'
 
 interface Tab {
   title: string
@@ -89,13 +89,13 @@ const TabButton = React.memo(function TabButton({
       }}
       transition={transition}
       className={cn(
-        'relative flex flex-1 justify-center items-center rounded-xl px-4 text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
+        'relative flex flex-1 justify-center items-center rounded-xl px-0  text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
         selected
           ? cn('bg-muted')
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
     >
-      <Icon className="w-3.5 tiny:w-5" />
+      <Icon className="w-3 md:w-5" />
       <AnimatePresence initial={false}>
         {selected && (
           <motion.span
@@ -104,7 +104,7 @@ const TabButton = React.memo(function TabButton({
             animate="animate"
             exit="exit"
             transition={transition}
-            className="overflow-hidden text-[12px]"
+            className="overflow-hidden text-[9px] md:text-base"
           >
             {tab.title}
           </motion.span>
