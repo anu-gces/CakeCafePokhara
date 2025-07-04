@@ -938,34 +938,55 @@ export function MenuManagement() {
       <div className="pb-32">
         <div className="space-y-0">
           {foods
-            .filter(
-              (food) =>
-                (selectedCategory === '' ||
-                  food.foodCategory === selectedCategory) &&
-                food.foodName.toLowerCase().includes(search.toLowerCase()),
-            )
+            .filter((food) => {
+              if (search.trim()) {
+                const searchLower = search.toLowerCase()
+                // Search in food name, category, and subcategory names
+                const inName = food.foodName.toLowerCase().includes(searchLower)
+                const inCategory = food.foodCategory
+                  .toLowerCase()
+                  .includes(searchLower)
+                const inSubcategory = (food.subcategories || []).some((sub) =>
+                  sub.name.toLowerCase().includes(searchLower),
+                )
+                return inName || inCategory || inSubcategory
+              } else {
+                // No search: filter by selected category only
+                return (
+                  selectedCategory === '' ||
+                  food.foodCategory === selectedCategory
+                )
+              }
+            })
             .map((food) => (
               <div key={food.foodId}>
                 <MenuItemCard food={food} />
               </div>
             ))}
         </div>
-        {foods.filter(
-          (food) =>
-            (selectedCategory === '' ||
-              food.foodCategory === selectedCategory) &&
-            food.foodName.toLowerCase().includes(search.toLowerCase()),
-        ).length === 0 && (
-          <div className="flex flex-col justify-center items-center py-12 text-muted-foreground">
-            <div className="mb-2 text-4xl">
-              <UtensilsCrossedIcon />
+        {foods.filter((food) => {
+          if (!search.trim()) return false // Only show empty state if search is active and no results
+          const searchLower = search.toLowerCase()
+          const inName = food.foodName.toLowerCase().includes(searchLower)
+          const inCategory = food.foodCategory
+            .toLowerCase()
+            .includes(searchLower)
+          const inSubcategory = (food.subcategories || []).some((sub) =>
+            sub.name.toLowerCase().includes(searchLower),
+          )
+          return inName || inCategory || inSubcategory
+        }).length === 0 &&
+          search.trim() !== '' && (
+            <div className="flex flex-col justify-center items-center py-12 text-muted-foreground">
+              <div className="mb-2 text-4xl">
+                <UtensilsCrossedIcon />
+              </div>
+              <span className="text-sm">No items match your search</span>
+              <span className="mt-1 text-[10px] tiny:text-xs">
+                Try a different search term or add a new item using the + button
+              </span>
             </div>
-            <span className="text-sm">No items match your search</span>
-            <span className="mt-1 text-[10px] tiny:text-xs">
-              Try a different search term or add a new item using the + button
-            </span>
-          </div>
-        )}
+          )}
       </div>
 
       <AddFoodDrawer />

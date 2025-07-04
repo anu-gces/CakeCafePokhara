@@ -448,6 +448,7 @@ function PullToRefresh() {
   const startX = useRef<number | null>(null)
   const startY = useRef<number | null>(null)
   const scrollEl = useRef<HTMLElement | null>(null)
+  const isPulling = useRef(false)
 
   useEffect(() => {
     function findScrollable(el: HTMLElement | null): HTMLElement | null {
@@ -465,24 +466,22 @@ function PullToRefresh() {
     }
 
     function handleTouchStart(e: TouchEvent) {
-      // Skip pull-to-refresh if any drawer is open
       if (document.querySelector('[data-state="open"]')) return
-
       const touchTarget = e.target as HTMLElement
       const scrollable = findScrollable(touchTarget)
-
       const isScrollableAtTop =
         scrollable?.scrollTop === 0 ||
         (scrollable == null && window.scrollY === 0)
-
       if (isScrollableAtTop) {
         startY.current = e.touches[0].clientY
         startX.current = e.touches[0].clientX
         scrollEl.current = scrollable
+        isPulling.current = true
       }
     }
 
     function handleTouchMove(e: TouchEvent) {
+      if (!isPulling.current) return
       if (window.__kanbanDragging) return
       if (
         startY.current !== null &&
@@ -490,15 +489,6 @@ function PullToRefresh() {
           (scrollEl.current == null && window.scrollY === 0))
       ) {
         const deltaY = e.touches[0].clientY - startY.current
-        const deltaX = e.touches[0].clientX - (startX.current ?? 0)
-        // If horizontal movement is significant, cancel pull-to-refresh
-        if (Math.abs(deltaX) > 30) {
-          startY.current = null
-          startX.current = null
-          scrollEl.current = null
-          y.set(0)
-          return
-        }
         if (deltaY > 0) {
           y.set(rubberBand(deltaY, 100, 0.3))
           e.preventDefault()
@@ -507,6 +497,7 @@ function PullToRefresh() {
     }
 
     function handleTouchEnd() {
+      if (!isPulling.current) return
       const shouldReload = y.get() >= 80
       animate(y, 0, {
         type: 'spring',
@@ -521,6 +512,7 @@ function PullToRefresh() {
       startY.current = null
       startX.current = null
       scrollEl.current = null
+      isPulling.current = false
     }
 
     window.addEventListener('touchstart', handleTouchStart, { passive: true })

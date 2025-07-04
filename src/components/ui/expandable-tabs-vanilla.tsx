@@ -104,7 +104,7 @@ const TabButton = React.memo(function TabButton({
             animate="animate"
             exit="exit"
             transition={transition}
-            className="overflow-hidden text-[9px] md:text-base"
+            className="overflow-hidden text-[10px] md:text-base"
           >
             {tab.title}
           </motion.span>
