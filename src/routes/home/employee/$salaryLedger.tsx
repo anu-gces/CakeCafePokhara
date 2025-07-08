@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, Loader2Icon, LoaderIcon, Trash2Icon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
@@ -38,7 +38,6 @@ export const Route = createFileRoute('/home/employee/$salaryLedger')({
 })
 
 function RouteComponent() {
-  const navigate = useNavigate()
   const { salaryLedger } = Route.useParams()
   const { user: userAuth, userAdditional } = useFirebaseAuth()
   const loggedinUser = { ...userAuth, ...userAdditional }
@@ -78,22 +77,16 @@ function RouteComponent() {
 
   return (
     <div className="mx-auto px-7 py-6 pb-9 max-w-xl min-h-full">
-      <Button
-        onClick={() =>
-          navigate({
-            to: '/home/employee/table',
-            viewTransition: { types: ['slide-right'] },
-          })
-        }
-        variant="ghost"
-        className="flex items-center gap-2 mb-4 text-muted-foreground"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium text-base">Back</span>
-      </Button>
-
       <div className="flex justify-between items-center mb-6">
-        <h1 className="font-bold text-primary text-2xl">Salary Ledger</h1>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/home/employee/table"
+            className="flex justify-center items-center bg-muted hover:bg-muted/80 rounded-full w-8 h-8 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <h1 className="font-bold text-primary text-2xl">Salary Ledger</h1>
+        </div>
         {loggedinUser?.role !== 'employee' && (
           <LedgerDrawer salary={user?.salary || 0} />
         )}

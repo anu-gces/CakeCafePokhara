@@ -17,6 +17,7 @@ import { Route as ProfileCompleteImport } from './routes/profileComplete'
 import { Route as HomeImport } from './routes/home'
 import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
+import { Route as HomeTestImport } from './routes/home/test'
 import { Route as HomeTakeOrderImport } from './routes/home/takeOrder'
 import { Route as HomeStockImport } from './routes/home/stock'
 import { Route as HomeNotificationsImport } from './routes/home/notifications'
@@ -29,7 +30,10 @@ import { Route as HomeNicknameImport } from './routes/home/$nickname'
 import { Route as HomeNotificationsStockNotificationImport } from './routes/home/notifications/stockNotification'
 import { Route as HomeNotificationsOrderNotificationImport } from './routes/home/notifications/orderNotification'
 import { Route as HomeEmployeeTableImport } from './routes/home/employee/table'
+import { Route as HomeEmployeeEmployeeDailyReportImport } from './routes/home/employee/employeeDailyReport'
 import { Route as HomeEmployeeSalaryLedgerImport } from './routes/home/employee/$salaryLedger'
+import { Route as HomeEmployeeEmployeeDailyReportEmployeeIdImport } from './routes/home/employee/employeeDailyReport/$employeeId'
+import { Route as HomeEmployeeEmployeeIdSalesImport } from './routes/home/employee/$employeeId/sales'
 
 // Create Virtual Routes
 
@@ -144,6 +148,12 @@ const HomeAccessoriesLazyRoute = HomeAccessoriesLazyImport.update({
   import('./routes/home/accessories.lazy').then((d) => d.Route),
 )
 
+const HomeTestRoute = HomeTestImport.update({
+  id: '/test',
+  path: '/test',
+  getParentRoute: () => HomeRoute,
+} as any)
+
 const HomeTakeOrderRoute = HomeTakeOrderImport.update({
   id: '/takeOrder',
   path: '/takeOrder',
@@ -222,11 +232,32 @@ const HomeEmployeeTableRoute = HomeEmployeeTableImport.update({
   import('./routes/home/employee/table.lazy').then((d) => d.Route),
 )
 
+const HomeEmployeeEmployeeDailyReportRoute =
+  HomeEmployeeEmployeeDailyReportImport.update({
+    id: '/employeeDailyReport',
+    path: '/employeeDailyReport',
+    getParentRoute: () => HomeEmployeeRoute,
+  } as any)
+
 const HomeEmployeeSalaryLedgerRoute = HomeEmployeeSalaryLedgerImport.update({
   id: '/$salaryLedger',
   path: '/$salaryLedger',
   getParentRoute: () => HomeEmployeeRoute,
 } as any)
+
+const HomeEmployeeEmployeeDailyReportEmployeeIdRoute =
+  HomeEmployeeEmployeeDailyReportEmployeeIdImport.update({
+    id: '/$employeeId',
+    path: '/$employeeId',
+    getParentRoute: () => HomeEmployeeEmployeeDailyReportRoute,
+  } as any)
+
+const HomeEmployeeEmployeeIdSalesRoute =
+  HomeEmployeeEmployeeIdSalesImport.update({
+    id: '/$employeeId/sales',
+    path: '/$employeeId/sales',
+    getParentRoute: () => HomeEmployeeRoute,
+  } as any)
 
 // Populate the FileRoutesByPath interface
 
@@ -323,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeTakeOrderImport
       parentRoute: typeof HomeImport
     }
+    '/home/test': {
+      id: '/home/test'
+      path: '/test'
+      fullPath: '/home/test'
+      preLoaderRoute: typeof HomeTestImport
+      parentRoute: typeof HomeImport
+    }
     '/home/accessories': {
       id: '/home/accessories'
       path: '/accessories'
@@ -400,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeEmployeeSalaryLedgerImport
       parentRoute: typeof HomeEmployeeImport
     }
+    '/home/employee/employeeDailyReport': {
+      id: '/home/employee/employeeDailyReport'
+      path: '/employeeDailyReport'
+      fullPath: '/home/employee/employeeDailyReport'
+      preLoaderRoute: typeof HomeEmployeeEmployeeDailyReportImport
+      parentRoute: typeof HomeEmployeeImport
+    }
     '/home/employee/table': {
       id: '/home/employee/table'
       path: '/table'
@@ -421,19 +466,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeNotificationsStockNotificationImport
       parentRoute: typeof HomeNotificationsImport
     }
+    '/home/employee/$employeeId/sales': {
+      id: '/home/employee/$employeeId/sales'
+      path: '/$employeeId/sales'
+      fullPath: '/home/employee/$employeeId/sales'
+      preLoaderRoute: typeof HomeEmployeeEmployeeIdSalesImport
+      parentRoute: typeof HomeEmployeeImport
+    }
+    '/home/employee/employeeDailyReport/$employeeId': {
+      id: '/home/employee/employeeDailyReport/$employeeId'
+      path: '/$employeeId'
+      fullPath: '/home/employee/employeeDailyReport/$employeeId'
+      preLoaderRoute: typeof HomeEmployeeEmployeeDailyReportEmployeeIdImport
+      parentRoute: typeof HomeEmployeeEmployeeDailyReportImport
+    }
   }
 }
 
 // Create and export the route tree
 
+interface HomeEmployeeEmployeeDailyReportRouteChildren {
+  HomeEmployeeEmployeeDailyReportEmployeeIdRoute: typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
+}
+
+const HomeEmployeeEmployeeDailyReportRouteChildren: HomeEmployeeEmployeeDailyReportRouteChildren =
+  {
+    HomeEmployeeEmployeeDailyReportEmployeeIdRoute:
+      HomeEmployeeEmployeeDailyReportEmployeeIdRoute,
+  }
+
+const HomeEmployeeEmployeeDailyReportRouteWithChildren =
+  HomeEmployeeEmployeeDailyReportRoute._addFileChildren(
+    HomeEmployeeEmployeeDailyReportRouteChildren,
+  )
+
 interface HomeEmployeeRouteChildren {
   HomeEmployeeSalaryLedgerRoute: typeof HomeEmployeeSalaryLedgerRoute
+  HomeEmployeeEmployeeDailyReportRoute: typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   HomeEmployeeTableRoute: typeof HomeEmployeeTableRoute
+  HomeEmployeeEmployeeIdSalesRoute: typeof HomeEmployeeEmployeeIdSalesRoute
 }
 
 const HomeEmployeeRouteChildren: HomeEmployeeRouteChildren = {
   HomeEmployeeSalaryLedgerRoute: HomeEmployeeSalaryLedgerRoute,
+  HomeEmployeeEmployeeDailyReportRoute:
+    HomeEmployeeEmployeeDailyReportRouteWithChildren,
   HomeEmployeeTableRoute: HomeEmployeeTableRoute,
+  HomeEmployeeEmployeeIdSalesRoute: HomeEmployeeEmployeeIdSalesRoute,
 }
 
 const HomeEmployeeRouteWithChildren = HomeEmployeeRoute._addFileChildren(
@@ -465,6 +544,7 @@ interface HomeRouteChildren {
   HomeNotificationsRoute: typeof HomeNotificationsRouteWithChildren
   HomeStockRoute: typeof HomeStockRoute
   HomeTakeOrderRoute: typeof HomeTakeOrderRoute
+  HomeTestRoute: typeof HomeTestRoute
   HomeAccessoriesLazyRoute: typeof HomeAccessoriesLazyRoute
   HomeAccountLazyRoute: typeof HomeAccountLazyRoute
   HomeBakeryLedgerLazyRoute: typeof HomeBakeryLedgerLazyRoute
@@ -487,6 +567,7 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeNotificationsRoute: HomeNotificationsRouteWithChildren,
   HomeStockRoute: HomeStockRoute,
   HomeTakeOrderRoute: HomeTakeOrderRoute,
+  HomeTestRoute: HomeTestRoute,
   HomeAccessoriesLazyRoute: HomeAccessoriesLazyRoute,
   HomeAccountLazyRoute: HomeAccountLazyRoute,
   HomeBakeryLedgerLazyRoute: HomeBakeryLedgerLazyRoute,
@@ -515,6 +596,7 @@ export interface FileRoutesByFullPath {
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
+  '/home/test': typeof HomeTestRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
@@ -526,9 +608,12 @@ export interface FileRoutesByFullPath {
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
+  '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
   '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
+  '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
+  '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
 
 export interface FileRoutesByTo {
@@ -545,6 +630,7 @@ export interface FileRoutesByTo {
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
+  '/home/test': typeof HomeTestRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
@@ -556,9 +642,12 @@ export interface FileRoutesByTo {
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
+  '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
   '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
+  '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
+  '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
 
 export interface FileRoutesById {
@@ -576,6 +665,7 @@ export interface FileRoutesById {
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
+  '/home/test': typeof HomeTestRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
@@ -587,9 +677,12 @@ export interface FileRoutesById {
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
+  '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
   '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
+  '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
+  '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
 
 export interface FileRouteTypes {
@@ -608,6 +701,7 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
+    | '/home/test'
     | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
@@ -619,9 +713,12 @@ export interface FileRouteTypes {
     | '/home/kitchenLedger'
     | '/home/settings'
     | '/home/employee/$salaryLedger'
+    | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
     | '/home/notifications/orderNotification'
     | '/home/notifications/stockNotification'
+    | '/home/employee/$employeeId/sales'
+    | '/home/employee/employeeDailyReport/$employeeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -637,6 +734,7 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
+    | '/home/test'
     | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
@@ -648,9 +746,12 @@ export interface FileRouteTypes {
     | '/home/kitchenLedger'
     | '/home/settings'
     | '/home/employee/$salaryLedger'
+    | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
     | '/home/notifications/orderNotification'
     | '/home/notifications/stockNotification'
+    | '/home/employee/$employeeId/sales'
+    | '/home/employee/employeeDailyReport/$employeeId'
   id:
     | '__root__'
     | '/'
@@ -666,6 +767,7 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
+    | '/home/test'
     | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
@@ -677,9 +779,12 @@ export interface FileRouteTypes {
     | '/home/kitchenLedger'
     | '/home/settings'
     | '/home/employee/$salaryLedger'
+    | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
     | '/home/notifications/orderNotification'
     | '/home/notifications/stockNotification'
+    | '/home/employee/$employeeId/sales'
+    | '/home/employee/employeeDailyReport/$employeeId'
   fileRoutesById: FileRoutesById
 }
 
@@ -731,6 +836,7 @@ export const routeTree = rootRoute
         "/home/notifications",
         "/home/stock",
         "/home/takeOrder",
+        "/home/test",
         "/home/accessories",
         "/home/account",
         "/home/bakeryLedger",
@@ -767,7 +873,9 @@ export const routeTree = rootRoute
       "parent": "/home",
       "children": [
         "/home/employee/$salaryLedger",
-        "/home/employee/table"
+        "/home/employee/employeeDailyReport",
+        "/home/employee/table",
+        "/home/employee/$employeeId/sales"
       ]
     },
     "/home/menuManagement": {
@@ -788,6 +896,10 @@ export const routeTree = rootRoute
     },
     "/home/takeOrder": {
       "filePath": "home/takeOrder.tsx",
+      "parent": "/home"
+    },
+    "/home/test": {
+      "filePath": "home/test.tsx",
       "parent": "/home"
     },
     "/home/accessories": {
@@ -834,6 +946,13 @@ export const routeTree = rootRoute
       "filePath": "home/employee/$salaryLedger.tsx",
       "parent": "/home/employee"
     },
+    "/home/employee/employeeDailyReport": {
+      "filePath": "home/employee/employeeDailyReport.tsx",
+      "parent": "/home/employee",
+      "children": [
+        "/home/employee/employeeDailyReport/$employeeId"
+      ]
+    },
     "/home/employee/table": {
       "filePath": "home/employee/table.tsx",
       "parent": "/home/employee"
@@ -845,6 +964,14 @@ export const routeTree = rootRoute
     "/home/notifications/stockNotification": {
       "filePath": "home/notifications/stockNotification.tsx",
       "parent": "/home/notifications"
+    },
+    "/home/employee/$employeeId/sales": {
+      "filePath": "home/employee/$employeeId/sales.tsx",
+      "parent": "/home/employee"
+    },
+    "/home/employee/employeeDailyReport/$employeeId": {
+      "filePath": "home/employee/employeeDailyReport/$employeeId.tsx",
+      "parent": "/home/employee/employeeDailyReport"
     }
   }
 }

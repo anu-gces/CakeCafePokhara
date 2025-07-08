@@ -62,7 +62,13 @@ export function Overview() {
 
   const totalRevenue = rawOrders.reduce((sum, order) => {
     const subTotal = order.items.reduce(
-      (itemSum, item) => itemSum + item.foodPrice * item.qty,
+      (itemSum, item) =>
+        itemSum +
+        item.qty *
+          (item.selectedSubcategory &&
+          typeof item.selectedSubcategory.price === 'number'
+            ? item.selectedSubcategory.price
+            : item.foodPrice),
       0,
     )
     const discount = subTotal * (order.discountRate / 100)

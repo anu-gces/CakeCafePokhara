@@ -7,7 +7,7 @@ import {
   PhoneIcon,
   SquarePenIcon,
   Trash2Icon,
-  User2,
+  User2Icon,
 } from 'lucide-react'
 import * as Yup from 'yup'
 
@@ -101,7 +101,7 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
           src={row.original.profilePicture || row.original.photoURL}
         />
         <AvatarFallback>
-          <User2 />
+          <User2Icon />
         </AvatarFallback>
       </Avatar>
     ),
@@ -249,6 +249,18 @@ export const columns: ColumnDef<DocumentData, unknown>[] = [
               >
                 <DollarSignIcon />
                 Salary Ledger
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  navigate({
+                    to: '/home/employee/employeeDailyReport/$employeeId',
+                    params: { employeeId: user.uid },
+                    viewTransition: { types: ['slide-left'] },
+                  })
+                }}
+              >
+                <User2Icon />
+                Daily Report
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
