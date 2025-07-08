@@ -82,6 +82,7 @@ function RouteComponent() {
           <Link
             to="/home/employee/table"
             className="flex justify-center items-center bg-muted hover:bg-muted/80 rounded-full w-8 h-8 transition-colors"
+            viewTransition={{ types: ['slide-right'] }}
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
