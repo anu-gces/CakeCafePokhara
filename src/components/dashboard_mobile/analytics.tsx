@@ -31,6 +31,7 @@ import {
 } from './analytics.utils'
 import { useLoaderData } from '@tanstack/react-router'
 import AnimatedCounter from '../ui/animatedCounter'
+import { CreditCardIcon, TrendingUpIcon } from 'lucide-react'
 
 export interface RevenueData {
   timestamp: string
@@ -58,7 +59,15 @@ export function AnalyticsLineChart({ data }: { data: RevenueData[] }) {
           tickFormatter={formatCompactNumber}
           width={20}
         />
-        <Tooltip />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: '#1a1a1a', // Dark gray background
+            border: '1px solid #404040', // Medium gray border
+            borderRadius: '8px',
+            color: '#ffffff', // White text
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+          }}
+        />
         <CartesianGrid stroke="#ccc" strokeWidth={1} strokeDasharray="5 5" />
         <Legend align="right" verticalAlign="top" />
 
@@ -110,7 +119,15 @@ export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
           tickFormatter={formatCompactNumber}
           width={20}
         />
-        <Tooltip />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: '#1a1a1a', // Dark gray background
+            border: '1px solid #404040', // Medium gray border
+            borderRadius: '8px',
+            color: '#ffffff', // White text
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+          }}
+        />
         <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
         <Legend align="right" verticalAlign="top" />
 
@@ -213,7 +230,20 @@ function AnalyticsPieChart() {
             />
           ))}
         </Pie>
-        <Tooltip />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: '#1a1a1a', // Dark gray background
+            border: '1px solid #404040', // Medium gray border
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+          }}
+          labelStyle={{
+            color: '#ffffff', // White text for labels
+          }}
+          itemStyle={{
+            color: '#ffffff', // White text for items
+          }}
+        />
       </PieChart>
     </ResponsiveContainer>
   )
@@ -296,19 +326,7 @@ export function Analytics() {
             <CardTitle className="font-medium text-sm">
               Average Check Size
             </CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="w-4 h-4 text-muted-foreground"
-            >
-              <rect width="20" height="14" x="2" y="5" rx="2" />
-              <path d="M2 10h20" />
-            </svg>
+            <CreditCardIcon stroke="gray" className="w-4 h-4" />
           </CardHeader>
           <CardContent>
             <div className="font-bold text-2xl">
@@ -322,18 +340,7 @@ export function Analytics() {
             <CardTitle className="font-medium text-sm">
               Gross Profit Margin
             </CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="w-4 h-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4m-2 0a6 6 0 01-6 6m6-6a6 6 0 006-6m6 0H2" />
-            </svg>
+            <TrendingUpIcon className="w-4 h-4" stroke="green" />
           </CardHeader>
           <CardContent>
             <div className="font-bold text-2xl">

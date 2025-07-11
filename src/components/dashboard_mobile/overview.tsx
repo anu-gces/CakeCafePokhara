@@ -26,7 +26,7 @@ export function OverviewBarChart({
 }) {
   return (
     <ResponsiveContainer width="100%" height={400}>
-      <BarChart data={data} margin={{ right: 12, left: 12 }}>
+      <BarChart data={data} margin={{ right: 16, left: 16 }}>
         <XAxis
           dataKey="name"
           stroke="#888888"
@@ -43,7 +43,15 @@ export function OverviewBarChart({
           width={20}
           tickFormatter={(value) => `Rs.${value}`}
         />
-        <Tooltip />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: '#1a1a1a', // Dark gray background
+            border: '1px solid #404040', // Medium gray border
+            borderRadius: '8px',
+            color: '#ffffff', // White text
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+          }}
+        />
         <Bar
           dataKey="total"
           fill="currentColor"
