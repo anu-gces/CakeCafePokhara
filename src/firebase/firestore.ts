@@ -522,7 +522,6 @@ export async function createOrderDocument(orderDetails: AddToCart) {
     userDoc?.firstName || user.displayName || user.email || 'unknown'
   const receiptId = generateReceiptId()
 
-  // Always use the provided date (guaranteed by UI logic)
   const receiptDate = orderDetails.receiptDate.toISOString()
 
   const orderData = {
@@ -534,7 +533,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   }
 
   // Use weekly batching
-  const docId = getWeeklyDocId()
+  const docId = getWeeklyDocId(orderDetails.receiptDate)
   const batchRef = doc(collection(db, 'orderHistoryWeekly'), docId)
 
   // Get current batch
