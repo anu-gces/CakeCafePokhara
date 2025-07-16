@@ -521,7 +521,9 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   const processedBy =
     userDoc?.firstName || user.displayName || user.email || 'unknown'
   const receiptId = generateReceiptId()
-  const receiptDate = new Date().toISOString()
+
+  // Always use the provided date (guaranteed by UI logic)
+  const receiptDate = orderDetails.receiptDate.toISOString()
 
   const orderData = {
     ...orderDetails,
@@ -543,22 +545,18 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   }
 
   // Add new order
-
   orders.push(orderData)
 
-  // Save back to Firestore
   // Save back to Firestore
   try {
     await setDoc(batchRef, { orders }, { merge: true })
   } catch (err) {
-    // Optionally, log the problematic data for easier debugging:
-    throw err // rethrow if you want the error to propagate
+    throw err
   }
 }
 
 export interface ProcessedOrder extends AddToCart {
   processedBy: string
-  receiptDate: string
   updatedAt: string
   receiptId: string
 }

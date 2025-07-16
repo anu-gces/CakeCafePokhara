@@ -65,6 +65,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
 export const Route = createFileRoute('/home/takeOrder')({
@@ -259,6 +260,7 @@ export type AddToCart = {
   complementary: boolean
   remarks: string
   manualRounding: number
+  receiptDate: Date // Optional manual date field
 
   creditor?: string | null // Optional creditor field
   status:
@@ -295,6 +297,8 @@ function CartDrawer({
   setSelectedCreditor,
   step,
   setStep,
+  receiptDate,
+  setReceiptDate,
 }: {
   cart: CartItem[]
   isOpen: boolean
@@ -318,6 +322,8 @@ function CartDrawer({
   setSelectedCreditor: (v: string) => void
   step: boolean
   setStep: (v: boolean) => void
+  receiptDate: Date | undefined
+  setReceiptDate: (d: Date | undefined) => void
 }) {
   const { data: creditors = [] } = useQuery({
     queryKey: ['creditors'],
@@ -394,6 +400,7 @@ function CartDrawer({
       complementary: isComplementary,
       remarks,
       manualRounding,
+      receiptDate: receiptDate ? receiptDate : new Date(),
       creditor: selectedCreditor || null,
       status: 'pending',
       dismissed: false, // Set dismissed to false by default
@@ -660,6 +667,18 @@ function CartDrawer({
                       </div>
                     </div>
                   </div>
+                  {/* Manual Date Entry */}
+                  <div className="flex mt-2">
+                    <div className="flex gap-2 bg-gray-50 dark:bg-muted p-2 w-full">
+                      <Label htmlFor="receiptDate" className="mb-1">
+                        Date (Optional)
+                      </Label>
+                      <DatePickerWithPresets
+                        selected={receiptDate}
+                        onSelect={setReceiptDate}
+                      />
+                    </div>
+                  </div>
                   {/* Remarks Row */}
                   <div className="flex mt-2">
                     <div className="flex flex-col w-full">
@@ -840,6 +859,7 @@ export function TakeOrder() {
   const [selectedCreditor, setSelectedCreditor] = useState<string>('')
   const [step, setStep] = useState(false) // Move step state to parent
   const [search, setSearch] = useState('')
+  const [receiptDate, setReceiptDate] = useState<Date | undefined>(undefined)
 
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0)
 
@@ -906,6 +926,7 @@ export function TakeOrder() {
     setSelectedCreditor('')
     setStep(false) // Reset stepper
     setCartDrawerOpen(false)
+    setReceiptDate(undefined)
   }
 
   if (isLoading) {
@@ -913,7 +934,7 @@ export function TakeOrder() {
   }
 
   return (
-    <div className="bg-background h-full">
+    <div className="bg-background h-full overflow-y-auto">
       {/* Header with Cart Summary */}
       <div className="top-0 z-50 sticky bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur border-b">
         <div className="flex justify-between items-center p-4">
@@ -1070,6 +1091,8 @@ export function TakeOrder() {
         setSelectedCreditor={setSelectedCreditor}
         step={step}
         setStep={setStep}
+        receiptDate={receiptDate}
+        setReceiptDate={setReceiptDate}
       />
     </div>
   )
