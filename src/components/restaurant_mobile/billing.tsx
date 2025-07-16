@@ -8,7 +8,6 @@ export const columns: ColumnDef<
   AddToCart & {
     processedBy: string
     receiptId: string
-    receiptDate: string
     subTotalAmount: number
     totalAmount: number
   }
