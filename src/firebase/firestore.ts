@@ -835,19 +835,15 @@ export async function getOrdersInRange(
     weekIds.map((weekId) => memoizedFetchOrderWeeklyDoc(weekId)),
   )
 
-  // rest of your existing code unchanged
   const allOrders: ProcessedOrder[] = docs.flatMap(
     (doc) => (doc?.orders || []) as ProcessedOrder[],
   )
 
-  const startDate = new Date(from)
-  const endDate = new Date(to)
-  endDate.setDate(endDate.getDate() + 1)
-
   return allOrders
     .filter((order) => {
       const orderDate = new Date(order.receiptDate)
-      return orderDate >= startDate && orderDate < endDate
+      const orderLocalDateStr = orderDate.toLocaleDateString('en-CA') // "YYYY-MM-DD"
+      return orderLocalDateStr >= from && orderLocalDateStr <= to
     })
     .sort(
       (a, b) =>
