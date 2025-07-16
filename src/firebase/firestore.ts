@@ -556,7 +556,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
 
 export interface ProcessedOrder extends AddToCart {
   processedBy: string
-  updatedAt: string
+  updatedAt: Date
   receiptId: string
 }
 
@@ -710,13 +710,7 @@ export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
   try {
     const querySnapshot = await getDocs(q)
     const lastNOrders = querySnapshot.docs.map(
-      (doc) =>
-        doc.data() as AddToCart & {
-          processedBy: string
-          receiptDate: string
-          receiptId: string
-          updatedAt: string
-        },
+      (doc) => doc.data() as ProcessedOrder,
     )
 
     return lastNOrders

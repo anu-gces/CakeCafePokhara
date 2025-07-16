@@ -92,8 +92,8 @@ const dashboardQueryIncomeOptions = ({
     placeholderData: [
       {
         receiptId: '',
-        receiptDate: '',
-        updatedAt: '',
+        receiptDate: new Date(),
+        updatedAt: new Date(),
         processedBy: '',
         discountRate: 0,
         taxRate: 0,

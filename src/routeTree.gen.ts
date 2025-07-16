@@ -17,7 +17,6 @@ import { Route as ProfileCompleteImport } from './routes/profileComplete'
 import { Route as HomeImport } from './routes/home'
 import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
-import { Route as HomeTestImport } from './routes/home/test'
 import { Route as HomeTakeOrderImport } from './routes/home/takeOrder'
 import { Route as HomeStockImport } from './routes/home/stock'
 import { Route as HomeNotificationsImport } from './routes/home/notifications'
@@ -147,12 +146,6 @@ const HomeAccessoriesLazyRoute = HomeAccessoriesLazyImport.update({
 } as any).lazy(() =>
   import('./routes/home/accessories.lazy').then((d) => d.Route),
 )
-
-const HomeTestRoute = HomeTestImport.update({
-  id: '/test',
-  path: '/test',
-  getParentRoute: () => HomeRoute,
-} as any)
 
 const HomeTakeOrderRoute = HomeTakeOrderImport.update({
   id: '/takeOrder',
@@ -354,13 +347,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeTakeOrderImport
       parentRoute: typeof HomeImport
     }
-    '/home/test': {
-      id: '/home/test'
-      path: '/test'
-      fullPath: '/home/test'
-      preLoaderRoute: typeof HomeTestImport
-      parentRoute: typeof HomeImport
-    }
     '/home/accessories': {
       id: '/home/accessories'
       path: '/accessories'
@@ -544,7 +530,6 @@ interface HomeRouteChildren {
   HomeNotificationsRoute: typeof HomeNotificationsRouteWithChildren
   HomeStockRoute: typeof HomeStockRoute
   HomeTakeOrderRoute: typeof HomeTakeOrderRoute
-  HomeTestRoute: typeof HomeTestRoute
   HomeAccessoriesLazyRoute: typeof HomeAccessoriesLazyRoute
   HomeAccountLazyRoute: typeof HomeAccountLazyRoute
   HomeBakeryLedgerLazyRoute: typeof HomeBakeryLedgerLazyRoute
@@ -567,7 +552,6 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeNotificationsRoute: HomeNotificationsRouteWithChildren,
   HomeStockRoute: HomeStockRoute,
   HomeTakeOrderRoute: HomeTakeOrderRoute,
-  HomeTestRoute: HomeTestRoute,
   HomeAccessoriesLazyRoute: HomeAccessoriesLazyRoute,
   HomeAccountLazyRoute: HomeAccountLazyRoute,
   HomeBakeryLedgerLazyRoute: HomeBakeryLedgerLazyRoute,
@@ -596,7 +580,6 @@ export interface FileRoutesByFullPath {
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
-  '/home/test': typeof HomeTestRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
@@ -630,7 +613,6 @@ export interface FileRoutesByTo {
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
-  '/home/test': typeof HomeTestRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
@@ -665,7 +647,6 @@ export interface FileRoutesById {
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
-  '/home/test': typeof HomeTestRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
@@ -701,7 +682,6 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
-    | '/home/test'
     | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
@@ -734,7 +714,6 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
-    | '/home/test'
     | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
@@ -767,7 +746,6 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
-    | '/home/test'
     | '/home/accessories'
     | '/home/account'
     | '/home/bakeryLedger'
@@ -836,7 +814,6 @@ export const routeTree = rootRoute
         "/home/notifications",
         "/home/stock",
         "/home/takeOrder",
-        "/home/test",
         "/home/accessories",
         "/home/account",
         "/home/bakeryLedger",
@@ -896,10 +873,6 @@ export const routeTree = rootRoute
     },
     "/home/takeOrder": {
       "filePath": "home/takeOrder.tsx",
-      "parent": "/home"
-    },
-    "/home/test": {
-      "filePath": "home/test.tsx",
       "parent": "/home"
     },
     "/home/accessories": {
