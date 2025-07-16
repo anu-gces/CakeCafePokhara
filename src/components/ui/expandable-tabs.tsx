@@ -151,7 +151,10 @@ export function ExpandableTabs({
     const unsub = listenToAllOrders((orders) => {
       // Example: count all orders that are not paid or dismissed
       const count = orders.filter(
-        (order) => order.status !== 'paid' && !order.dismissed,
+        (order) =>
+          order.status !== 'paid' &&
+          order.status !== 'credited' &&
+          !order.dismissed,
       ).length
       setNotificationCount(count)
     })

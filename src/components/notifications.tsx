@@ -209,6 +209,7 @@ export function OrderNotification() {
           remarks,
           receiptDate,
           creditor,
+          complementary,
           dismissed,
         }) => (
           <div
@@ -325,8 +326,10 @@ export function OrderNotification() {
 
                 {/* Cancel button for admin, billing, and manager */}
                 {(userAdditional?.role === 'admin' ||
-                  userAdditional?.department === 'billing' ||
-                  userAdditional?.role === 'owner') && (
+                  userAdditional?.role === 'owner' ||
+                  (status !== 'paid' &&
+                    status !== 'credited' &&
+                    userAdditional?.department === 'billing')) && (
                   <Button
                     variant="outline"
                     className="active:scale-95"
@@ -338,6 +341,22 @@ export function OrderNotification() {
                     Cancel Order
                   </Button>
                 )}
+              </div>
+            )}
+            {creditor && (
+              <div className="bg-muted/50 mt-2 p-2 rounded text-xs">
+                <strong>Creditor:</strong>
+                <pre className="mt-1 text-xs">
+                  {JSON.stringify(creditor, null, 2)}
+                </pre>
+              </div>
+            )}
+            {typeof complementary !== 'undefined' && complementary && (
+              <div className="bg-muted/50 mt-2 p-2 rounded text-xs">
+                <strong>Complementary:</strong>
+                <pre className="mt-1 text-xs">
+                  {JSON.stringify(complementary, null, 2)}
+                </pre>
               </div>
             )}
           </div>
