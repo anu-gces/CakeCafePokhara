@@ -80,7 +80,14 @@ export function Overview() {
   }, 0)
 
   const ordersByDay = rawOrders.reduce((acc: Record<string, number>, order) => {
-    const day = format(parseISO(order.receiptDate), 'EEEE') // Get the day of the week
+    // Ensure receiptDate is always an ISO string
+    const dateStr =
+      typeof order.receiptDate === 'string'
+        ? order.receiptDate
+        : order.receiptDate instanceof Date
+          ? order.receiptDate.toISOString()
+          : String(order.receiptDate)
+    const day = format(parseISO(dateStr), 'EEEE') // Get the day of the week
     acc[day] = (acc[day] || 0) + 1 // Increment the count for the day
     return acc
   }, {})
@@ -113,7 +120,14 @@ export function Overview() {
 
   const monthlyRevenue = Array.from({ length: 12 }, (_, index) => {
     const monthOrders = rawOrders.filter((order) => {
-      const month = parseISO(order.receiptDate).getMonth() // 0-indexed (Jan = 0)
+      // Ensure receiptDate is always an ISO string
+      const dateStr =
+        typeof order.receiptDate === 'string'
+          ? order.receiptDate
+          : order.receiptDate instanceof Date
+            ? order.receiptDate.toISOString()
+            : String(order.receiptDate)
+      const month = parseISO(dateStr).getMonth() // 0-indexed (Jan = 0)
       return month === index
     })
 
