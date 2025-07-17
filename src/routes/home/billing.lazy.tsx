@@ -1,10 +1,19 @@
 import { DataTable } from '@/components/ui/dataTable_billing'
-import { createLazyFileRoute, useLoaderData } from '@tanstack/react-router'
+import { createLazyFileRoute } from '@tanstack/react-router'
 import { columns } from '@/components/restaurant_mobile/billing'
+import { getAllOrders, type ProcessedOrder } from '@/firebase/firestore'
+import { useQuery } from '@tanstack/react-query'
 
 export const Route = createLazyFileRoute('/home/billing')({
   component: () => {
-    const rawOrders = useLoaderData({ from: '/home/billing' })
+    const { data: rawOrders = [] } = useQuery<ProcessedOrder[]>({
+      queryKey: ['getAllOrders'],
+      queryFn: getAllOrders,
+      placeholderData: [],
+      staleTime: Number.POSITIVE_INFINITY,
+      gcTime: Number.POSITIVE_INFINITY,
+    })
+
     const filteredOrders = rawOrders.filter(
       (order) => order.status === 'paid' || order.status === 'credited',
     )
@@ -23,7 +32,11 @@ export const Route = createLazyFileRoute('/home/billing')({
       const discountAmount = subTotalAmount * (order.discountRate / 100)
       const taxAmount =
         (subTotalAmount - discountAmount) * (order.taxRate / 100)
-      const totalAmount = subTotalAmount - discountAmount + taxAmount
+      const totalAmount =
+        subTotalAmount -
+        discountAmount +
+        taxAmount +
+        (order.manualRounding || 0)
 
       return {
         ...order,
@@ -33,7 +46,7 @@ export const Route = createLazyFileRoute('/home/billing')({
     })
 
     return (
-      <div className="px-4">
+      <div className="flex flex-col px-4 h-full overflow-y-clip">
         <h1 className="font-bold text-primary text-2xl text-left">
           Order History
         </h1>
@@ -41,12 +54,12 @@ export const Route = createLazyFileRoute('/home/billing')({
           columns={columns}
           data={orders || []}
           filterColumnId="receiptDate"
-          visibleColumns={[
-            'receiptId',
-            'totalAmount',
-            'receiptDate',
-            'processedBy',
-          ]}
+          // visibleColumns={[
+          //   'receiptId',
+          //   'totalAmount',
+          //   'receiptDate',
+          //   'processedBy',
+          // ]}
         />
       </div>
     )

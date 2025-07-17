@@ -260,6 +260,6 @@ html:active-view-transition-type(fade-zoom) {
   }
 }
 
-@utility no-scrollbar {
+/* @utility no-scrollbar {
   @apply [scrollbar-width:none] [&::-webkit-scrollbar]:hidden;
-}
+} */

@@ -1,15 +1,14 @@
 import {
   type ColumnDef,
   type ColumnFiltersState,
-  type Row,
   type SortingState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import * as React from 'react'
 
 import {
@@ -29,26 +28,9 @@ import {
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  ChevronLeft,
-  ChevronRight,
-  SearchIcon,
-  SlidersHorizontal,
-} from 'lucide-react'
+import { SearchIcon, SlidersHorizontal } from 'lucide-react'
 import { Label } from './label'
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from './drawer'
-import type { AddToCart } from '@/routes/home/takeOrder'
-import CakeCafeLogo from '@/assets/Logob.png'
-import { format } from 'date-fns'
-import { ScrollArea } from '@radix-ui/react-scroll-area'
+
 import { Switch } from './switch'
 
 interface DataTableProps<TData, TValue> {
@@ -90,17 +72,13 @@ export function DataTable<TData, TValue>({
     [],
   )
 
-  const [selectedRow, setSelectedRow] = React.useState<Row<TData> | null>(null)
-  const [receiptOpen, setReceiptOpen] = React.useState(false)
   const table = useReactTable({
     data,
     columns,
-
     columnResizeMode: 'onChange',
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
@@ -110,10 +88,6 @@ export function DataTable<TData, TValue>({
       columnVisibility,
     },
     initialState: {
-      pagination: {
-        pageIndex: 0,
-        pageSize: 6,
-      },
       sorting: [
         {
           id: 'receiptDate',
@@ -123,13 +97,29 @@ export function DataTable<TData, TValue>({
     },
   })
 
-  const handleRowClick = (row: Row<TData>) => {
-    setSelectedRow(row) // Set the selected row to show in the drawer
-    setReceiptOpen(true) // Open the drawer
-  }
+  // Get filtered rows for virtualization
+  const { rows } = table.getRowModel()
+
+  // Create a ref for the table container
+  const tableContainerRef = React.useRef<HTMLDivElement>(null)
+
+  // Set up virtualization
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 60, // Estimated row height in pixels
+    overscan: 10, // Number of items to render outside the visible area
+  })
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const totalSize = rowVirtualizer.getTotalSize()
+
+  // const handleRowClick = (row: Row<TData>) => {
+  //   setSelectedRow(row) // Set the selected row to show in the drawer
+  //   setReceiptOpen(true) // Open the drawer
+  // }
 
   return (
-    <div className="flex flex-col pb-4 h-full">
+    <div className="flex flex-col pb-4 h-full overflow-y-clip">
       <div className="flex justify-between items-center py-2 w-full transition-all duration-1000">
         <div className="relative">
           <Label className="block relative max-w-sm cursor-pointer">
@@ -204,8 +194,8 @@ export function DataTable<TData, TValue>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="flex-grow h-full">
-        <Table className="border rounded-md">
+      <div className="flex-grow h-full overflow-y-auto" ref={tableContainerRef}>
+        <Table className="rounded-md table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -225,12 +215,20 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {/* Top spacer */}
+            {virtualItems.length > 0 && (
+              <tr style={{ height: `${virtualItems[0].start}px` }} />
+            )}
+
+            {/* Render only virtualized rows */}
+            {virtualItems.map((virtualRow) => {
+              const row = rows[virtualRow.index]
+              return (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  onClick={() => handleRowClick(row)} // Handle row click
+                  // onClick={() => handleRowClick(row)}
+                  style={{ height: `${virtualRow.size}px` }}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -241,8 +239,19 @@ export function DataTable<TData, TValue>({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
-            ) : (
+              )
+            })}
+
+            {/* Bottom spacer */}
+            {virtualItems.length > 0 && (
+              <tr
+                style={{
+                  height: `${totalSize - virtualItems[virtualItems.length - 1].end}px`,
+                }}
+              />
+            )}
+            {/* No results fallback */}
+            {virtualItems.length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
@@ -255,7 +264,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
         {/* Render Drawer When Row is Clicked */}
-        {selectedRow && (
+        {/* {selectedRow && (
           <ReceiptDrawer
             data={
               selectedRow.original as AddToCart & {
@@ -267,9 +276,9 @@ export function DataTable<TData, TValue>({
             receiptOpen={receiptOpen}
             setReceiptOpen={setReceiptOpen}
           />
-        )}
+        )} */}
       </div>
-      <div className="flex justify-center items-center space-x-2">
+      {/* <div className="flex justify-center items-center space-x-2">
         <Button
           variant="outline"
           size="sm"
@@ -291,251 +300,7 @@ export function DataTable<TData, TValue>({
         >
           <ChevronRight />
         </Button>
-      </div>
+      </div> */}
     </div>
-  )
-}
-
-function ReceiptDrawer({
-  data,
-  receiptOpen,
-  setReceiptOpen,
-}: {
-  data: AddToCart & {
-    processedBy: string
-    receiptId: string
-    receiptDate: string
-  }
-  receiptOpen: boolean
-  setReceiptOpen: (open: boolean) => void
-}) {
-  return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={receiptOpen}
-      onOpenChange={setReceiptOpen}
-    >
-      <DrawerContent>
-        <DrawerHeader>
-          <div className="flex md:flex-row flex-col md:justify-center lg:justify-center items-center gap-4 p-2">
-            <div className="flex items-center gap-4">
-              <img
-                src={CakeCafeLogo}
-                width="48"
-                height="48"
-                alt="Company Logo"
-                className="rounded-md"
-              />
-              <div className="gap-2 grid">
-                <DrawerTitle className="font-bold text-xl">
-                  Cake Cafe<sup className="text-[12px]">TM</sup>
-                </DrawerTitle>
-                <DrawerDescription className="text-gray-500 dark:text-gray-400 text-sm">
-                  Jwalakhel-8, Pokhara
-                  <br />
-                  Phone: +061-531234
-                  <br />
-                  Email: info@CakeCafe.com.np
-                </DrawerDescription>
-              </div>
-            </div>
-          </div>
-        </DrawerHeader>
-
-        <div className="mx-auto w-full print:max-w-[300px] max-w-sm font-mono print:text-xs text-sm">
-          <div className="bg-white dark:bg-black p-4 border border-border">
-            <h2 className="mb-4 font-bold text-center">Receipt</h2>
-            <div className="mb-4 text-xs text-center">
-              <div>ID: {data.receiptId}</div>
-              <div>
-                Date:{' '}
-                {format(new Date(data.receiptDate), "yyyy-MM-dd '@' hh:mm a")}
-              </div>
-            </div>
-
-            <ScrollArea className="h-72 overflow-y-auto">
-              <Table className="table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-left">Item</TableHead>
-                    <TableHead className="text-center">Qty</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.items.map((item) => (
-                    <TableRow key={item.foodId}>
-                      <TableCell>
-                        {item.foodName}
-                        {item.selectedSubcategory &&
-                          item.selectedSubcategory.name && (
-                            <span className="ml-1 text-muted-foreground text-xs">
-                              &mdash; {item.selectedSubcategory.name}
-                            </span>
-                          )}
-                      </TableCell>
-                      <TableCell className="text-center">{item.qty}</TableCell>
-                      <TableCell className="text-right">
-                        Rs.
-                        {(
-                          item.qty *
-                          (item.selectedSubcategory &&
-                          typeof item.selectedSubcategory.price === 'number'
-                            ? item.selectedSubcategory.price
-                            : item.foodPrice)
-                        ).toFixed(2)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-
-                  <TableRow>
-                    <TableCell colSpan={2} className="font-semibold text-right">
-                      Sub Total
-                    </TableCell>
-                    <TableCell className="font-bold text-right">
-                      Rs.
-                      {data.items
-                        .reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        )
-                        .toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-right">
-                      Discount ({data.discountRate}%)
-                    </TableCell>
-                    <TableCell className="text-right text-nowrap">
-                      - Rs.
-                      {(
-                        data.items.reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        ) *
-                        (data.discountRate / 100)
-                      ).toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-right">
-                      Tax ({data.taxRate}%)
-                    </TableCell>
-                    <TableCell className="text-right text-nowrap">
-                      + Rs.
-                      {(
-                        (data.items.reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        ) -
-                          data.items.reduce(
-                            (sum, item) =>
-                              sum +
-                              item.qty *
-                                (item.selectedSubcategory &&
-                                typeof item.selectedSubcategory.price ===
-                                  'number'
-                                  ? item.selectedSubcategory.price
-                                  : item.foodPrice),
-                            0,
-                          ) *
-                            (data.discountRate / 100)) *
-                        (data.taxRate / 100)
-                      ).toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-
-                  <TableRow>
-                    <TableCell className="text-gray-500 text-xs text-left">
-                      Processed By: {data.processedBy}
-                    </TableCell>
-                    <TableCell className="font-semibold text-right">
-                      Total
-                    </TableCell>
-                    <TableCell className="font-bold text-right">
-                      Rs.
-                      {(
-                        (data.items.reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        ) -
-                          data.items.reduce(
-                            (sum, item) =>
-                              sum +
-                              item.qty *
-                                (item.selectedSubcategory &&
-                                typeof item.selectedSubcategory.price ===
-                                  'number'
-                                  ? item.selectedSubcategory.price
-                                  : item.foodPrice),
-                            0,
-                          ) *
-                            (data.discountRate / 100)) *
-                        (1 + data.taxRate / 100)
-                      ).toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-              {/* Order Meta Info below Processed By */}
-              <div className="space-y-1 mt-4 text-xs">
-                {data.remarks && (
-                  <div>
-                    <span className="font-semibold">Remarks:</span>{' '}
-                    {data.remarks}
-                  </div>
-                )}
-                {data.creditor && (
-                  <div>
-                    <span className="font-semibold">Creditor:</span>{' '}
-                    {data.creditor}
-                  </div>
-                )}
-                {data.complementary && (
-                  <div>
-                    <span className="font-semibold text-green-600">
-                      Complementary
-                    </span>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-
-        <DrawerFooter>
-          <DrawerClose asChild>
-            <Button className="w-full">Close</Button>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
   )
 }

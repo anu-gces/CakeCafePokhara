@@ -522,7 +522,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
     userDoc?.firstName || user.displayName || user.email || 'unknown'
   const receiptId = generateReceiptId()
 
-  const receiptDate = orderDetails.receiptDate.toISOString()
+  const receiptDate = orderDetails.receiptDate
 
   const orderData = {
     ...orderDetails,
@@ -533,7 +533,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   }
 
   // Use weekly batching
-  const docId = getWeeklyDocId(orderDetails.receiptDate)
+  const docId = getWeeklyDocId(new Date(orderDetails.receiptDate))
   const batchRef = doc(collection(db, 'orderHistoryWeekly'), docId)
 
   // Get current batch
@@ -556,7 +556,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
 
 export interface ProcessedOrder extends AddToCart {
   processedBy: string
-  updatedAt: Date
+  updatedAt: string
   receiptId: string
 }
 
@@ -574,6 +574,84 @@ export async function getAllOrders(): Promise<ProcessedOrder[]> {
       new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
   )
   return allOrders
+}
+
+export async function editOrder(
+  originalBatchDocId: string,
+  updatedOrder: ProcessedOrder,
+) {
+  const originalBatchRef = doc(db, 'orderHistoryWeekly', originalBatchDocId)
+  const originalBatchSnap = await getDoc(originalBatchRef)
+  if (!originalBatchSnap.exists()) throw new Error('Original batch not found')
+
+  const originalOrders: ProcessedOrder[] = originalBatchSnap.data().orders || []
+  const orderIndex = originalOrders.findIndex(
+    (o) => o.receiptId === updatedOrder.receiptId,
+  )
+  if (orderIndex === -1) throw new Error('Order not found in original batch')
+
+  const oldOrder = originalOrders[orderIndex]
+  const oldDate = new Date(oldOrder.receiptDate)
+  const newDate = new Date(updatedOrder.receiptDate)
+
+  const oldDocId = getWeeklyDocId(oldDate)
+  const newDocId = getWeeklyDocId(newDate)
+
+  updatedOrder.updatedAt = new Date().toISOString()
+
+  if (oldDocId === newDocId) {
+    // Same week: update in-place
+    originalOrders[orderIndex] = { ...oldOrder, ...updatedOrder }
+    await setDoc(originalBatchRef, { orders: originalOrders }, { merge: true })
+  } else {
+    // Remove from old batch
+    const updatedOriginalOrders = originalOrders.filter(
+      (o) => o.receiptId !== updatedOrder.receiptId,
+    )
+    await setDoc(
+      originalBatchRef,
+      { orders: updatedOriginalOrders },
+      { merge: true },
+    )
+
+    // Add to new batch
+    const newBatchRef = doc(db, 'orderHistoryWeekly', newDocId)
+    const newBatchSnap = await getDoc(newBatchRef)
+    let newOrders: ProcessedOrder[] = []
+
+    if (newBatchSnap.exists()) {
+      newOrders = newBatchSnap.data().orders || []
+    }
+
+    newOrders.push(updatedOrder)
+    await setDoc(newBatchRef, { orders: newOrders }, { merge: true })
+  }
+}
+
+export async function deleteOrder(batchDocId: string, receiptId: string) {
+  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  let orders = batchSnap.data().orders || []
+  orders = orders.filter((o: any) => o.receiptId !== receiptId)
+  await setDoc(batchRef, { orders }, { merge: true })
+}
+
+export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
+  const orderHistoryRef = collection(db, 'orderHistory')
+  const q = query(orderHistoryRef, orderBy('receiptDate', 'desc'), limit(n))
+
+  try {
+    const querySnapshot = await getDocs(q)
+    const lastNOrders = querySnapshot.docs.map(
+      (doc) => doc.data() as ProcessedOrder,
+    )
+
+    return lastNOrders
+  } catch (error) {
+    throw error
+  }
 }
 
 // export function listenToAllOrders(
@@ -692,32 +770,6 @@ export async function dismissOrderNotification(
 //   const orderRef = doc(db, 'orderHistory', docId)
 //   await deleteDoc(orderRef)
 // }
-
-export async function deleteOrder(batchDocId: string, receiptId: string) {
-  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
-  const batchSnap = await getDoc(batchRef)
-  if (!batchSnap.exists()) throw new Error('Batch document not found')
-
-  let orders = batchSnap.data().orders || []
-  orders = orders.filter((o: any) => o.receiptId !== receiptId)
-  await setDoc(batchRef, { orders }, { merge: true })
-}
-
-export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
-  const orderHistoryRef = collection(db, 'orderHistory')
-  const q = query(orderHistoryRef, orderBy('receiptDate', 'desc'), limit(n))
-
-  try {
-    const querySnapshot = await getDocs(q)
-    const lastNOrders = querySnapshot.docs.map(
-      (doc) => doc.data() as ProcessedOrder,
-    )
-
-    return lastNOrders
-  } catch (error) {
-    throw error
-  }
-}
 
 // export async function getOrdersInRange(
 //   from: string,

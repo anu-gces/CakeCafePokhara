@@ -260,7 +260,7 @@ export type AddToCart = {
   complementary: boolean
   remarks: string
   manualRounding: number
-  receiptDate: Date // Optional manual date field
+  receiptDate: string // Optional manual date field
 
   creditor?: string | null // Optional creditor field
   status:
@@ -400,7 +400,10 @@ function CartDrawer({
       complementary: isComplementary,
       remarks,
       manualRounding,
-      receiptDate: receiptDate ? receiptDate : new Date(),
+      receiptDate: receiptDate
+        ? receiptDate.toISOString()
+        : new Date().toISOString(),
+
       creditor: selectedCreditor || null,
       status: 'pending',
       dismissed: false, // Set dismissed to false by default
