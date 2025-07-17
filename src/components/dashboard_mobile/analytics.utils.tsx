@@ -217,13 +217,8 @@ export function mapToRevenueData({
   for (const order of income) {
     // Exclude complementary and unpaid orders
 
-    // Ensure date is always an ISO string
-    const date =
-      typeof order.receiptDate === 'string'
-        ? order.receiptDate
-        : order.receiptDate instanceof Date
-          ? order.receiptDate.toISOString()
-          : String(order.receiptDate)
+    // receiptDate is always an ISO string
+    const date = order.receiptDate
 
     const orderSubtotal = order.items.reduce(
       (acc, item) => acc + item.foodPrice * item.qty,
