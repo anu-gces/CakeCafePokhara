@@ -46,6 +46,83 @@ import { getWeeklyDocId } from '@/firebase/firestore.utils'
 
 export const columns: ColumnDef<ProcessedOrder>[] = [
   {
+    id: 'actions',
+    accessorKey: 'actions',
+    header: 'Actions',
+    cell: ({ row }) => {
+      const order = row.original
+      const [isEditDrawerOpen, setEditDrawerOpen] = React.useState(false)
+      const [isDeleteDrawerOpen, setDeleteDrawerOpen] = React.useState(false)
+      const [isReceiptDrawerOpen, setReceiptDrawerOpen] = React.useState(false)
+
+      return (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="p-0 w-8 h-8"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setReceiptDrawerOpen(true)
+                }}
+              >
+                <EyeIcon /> View Receipt
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEditDrawerOpen(true)
+                }}
+              >
+                <SquarePenIcon /> Edit Order
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-primary focus:text-rose-400"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setDeleteDrawerOpen(true)
+                }}
+              >
+                <Trash2Icon /> Delete Order
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {isReceiptDrawerOpen && (
+            <ReceiptDrawer
+              data={order}
+              receiptOpen={isReceiptDrawerOpen}
+              setReceiptOpen={setReceiptDrawerOpen}
+            />
+          )}
+          {isEditDrawerOpen && (
+            <EditDrawer
+              isEditDrawerOpen={isEditDrawerOpen}
+              setEditDrawerOpen={setEditDrawerOpen}
+              order={order}
+            />
+          )}
+          {isDeleteDrawerOpen && (
+            <DeleteDrawer
+              isDeleteDrawerOpen={isDeleteDrawerOpen}
+              setDeleteDrawerOpen={setDeleteDrawerOpen}
+              order={order}
+            />
+          )}
+        </>
+      )
+    },
+  },
+  {
     accessorKey: 'receiptId',
     id: 'receiptId',
     header: 'Receipt ID',
@@ -156,83 +233,6 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
     accessorKey: 'processedBy',
     id: 'processedBy',
     header: 'Processed By',
-  },
-  {
-    id: 'actions',
-    accessorKey: 'actions',
-    header: 'Actions',
-    cell: ({ row }) => {
-      const order = row.original
-      const [isEditDrawerOpen, setEditDrawerOpen] = React.useState(false)
-      const [isDeleteDrawerOpen, setDeleteDrawerOpen] = React.useState(false)
-      const [isReceiptDrawerOpen, setReceiptDrawerOpen] = React.useState(false)
-
-      return (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="p-0 w-8 h-8"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setReceiptDrawerOpen(true)
-                }}
-              >
-                <EyeIcon /> View Receipt
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setEditDrawerOpen(true)
-                }}
-              >
-                <SquarePenIcon /> Edit Order
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-primary focus:text-rose-400"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setDeleteDrawerOpen(true)
-                }}
-              >
-                <Trash2Icon /> Delete Order
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {isReceiptDrawerOpen && (
-            <ReceiptDrawer
-              data={order}
-              receiptOpen={isReceiptDrawerOpen}
-              setReceiptOpen={setReceiptDrawerOpen}
-            />
-          )}
-          {isEditDrawerOpen && (
-            <EditDrawer
-              isEditDrawerOpen={isEditDrawerOpen}
-              setEditDrawerOpen={setEditDrawerOpen}
-              order={order}
-            />
-          )}
-          {isDeleteDrawerOpen && (
-            <DeleteDrawer
-              isDeleteDrawerOpen={isDeleteDrawerOpen}
-              setDeleteDrawerOpen={setDeleteDrawerOpen}
-              order={order}
-            />
-          )}
-        </>
-      )
-    },
   },
 ]
 
