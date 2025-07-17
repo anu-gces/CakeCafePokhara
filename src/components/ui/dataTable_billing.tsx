@@ -194,8 +194,11 @@ export function DataTable<TData, TValue>({
           </DropdownMenu>
         </div>
       </div>
-      <div className="flex-grow h-full overflow-y-auto" ref={tableContainerRef}>
-        <Table className="rounded-md table-fixed">
+      <div
+        className="flex-grow h-full overflow-x-auto overflow-y-auto"
+        ref={tableContainerRef}
+      >
+        <Table className="rounded-md">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
