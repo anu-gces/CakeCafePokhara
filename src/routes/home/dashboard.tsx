@@ -162,6 +162,7 @@ const dashboardQueryBakeryLedgerOptions = ({
         itemName: '',
         quantity: 0,
         unit: '',
+        paymentStatus: 'paid',
         price: 0,
         notes: '',
         addedBy: '',
