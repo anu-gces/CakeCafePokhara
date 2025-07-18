@@ -196,7 +196,9 @@ function AnalyticsPieChart() {
         const itemValue = item.foodPrice * item.qty
         const itemIncome =
           orderSubtotal > 0 ? (itemValue / orderSubtotal) * finalOrderTotal : 0
-        acc[category] = (acc[category] || 0) + itemIncome
+        // Round to 2 decimal places to avoid floating point precision issues
+        acc[category] =
+          Math.round(((acc[category] || 0) + itemIncome) * 100) / 100
       })
       return acc
     },
@@ -206,7 +208,7 @@ function AnalyticsPieChart() {
   // Convert to pie chart data format
   const pieData = Object.entries(categoryMap).map(([name, value]) => ({
     name,
-    value,
+    value: Math.round(value * 100) / 100, // Round to 2 decimal places
   }))
   return (
     <ResponsiveContainer width="100%" height={400}>
@@ -243,6 +245,9 @@ function AnalyticsPieChart() {
           itemStyle={{
             color: '#ffffff', // White text for items
           }}
+          formatter={(value: number) => [
+            `Rs. ${value.toFixed(2)}`, // Format tooltip values to 2 decimal places
+          ]}
         />
       </PieChart>
     </ResponsiveContainer>
