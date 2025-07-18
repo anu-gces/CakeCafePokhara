@@ -574,24 +574,19 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
   })
 
   return (
-    <Drawer
-      shouldScaleBackground
-      setBackgroundColorOnScale
-      open={open}
-      onOpenChange={setOpen}
-    >
-      <DrawerTrigger asChild>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
         <Button variant="outline" size="icon">
           <PencilIcon className="w-4 h-4" />
         </Button>
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Edit Food Item</DrawerTitle>
-          <DrawerDescription>
+      </SheetTrigger>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>Edit Food Item</SheetTitle>
+          <SheetDescription>
             Update the details of {food.foodName}. Click save when you're done.
-          </DrawerDescription>
-        </DrawerHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <Formik<FoodItemProps>
           initialValues={food}
@@ -761,7 +756,7 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
                 </div>
               </ScrollArea>
 
-              <DrawerFooter>
+              <SheetFooter>
                 <Button
                   className="text-white"
                   type="submit"
@@ -773,17 +768,17 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
                     'Submit'
                   )}
                 </Button>
-                <DrawerClose asChild>
+                <SheetClose asChild>
                   <Button variant="outline" type="button">
                     Cancel
                   </Button>
-                </DrawerClose>
-              </DrawerFooter>
+                </SheetClose>
+              </SheetFooter>
             </Form>
           )}
         </Formik>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   )
 }
 
