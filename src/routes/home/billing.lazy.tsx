@@ -1,6 +1,10 @@
 import { DataTable } from '@/components/ui/dataTable_billing'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { columns } from '@/components/restaurant_mobile/billing'
+import {
+  calculateOrderTotal,
+  calculateOrderSubtotal,
+} from '@/components/dashboard_mobile/dashboard.utils'
 import { getAllOrders, type ProcessedOrder } from '@/firebase/firestore'
 import { useQuery } from '@tanstack/react-query'
 
@@ -19,28 +23,12 @@ export const Route = createLazyFileRoute('/home/billing')({
     )
 
     const orders = filteredOrders.map((order) => {
-      const subTotalAmount = order.items.reduce(
-        (sum, item) =>
-          sum +
-          item.qty *
-            (item.selectedSubcategory &&
-            typeof item.selectedSubcategory.price === 'number'
-              ? item.selectedSubcategory.price
-              : item.foodPrice),
-        0,
-      )
-      const discountAmount = subTotalAmount * (order.discountRate / 100)
-      const taxAmount =
-        (subTotalAmount - discountAmount) * (order.taxRate / 100)
-      const totalAmount =
-        subTotalAmount -
-        discountAmount +
-        taxAmount +
-        (order.manualRounding || 0)
+      const subTotalAmount = calculateOrderSubtotal(order.items)
+      const totalAmount = calculateOrderTotal(order)
 
       return {
         ...order,
-        subTotalAmount, // Add the total to the order object
+        subTotalAmount,
         totalAmount,
       }
     })

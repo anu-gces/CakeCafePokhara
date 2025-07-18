@@ -3,6 +3,7 @@ import type { RevenueData } from './analytics'
 import type { ProcessedOrder } from '@/firebase/firestore'
 import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
 import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
+import { calculateOrderTotal } from './dashboard.utils'
 
 export function groupDataByHour(dataArray: RevenueData[]) {
   return Object.values(
@@ -220,28 +221,25 @@ export function mapToRevenueData({
     // receiptDate is always an ISO string
     const date = order.receiptDate
 
-    const orderSubtotal = order.items.reduce(
-      (acc, item) => acc + item.foodPrice * item.qty,
-      0,
-    )
-    // Apply discount
-    const discountedSubtotal =
-      orderSubtotal * (1 - (order.discountRate || 0) / 100)
-    // Apply tax
-    const taxedSubtotal = discountedSubtotal * (1 + (order.taxRate || 0) / 100)
+    // Use centralized calculation for order total
+    const orderTotal = calculateOrderTotal(order)
 
     if (!dataMap.has(date)) {
       dataMap.set(date, { timestamp: date, income: 0, expenditure: 0 })
     }
-    dataMap.get(date)!.income += taxedSubtotal
+    dataMap.get(date)!.income += orderTotal
   }
 
   for (const item of kitchenLedger) {
-    if (item.addedAt) push(item.addedAt, 0, item.price)
+    if (item.addedAt && item.paymentStatus === 'paid') {
+      push(item.addedAt, 0, item.price * item.quantity)
+    }
   }
 
   for (const item of bakeryLedger) {
-    if (item.addedAt) push(item.addedAt, 0, item.price)
+    if (item.addedAt && item.paymentStatus === 'paid') {
+      push(item.addedAt, 0, item.price * item.quantity)
+    }
   }
 
   return Array.from(dataMap.values()).sort((a, b) =>

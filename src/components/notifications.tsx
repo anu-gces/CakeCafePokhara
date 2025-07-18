@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import {
   dismissOrderNotification,
   listenToAllOrders,
@@ -41,9 +42,9 @@ const tabs: TabItem[] = [
 
 export function Notifications() {
   return (
-    <div className="h-full">
+    <div className="p-2 h-full">
       <div>
-        <ExpandableTabs className="ml-4 max-w-48" tabs={tabs} />
+        <ExpandableTabs className="ml-3 max-w-48" tabs={tabs} />
       </div>
       <Outlet />
     </div>
@@ -199,169 +200,179 @@ export function OrderNotification() {
 
   return (
     <div className="space-y-3 p-3">
-      {orders.map(
-        ({
-          docId,
-          receiptId,
-          status,
-          tableNumber,
-          items,
-          remarks,
-          receiptDate,
-          creditor,
-          complementary,
-          dismissed,
-        }) => (
-          <div
-            key={receiptId}
-            className="group bg-card shadow-sm p-4 border rounded-xl transition"
-          >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex items-center gap-2">
-                <UtensilsIcon className="w-5 h-5 text-muted-foreground" />
-                <span className="font-medium text-sm">Table {tableNumber}</span>
-              </div>
-              <div className="flex flex-col items-end gap-0.5">
-                {status === 'pending' && (
-                  <span className="inline-flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full font-medium text-yellow-800 dark:text-yellow-300 text-xs">
-                    <AnimatedClockIcon width={15} height={15} />
-                    Preparing
+      <AnimatePresence mode="popLayout">
+        {orders.map(
+          ({
+            docId,
+            receiptId,
+            status,
+            tableNumber,
+            items,
+            remarks,
+            receiptDate,
+            creditor,
+            complementary,
+            dismissed,
+          }) => (
+            <motion.div
+              key={receiptId}
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -100 }}
+              className="bg-card shadow-sm p-4 border rounded-xl"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-2">
+                  <UtensilsIcon className="w-5 h-5 text-muted-foreground" />
+                  <span className="font-medium text-sm">
+                    Table {tableNumber}
                   </span>
-                )}
-                {status === 'ready_to_serve' && (
-                  <span className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full font-medium text-green-800 dark:text-green-300 text-xs">
-                    <CheckIcon className="w-3 h-3" />
-                    Ready to Serve
-                  </span>
-                )}
-                {status === 'ready_to_pay' && (
-                  <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full font-medium text-blue-800 dark:text-blue-300 text-xs">
-                    <HandIcon className="w-3 h-3" />
-                    Ready to Pay
-                  </span>
-                )}
-                {status === 'paid' && (
-                  <span className="inline-flex items-center gap-1 bg-rose-100 dark:bg-rose-900/30 px-2 py-0.5 rounded-full font-medium text-rose-800 dark:text-rose-300 text-xs">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Paid
-                  </span>
-                )}
-                <div className="text-[10px] text-muted-foreground">
-                  Placed{' '}
-                  {formatDistanceToNow(new Date(receiptDate), {
-                    addSuffix: true,
-                  })}
+                </div>
+                <div className="flex flex-col items-end gap-0.5">
+                  {status === 'pending' && (
+                    <span className="inline-flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full font-medium text-yellow-800 dark:text-yellow-300 text-xs">
+                      <AnimatedClockIcon width={15} height={15} />
+                      Preparing
+                    </span>
+                  )}
+                  {status === 'ready_to_serve' && (
+                    <span className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full font-medium text-green-800 dark:text-green-300 text-xs">
+                      <CheckIcon className="w-3 h-3" />
+                      Ready to Serve
+                    </span>
+                  )}
+                  {status === 'ready_to_pay' && (
+                    <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full font-medium text-blue-800 dark:text-blue-300 text-xs">
+                      <HandIcon className="w-3 h-3" />
+                      Ready to Pay
+                    </span>
+                  )}
+                  {status === 'paid' && (
+                    <span className="inline-flex items-center gap-1 bg-rose-100 dark:bg-rose-900/30 px-2 py-0.5 rounded-full font-medium text-rose-800 dark:text-rose-300 text-xs">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Paid
+                    </span>
+                  )}
+                  <div className="text-[10px] text-muted-foreground">
+                    Placed{' '}
+                    {formatDistanceToNow(new Date(receiptDate), {
+                      addSuffix: true,
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="mb-1 text-muted-foreground text-sm">
-              {items
-                .map((item) =>
-                  item.selectedSubcategory
-                    ? `${item.foodName} (${item.selectedSubcategory.name}) ×${item.qty}`
-                    : `${item.foodName} ×${item.qty}`,
-                )
-                .join(', ')}
-            </div>
-
-            {remarks && (
-              <div className="mb-1 text-muted-foreground text-xs italic">
-                “{remarks}”
+              <div className="mb-1 text-muted-foreground text-sm">
+                {items
+                  .map((item) =>
+                    item.selectedSubcategory
+                      ? `${item.foodName} (${item.selectedSubcategory.name}) ×${item.qty}`
+                      : `${item.foodName} ×${item.qty}`,
+                  )
+                  .join(', ')}
               </div>
-            )}
 
-            {!dismissed && (
-              <div className="flex gap-2 mt-2">
-                {status === 'pending' &&
-                  (userAdditional?.department === 'kitchen' ||
-                    userAdditional?.role === 'owner') && (
+              {remarks && (
+                <div className="mb-1 text-muted-foreground text-xs italic">
+                  “{remarks}”
+                </div>
+              )}
+
+              {!dismissed && (
+                <div className="flex gap-2 mt-2">
+                  {status === 'pending' &&
+                    (userAdditional?.department === 'kitchen' ||
+                      userAdditional?.role === 'owner') && (
+                      <Button
+                        className="active:scale-95"
+                        onClick={() =>
+                          updateOrderStatus(docId, 'ready_to_serve', receiptId)
+                        }
+                      >
+                        Mark as Prepared
+                      </Button>
+                    )}
+                  {status === 'ready_to_serve' &&
+                    (userAdditional?.department === 'waiter' ||
+                      userAdditional?.role === 'owner') && (
+                      <Button
+                        className="active:scale-95"
+                        onClick={() =>
+                          updateOrderStatus(docId, 'ready_to_pay', receiptId)
+                        }
+                      >
+                        Mark as Served
+                      </Button>
+                    )}
+                  {status === 'ready_to_pay' &&
+                    (userAdditional?.department === 'billing' ||
+                      userAdditional?.role === 'owner') && (
+                      <Button
+                        className="active:scale-95"
+                        onClick={() =>
+                          updateOrderStatus(
+                            docId,
+                            creditor ? 'credited' : 'paid', // Use 'credited' if creditor exists
+                            receiptId,
+                          )
+                        }
+                      >
+                        {creditor ? 'Mark as Credited' : 'Mark as Paid'}
+                      </Button>
+                    )}
+                  {(status === 'paid' || status === 'credited') &&
+                    (userAdditional?.department === 'billing' ||
+                      userAdditional?.role === 'owner') && (
+                      <Button
+                        className="active:scale-95"
+                        onClick={() =>
+                          dismissOrderNotification(docId, receiptId)
+                        }
+                      >
+                        Dismiss Notification
+                      </Button>
+                    )}
+
+                  {/* Cancel button for admin, billing, and manager */}
+                  {(userAdditional?.role === 'admin' ||
+                    userAdditional?.role === 'owner' ||
+                    (status !== 'paid' &&
+                      status !== 'credited' &&
+                      userAdditional?.department === 'billing')) && (
                     <Button
+                      variant="outline"
                       className="active:scale-95"
                       onClick={() =>
-                        updateOrderStatus(docId, 'ready_to_serve', receiptId)
+                        updateOrderStatus(docId, 'cancelled', receiptId)
                       }
                     >
-                      Mark as Prepared
+                      <XIcon className="mr-1 w-4 h-4" />
+                      Cancel Order
                     </Button>
                   )}
-                {status === 'ready_to_serve' &&
-                  (userAdditional?.department === 'waiter' ||
-                    userAdditional?.role === 'owner') && (
-                    <Button
-                      className="active:scale-95"
-                      onClick={() =>
-                        updateOrderStatus(docId, 'ready_to_pay', receiptId)
-                      }
-                    >
-                      Mark as Served
-                    </Button>
-                  )}
-                {status === 'ready_to_pay' &&
-                  (userAdditional?.department === 'billing' ||
-                    userAdditional?.role === 'owner') && (
-                    <Button
-                      className="active:scale-95"
-                      onClick={() =>
-                        updateOrderStatus(
-                          docId,
-                          creditor ? 'credited' : 'paid', // Use 'credited' if creditor exists
-                          receiptId,
-                        )
-                      }
-                    >
-                      {creditor ? 'Mark as Credited' : 'Mark as Paid'}
-                    </Button>
-                  )}
-                {(status === 'paid' || status === 'credited') &&
-                  (userAdditional?.department === 'billing' ||
-                    userAdditional?.role === 'owner') && (
-                    <Button
-                      className="active:scale-95"
-                      onClick={() => dismissOrderNotification(docId, receiptId)}
-                    >
-                      Dismiss Notification
-                    </Button>
-                  )}
-
-                {/* Cancel button for admin, billing, and manager */}
-                {(userAdditional?.role === 'admin' ||
-                  userAdditional?.role === 'owner' ||
-                  (status !== 'paid' &&
-                    status !== 'credited' &&
-                    userAdditional?.department === 'billing')) && (
-                  <Button
-                    variant="outline"
-                    className="active:scale-95"
-                    onClick={() =>
-                      updateOrderStatus(docId, 'cancelled', receiptId)
-                    }
-                  >
-                    <XIcon className="mr-1 w-4 h-4" />
-                    Cancel Order
-                  </Button>
-                )}
-              </div>
-            )}
-            {creditor && (
-              <div className="bg-muted/50 mt-2 p-2 rounded text-xs">
-                <strong>Creditor:</strong>
-                <pre className="mt-1 text-xs">
-                  {JSON.stringify(creditor, null, 2)}
-                </pre>
-              </div>
-            )}
-            {typeof complementary !== 'undefined' && complementary && (
-              <div className="bg-muted/50 mt-2 p-2 rounded text-xs">
-                <strong>Complementary:</strong>
-                <pre className="mt-1 text-xs">
-                  {JSON.stringify(complementary, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        ),
-      )}
+                </div>
+              )}
+              {creditor && (
+                <div className="bg-muted/50 mt-2 p-2 rounded text-xs">
+                  <strong>Creditor:</strong>
+                  <pre className="mt-1 text-xs">
+                    {JSON.stringify(creditor, null, 2)}
+                  </pre>
+                </div>
+              )}
+              {typeof complementary !== 'undefined' && complementary && (
+                <div className="bg-muted/50 mt-2 p-2 rounded text-xs">
+                  <strong>Complementary:</strong>
+                  <pre className="mt-1 text-xs">
+                    {JSON.stringify(complementary, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </motion.div>
+          ),
+        )}
+      </AnimatePresence>
     </div>
   )
 }

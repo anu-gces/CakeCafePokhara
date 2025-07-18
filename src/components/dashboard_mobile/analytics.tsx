@@ -32,6 +32,11 @@ import {
 import { useLoaderData } from '@tanstack/react-router'
 import AnimatedCounter from '../ui/animatedCounter'
 import { CreditCardIcon, TrendingUpIcon } from 'lucide-react'
+import {
+  calculateTotalRevenue,
+  calculateOrderTotal,
+  calculateTotalExpenditure,
+} from './dashboard.utils'
 
 export interface RevenueData {
   timestamp: string
@@ -176,26 +181,21 @@ function AnalyticsPieChart() {
     (acc, order) => {
       // Ignore complementary and unpaid orders
 
-      // Calculate subtotal for this order
+      // Calculate order total using centralized function
+      const finalOrderTotal = calculateOrderTotal(order)
+
+      // Calculate subtotal for proportional distribution
       let orderSubtotal = 0
       order.items.forEach((item) => {
         orderSubtotal += item.foodPrice * item.qty
       })
 
-      // Apply discount
-      const discountedSubtotal =
-        orderSubtotal * (1 - (order.discountRate || 0) / 100)
-
-      // Apply tax
-      const taxedSubtotal =
-        discountedSubtotal * (1 + (order.taxRate || 0) / 100)
-
-      // Distribute taxedSubtotal proportionally to each item's value
+      // Distribute finalOrderTotal proportionally to each item's value
       order.items.forEach((item) => {
         const category = item.foodCategory || 'Uncategorized'
         const itemValue = item.foodPrice * item.qty
         const itemIncome =
-          orderSubtotal > 0 ? (itemValue / orderSubtotal) * taxedSubtotal : 0
+          orderSubtotal > 0 ? (itemValue / orderSubtotal) * finalOrderTotal : 0
         acc[category] = (acc[category] || 0) + itemIncome
       })
       return acc
@@ -257,12 +257,16 @@ export function Analytics() {
   const revenueData = mapToRevenueData({ income, kitchenLedger, bakeryLedger })
 
   const data = groupRevenueData(revenueData)
-  const totalIncome = revenueData.reduce((sum, item) => sum + item.income, 0)
-  const totalExpenditure = revenueData.reduce(
-    (sum, item) => sum + item.expenditure,
-    0,
+
+  // Calculate total income directly from orders to include manual rounding and delivery fee
+  const totalIncomeFromOrders = calculateTotalRevenue(income)
+
+  const totalIncome = totalIncomeFromOrders
+  const totalExpenditure = calculateTotalExpenditure(
+    kitchenLedger,
+    bakeryLedger,
   )
-  const totalOrders = revenueData.length
+  const totalOrders = income.length
   //make avgchecksie upto 2 digits after decimal
   const avgCheckSize = totalOrders > 0 ? totalIncome / totalOrders : 0
 

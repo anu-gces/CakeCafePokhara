@@ -1128,6 +1128,33 @@ export async function deleteKitchenLedgerItem(itemId: string) {
   return itemId
 }
 
+// Update a kitchen ledger item's payment status in the correct weekly batch
+export async function updateKitchenLedgerItemPaymentStatus(
+  itemId: string,
+  paymentStatus: 'paid' | 'credited',
+) {
+  const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
+  let batchDocId: string | null = null
+  let items: KitchenLedgerItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const updatedItems = items.map((item: any) =>
+    item.id === itemId ? { ...item, paymentStatus } : item,
+  )
+  await setDoc(
+    doc(db, 'kitchenLedgerWeekly', batchDocId),
+    { items: updatedItems },
+    { merge: true },
+  )
+  return itemId
+}
+
 export async function getAllBakeryLedgerItems(): Promise<BakeryLedgerItem[]> {
   const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
   let allItems: BakeryLedgerItem[] = []
@@ -1210,6 +1237,33 @@ export async function deleteBakeryLedgerItem(itemId: string) {
   await setDoc(
     doc(db, 'bakeryLedgerWeekly', batchDocId),
     { items: newItems },
+    { merge: true },
+  )
+  return itemId
+}
+
+// Update a bakery ledger item's payment status in the correct weekly batch
+export async function updateBakeryLedgerItemPaymentStatus(
+  itemId: string,
+  paymentStatus: 'paid' | 'credited',
+) {
+  const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
+  let batchDocId: string | null = null
+  let items: BakeryLedgerItem[] = []
+  snapshot.forEach((doc) => {
+    const batchItems = doc.data().items || []
+    if (batchItems.some((item: any) => item.id === itemId)) {
+      batchDocId = doc.id
+      items = batchItems
+    }
+  })
+  if (!batchDocId) throw new Error('Item not found in any batch')
+  const updatedItems = items.map((item: any) =>
+    item.id === itemId ? { ...item, paymentStatus } : item,
+  )
+  await setDoc(
+    doc(db, 'bakeryLedgerWeekly', batchDocId),
+    { items: updatedItems },
     { merge: true },
   )
   return itemId

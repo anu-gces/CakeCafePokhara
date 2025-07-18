@@ -18,11 +18,16 @@ import {
 import AnimatedCounter from '../ui/animatedCounter'
 import { RecentSales } from './recentsales'
 import { format, parseISO } from 'date-fns'
+import {
+  calculateTotalRevenue,
+  calculateOrderTotal,
+  calculateTotalExpenditure,
+} from './dashboard.utils'
 
 export function OverviewBarChart({
   data,
 }: {
-  data: { name: string; total: number }[]
+  data: { name: string; revenue: number; expense: number }[]
 }) {
   return (
     <ResponsiveContainer width="100%" height={400}>
@@ -53,10 +58,17 @@ export function OverviewBarChart({
           }}
         />
         <Bar
-          dataKey="total"
-          fill="currentColor"
+          dataKey="revenue"
+          fill="#16a34a"
           radius={[4, 4, 0, 0]}
-          className="fill-primary"
+          name="Revenue"
+          animationDuration={1000}
+        />
+        <Bar
+          dataKey="expense"
+          fill="#e11d48"
+          radius={[4, 4, 0, 0]}
+          name="Expense"
           animationDuration={1000}
         />
       </BarChart>
@@ -66,18 +78,13 @@ export function OverviewBarChart({
 
 export function Overview() {
   const navigate = useNavigate()
-  const { income: rawOrders } = useLoaderData({ from: '/home/dashboard' }) // Default to empty array if no orders
+  const {
+    income: rawOrders,
+    kitchenLedger,
+    bakeryLedger,
+  } = useLoaderData({ from: '/home/dashboard' }) // Default to empty array if no orders
 
-  const totalRevenue = rawOrders.reduce((sum, order) => {
-    const subTotal = order.items.reduce(
-      (itemSum, item) => itemSum + item.foodPrice * item.qty,
-      0,
-    )
-    const discount = subTotal * (order.discountRate / 100)
-    const tax = (subTotal - discount) * (order.taxRate / 100)
-    const total = subTotal - discount + tax
-    return sum + total
-  }, 0)
+  const totalRevenue = calculateTotalRevenue(rawOrders)
 
   const ordersByDay = rawOrders.reduce((acc: Record<string, number>, order) => {
     // receiptDate is always an ISO string
@@ -119,19 +126,30 @@ export function Overview() {
       return month === index
     })
 
-    const total = monthOrders.reduce((sum, order) => {
-      const subTotal = order.items.reduce(
-        (itemSum, item) => itemSum + item.foodPrice * item.qty,
-        0,
-      )
-      const discount = subTotal * (order.discountRate / 100)
-      const tax = (subTotal - discount) * (order.taxRate / 100)
-      return sum + subTotal - discount + tax
+    const revenue = monthOrders.reduce((sum, order) => {
+      return sum + calculateOrderTotal(order)
     }, 0)
+
+    // Calculate expenses for this month
+    const monthKitchenLedger = kitchenLedger.filter((item) => {
+      const month = parseISO(item.addedAt).getMonth()
+      return month === index
+    })
+
+    const monthBakeryLedger = bakeryLedger.filter((item) => {
+      const month = parseISO(item.addedAt).getMonth()
+      return month === index
+    })
+
+    const expense = calculateTotalExpenditure(
+      monthKitchenLedger,
+      monthBakeryLedger,
+    )
 
     return {
       name: format(new Date(2023, index), 'MMM'),
-      total: Math.round(total),
+      revenue: Math.round(revenue),
+      expense: Math.round(expense),
     }
   })
 

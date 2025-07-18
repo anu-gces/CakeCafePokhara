@@ -256,7 +256,6 @@ function AvatarDrawer() {
         <DrawerFooter>
           <div className="flex items-center space-x-3 rounded-md text-muted-foreground hover:text-foreground text-sm cursor-pointer">
             <ModeToggle />
-            <span>Toggle Light/Dark Mode</span>
           </div>
           <DrawerClose asChild>
             <Button onClick={() => logoutMutation.mutate()}>Logout</Button>

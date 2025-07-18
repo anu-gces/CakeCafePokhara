@@ -31,6 +31,13 @@ import {
 } from '@/components/ui/drawer'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
@@ -153,6 +160,13 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   },
 
   {
+    accessorKey: 'deliveryFee',
+    id: 'deliveryFee',
+    header: 'Delivery Fee',
+    cell: ({ getValue }) => `Rs. ${(getValue<number>() || 0).toFixed(2)}`, // Format the value with "Rs." and two decimal places
+  },
+
+  {
     accessorKey: 'totalAmount',
     id: 'totalAmount',
     header: 'Total Amount',
@@ -204,6 +218,11 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
     header: 'Creditor',
   },
   {
+    accessorKey: 'paymentMethod',
+    id: 'paymentMethod',
+    header: 'Payment Method',
+  },
+  {
     accessorKey: 'remarks',
     id: 'remarks',
     header: ({ column }) => {
@@ -218,6 +237,7 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
       )
     },
   },
+
   {
     accessorKey: 'complementary',
     id: 'complementary',
@@ -261,6 +281,7 @@ const EditDrawer = ({
     complementary: order.complementary || false,
     tableNumber: order.tableNumber || 0,
     manualRounding: order.manualRounding || 0,
+    paymentMethod: order.paymentMethod || 'cash',
   }
 
   // Yup validation schema
@@ -276,6 +297,9 @@ const EditDrawer = ({
     complementary: Yup.boolean(),
     tableNumber: Yup.number().required('Table Number is required'),
     manualRounding: Yup.number(),
+    paymentMethod: Yup.string()
+      .oneOf(['cash', 'bank', 'esewa'])
+      .required('Payment Method is required'),
   })
 
   const queryClient = useQueryClient()
@@ -321,6 +345,10 @@ const EditDrawer = ({
                 ...order,
                 ...values,
                 receiptDate: new Date(values.receiptDate).toISOString(),
+                paymentMethod: values.paymentMethod as
+                  | 'cash'
+                  | 'bank'
+                  | 'esewa',
               }
 
               editOrderMutation.mutate({
@@ -498,6 +526,35 @@ const EditDrawer = ({
                       value={formik.values.remarks}
                       onChange={formik.handleChange}
                     />
+                  </div>
+                  <div>
+                    <Label
+                      className="mb-1 font-semibold text-xs"
+                      htmlFor="paymentMethod"
+                    >
+                      Payment Method
+                    </Label>
+                    <Select
+                      value={formik.values.paymentMethod}
+                      onValueChange={(value) =>
+                        formik.setFieldValue('paymentMethod', value)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bank">Bank</SelectItem>
+                        <SelectItem value="esewa">eSewa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formik.touched.paymentMethod &&
+                      formik.errors.paymentMethod && (
+                        <div className="text-red-500 text-xs">
+                          {formik.errors.paymentMethod}
+                        </div>
+                      )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox

@@ -34,6 +34,7 @@ import {
   addBakeryLedgerItem,
   deleteBakeryLedgerItem,
   getAllBakeryLedgerItems,
+  updateBakeryLedgerItemPaymentStatus,
 } from '@/firebase/firestore' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 
@@ -41,6 +42,7 @@ export type BakeryLedgerItem = {
   id: string
   itemName: string
   quantity: number
+  paymentStatus: 'paid' | 'credited'
   unit: string
   price: number
   notes?: string
@@ -54,6 +56,7 @@ export const Route = createLazyFileRoute('/home/bakeryLedger')({
 
 function RouteComponent() {
   const { userAdditional } = useFirebaseAuth()
+  const queryClient = useQueryClient()
 
   // Fetch bakeryLedger collection
   const {
@@ -63,6 +66,25 @@ function RouteComponent() {
   } = useQuery<BakeryLedgerItem[]>({
     queryKey: ['bakeryLedger'],
     queryFn: getAllBakeryLedgerItems,
+  })
+
+  const updatePaymentStatusMutation = useMutation({
+    mutationFn: async ({
+      itemId,
+      paymentStatus,
+    }: {
+      itemId: string
+      paymentStatus: 'paid' | 'credited'
+    }) => {
+      return await updateBakeryLedgerItemPaymentStatus(itemId, paymentStatus)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bakeryLedger'] })
+      toast.success('Payment status updated successfully!')
+    },
+    onError: (error) => {
+      toast.error(`Error updating payment status: ${error.message}`)
+    },
   })
 
   if (isLoading) {
@@ -162,9 +184,52 @@ function RouteComponent() {
                             <h3 className="font-semibold text-primary text-base">
                               {item.itemName}
                             </h3>
-                            <Badge variant="outline" className="text-xs">
-                              {new Date(item.addedAt).toLocaleDateString()}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  item.paymentStatus === 'paid'
+                                    ? 'default'
+                                    : 'secondary'
+                                }
+                                className={`text-xs ${
+                                  item.paymentStatus === 'paid'
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                    : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                                }`}
+                              >
+                                {item.paymentStatus === 'paid'
+                                  ? 'Paid'
+                                  : 'Credited'}
+                              </Badge>
+                              {item.paymentStatus === 'credited' && (
+                                <Button
+                                  size="sm"
+                                  className="px-2 h-6 text-xs"
+                                  onClick={() =>
+                                    updatePaymentStatusMutation.mutate({
+                                      itemId: item.id,
+                                      paymentStatus: 'paid',
+                                    })
+                                  }
+                                  disabled={
+                                    updatePaymentStatusMutation.isPending
+                                  }
+                                >
+                                  {updatePaymentStatusMutation.isPending && (
+                                    <>
+                                      <LoaderIcon
+                                        color="white"
+                                        className="mr-2 w-4 h-4 animate-spin"
+                                      />
+                                    </>
+                                  )}
+                                  Mark as Paid
+                                </Button>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {new Date(item.addedAt).toLocaleDateString()}
+                              </Badge>
+                            </div>
                           </div>
                           {/* Item details */}
                           <div className="gap-2 grid grid-cols-2 mb-2 text-muted-foreground text-xs">
@@ -294,6 +359,9 @@ const LedgerSchema = Yup.object().shape({
     .typeError('Price must be a number')
     .positive('Price must be greater than zero')
     .required('Price is required'),
+  paymentStatus: Yup.string()
+    .oneOf(['paid', 'credited'])
+    .required('Payment status is required'),
   notes: Yup.string(),
 })
 
@@ -340,6 +408,7 @@ function LedgerDrawer() {
             quantity: '',
             unit: 'kg',
             price: '',
+            paymentStatus: 'paid',
             notes: '',
           }}
           validationSchema={LedgerSchema}
@@ -351,6 +420,7 @@ function LedgerDrawer() {
               quantity: Number(values.quantity),
               unit: values.unit,
               price: Number(values.price),
+              paymentStatus: values.paymentStatus as 'paid' | 'credited',
               notes: values.notes,
               addedBy: userAdditional?.firstName || 'Unknown',
               addedAt: new Date().toISOString(),
@@ -425,6 +495,33 @@ function LedgerDrawer() {
                 />
                 <ErrorMessage
                   name="price"
+                  component="div"
+                  className="text-red-500 text-xs"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paymentStatus">Payment Status</Label>
+                <Field name="paymentStatus">
+                  {({ field, form }: any) => (
+                    <Select
+                      defaultValue="paid"
+                      value={field.value}
+                      onValueChange={(value) =>
+                        form.setFieldValue('paymentStatus', value)
+                      }
+                    >
+                      <SelectTrigger id="paymentStatus">
+                        <SelectValue placeholder="Select payment status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="credited">Credited</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </Field>
+                <ErrorMessage
+                  name="paymentStatus"
                   component="div"
                   className="text-red-500 text-xs"
                 />

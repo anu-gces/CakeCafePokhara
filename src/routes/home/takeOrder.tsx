@@ -169,8 +169,6 @@ function MenuCard({
       <Drawer
         open={subcategoryDrawerOpen}
         onOpenChange={setSubcategoryDrawerOpen}
-        shouldScaleBackground
-        setBackgroundColorOnScale
       >
         <DrawerContent>
           <DrawerHeader>
@@ -253,6 +251,7 @@ function CartPreview({ cart }: { cart: CartItem[] }) {
 }
 
 export type AddToCart = {
+  kotNumber: string
   items: CartItem[]
   discountRate: number
   taxRate: number
@@ -261,7 +260,8 @@ export type AddToCart = {
   remarks: string
   manualRounding: number
   receiptDate: string // Optional manual date field
-
+  paymentMethod: 'cash' | 'esewa' | 'bank' // Optional payment method field
+  deliveryFee?: number // Optional delivery fee field
   creditor?: string | null // Optional creditor field
   status:
     | 'pending'
@@ -283,18 +283,24 @@ function CartDrawer({
   onClearCart,
   selectedTable,
   setSelectedTable,
+  kotNumber,
+  setKotNumber,
   discountRate,
   setDiscountRate,
   taxRate,
   setTaxRate,
   manualRounding,
   setManualRounding,
+  deliveryFee,
+  setDeliveryFee,
   isComplementary,
   setIsComplementary,
   remarks,
   setRemarks,
   selectedCreditor,
   setSelectedCreditor,
+  selectedPaymentMethod,
+  setSelectedPaymentMethod,
   step,
   setStep,
   receiptDate,
@@ -308,18 +314,24 @@ function CartDrawer({
   onClearCart: () => void
   selectedTable: number
   setSelectedTable: (table: number) => void
+  kotNumber: string
+  setKotNumber: (number: string) => void
   discountRate: number
   setDiscountRate: (r: number) => void
   taxRate: number
   setTaxRate: (r: number) => void
   manualRounding: number
   setManualRounding: (r: number) => void
+  deliveryFee: number
+  setDeliveryFee: (fee: number) => void
   isComplementary: boolean
   setIsComplementary: (v: boolean) => void
   remarks: string
   setRemarks: (v: string) => void
   selectedCreditor: string
   setSelectedCreditor: (v: string) => void
+  selectedPaymentMethod: 'cash' | 'esewa' | 'bank'
+  setSelectedPaymentMethod: (v: 'cash' | 'esewa' | 'bank') => void
   step: boolean
   setStep: (v: boolean) => void
   receiptDate: Date | undefined
@@ -387,26 +399,29 @@ function CartDrawer({
   // Calculate discount and tax
   const discountAmount = subtotal * (discountRate / 100)
   const taxedAmount = (subtotal - discountAmount) * (taxRate / 100)
-  // Final total includes manual rounding
-  const totalAmount = subtotal - discountAmount + taxedAmount + manualRounding
+  // Final total includes manual rounding and delivery fee
+  const totalAmount =
+    subtotal - discountAmount + taxedAmount + manualRounding + deliveryFee
 
   // Submit handler
   const handleSubmit = () => {
     const addToCart: AddToCart = {
       items: cart,
+      kotNumber,
       discountRate,
       taxRate,
       tableNumber: selectedTable,
       complementary: isComplementary,
       remarks,
       manualRounding,
+      deliveryFee: deliveryFee || 0,
       receiptDate: receiptDate
         ? receiptDate.toISOString()
         : new Date().toISOString(),
-
+      paymentMethod: selectedPaymentMethod,
       creditor: selectedCreditor || null,
       status: 'pending',
-      dismissed: false, // Set dismissed to false by default
+      dismissed: false, // Set dismissed to false by default for notification purposes
     }
     enterOrderMutation.mutate(addToCart)
   }
@@ -455,6 +470,22 @@ function CartDrawer({
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="flex mt-2">
+                    <div className="flex gap-2 bg-gray-50 dark:bg-muted p-2 rounded-md w-full">
+                      <Label htmlFor="kotNumber" className="mb-1">
+                        KOT Number (Required)
+                      </Label>
+                      <Input
+                        id="kotNumber"
+                        type="text"
+                        placeholder="Enter KOT number"
+                        value={kotNumber}
+                        onChange={(e) => setKotNumber(e.target.value)}
+                        className="flex-1"
+                        required
+                      />
+                    </div>
+                  </div>
                   {cart.map((item, index) => (
                     <div
                       key={index}
@@ -628,6 +659,45 @@ function CartDrawer({
                         </div>
                       </div>
                     </div>
+                    {/* Delivery Fee Section */}
+                    <div className="flex flex-col justify-center">
+                      <div className="flex justify-between items-center bg-gray-50 dark:bg-muted p-4 rounded-lg">
+                        <span className="font-semibold">Delivery Fee</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="bg-transparent w-8 h-8"
+                            onClick={() =>
+                              setDeliveryFee(Math.max(0, deliveryFee - 1))
+                            }
+                          >
+                            <MinusIcon className="w-4 h-4" />
+                          </Button>
+                          <Input
+                            type="number"
+                            className="w-16 h-8"
+                            value={deliveryFee}
+                            onChange={(e) => {
+                              const val = Number(e.target.value)
+                              if (!isNaN(val) && val >= 0) {
+                                setDeliveryFee(val)
+                              }
+                            }}
+                            min="0"
+                            step="1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="bg-transparent w-8 h-8"
+                            onClick={() => setDeliveryFee(deliveryFee + 1)}
+                          >
+                            <PlusIcon className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   {/* Complimentary and Creditor: now stacked vertically for mobile */}
                   <div className="flex flex-col gap-2 mt-2">
@@ -672,7 +742,7 @@ function CartDrawer({
                   </div>
                   {/* Manual Date Entry */}
                   <div className="flex mt-2">
-                    <div className="flex gap-2 bg-gray-50 dark:bg-muted p-2 w-full">
+                    <div className="flex gap-2 bg-gray-50 dark:bg-muted p-2 rounded-md w-full">
                       <Label htmlFor="receiptDate" className="mb-1">
                         Date (Optional)
                       </Label>
@@ -680,6 +750,29 @@ function CartDrawer({
                         selected={receiptDate}
                         onSelect={setReceiptDate}
                       />
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <div className="flex justify-center items-center gap-2 bg-gray-50 dark:bg-muted p-2 rounded-lg">
+                      <Label
+                        htmlFor="paymentMethod"
+                        className="block mb-1 text-nowrap"
+                      >
+                        Select Payment Method
+                      </Label>
+                      <Select
+                        value={selectedPaymentMethod}
+                        onValueChange={setSelectedPaymentMethod}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Choose payment method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="esewa">eSewa</SelectItem>
+                          <SelectItem value="bank">Bank</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   {/* Remarks Row */}
@@ -718,6 +811,10 @@ function CartDrawer({
                         {manualRounding >= 0 ? '+ ' : '- '}Rs.{' '}
                         {Math.abs(manualRounding).toFixed(2)}
                       </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Delivery Fee</span>
+                      <span>+ Rs. {deliveryFee.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-semibold">
                       <span>Total</span>
@@ -853,13 +950,19 @@ export function TakeOrder() {
 
   // SeatingPlan state
   const [selectedTable, setSelectedTable] = useState<number>(-1)
+
   // Move all order-related state to parent
+  const [kotNumber, setKotNumber] = useState<string>('')
   const [discountRate, setDiscountRate] = useState<number>(0)
   const [taxRate, setTaxRate] = useState<number>(0)
   const [manualRounding, setManualRounding] = useState<number>(0)
+  const [deliveryFee, setDeliveryFee] = useState<number>(0)
   const [isComplementary, setIsComplementary] = useState(false)
   const [remarks, setRemarks] = useState('')
   const [selectedCreditor, setSelectedCreditor] = useState<string>('')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
+    'cash' | 'esewa' | 'bank'
+  >('cash')
   const [step, setStep] = useState(false) // Move step state to parent
   const [search, setSearch] = useState('')
   const [receiptDate, setReceiptDate] = useState<Date | undefined>(undefined)
@@ -921,12 +1024,15 @@ export function TakeOrder() {
   const clearCart = () => {
     setCart([])
     setSelectedTable(-1)
+    setKotNumber('')
     setDiscountRate(0)
     setTaxRate(0)
     setManualRounding(0)
+    setDeliveryFee(0)
     setIsComplementary(false)
     setRemarks('')
     setSelectedCreditor('')
+    setSelectedPaymentMethod('cash')
     setStep(false) // Reset stepper
     setCartDrawerOpen(false)
     setReceiptDate(undefined)
@@ -1080,18 +1186,24 @@ export function TakeOrder() {
         onClearCart={clearCart}
         selectedTable={selectedTable}
         setSelectedTable={setSelectedTable}
+        kotNumber={kotNumber}
+        setKotNumber={setKotNumber}
         discountRate={discountRate}
         setDiscountRate={setDiscountRate}
         taxRate={taxRate}
         setTaxRate={setTaxRate}
         manualRounding={manualRounding}
         setManualRounding={setManualRounding}
+        deliveryFee={deliveryFee}
+        setDeliveryFee={setDeliveryFee}
         isComplementary={isComplementary}
         setIsComplementary={setIsComplementary}
         remarks={remarks}
         setRemarks={setRemarks}
         selectedCreditor={selectedCreditor}
         setSelectedCreditor={setSelectedCreditor}
+        selectedPaymentMethod={selectedPaymentMethod}
+        setSelectedPaymentMethod={setSelectedPaymentMethod}
         step={step}
         setStep={setStep}
         receiptDate={receiptDate}
