@@ -23,6 +23,16 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import {
   PlusIcon,
   MinusIcon,
   LoaderIcon,
@@ -242,24 +252,19 @@ export function AddFoodDrawer() {
   })
 
   return (
-    <Drawer
-      shouldScaleBackground
-      setBackgroundColorOnScale
-      open={open}
-      onOpenChange={setOpen}
-    >
-      <DrawerTrigger asChild>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
         <div className="right-4 bottom-16 z-50 fixed flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
           <PlusIcon className="text-rose-600 dark:text-white" />
         </div>
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Add Food Item</DrawerTitle>
-          <DrawerDescription>
+      </SheetTrigger>
+      <SheetContent side="bottom">
+        <SheetHeader>
+          <SheetTitle>Add Food Item</SheetTitle>
+          <SheetDescription>
             Add a new food item here. Click save when you're done.
-          </DrawerDescription>
-        </DrawerHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <Formik<FoodItemProps>
           initialValues={{
@@ -511,7 +516,7 @@ export function AddFoodDrawer() {
                 </div>
               </ScrollArea>
 
-              <DrawerFooter>
+              <SheetFooter>
                 <Button
                   className="text-white"
                   type="submit"
@@ -523,17 +528,17 @@ export function AddFoodDrawer() {
                     'Submit'
                   )}
                 </Button>
-                <DrawerClose asChild>
+                <SheetClose asChild>
                   <Button variant="outline" type="button">
                     Cancel
                   </Button>
-                </DrawerClose>
-              </DrawerFooter>
+                </SheetClose>
+              </SheetFooter>
             </Form>
           )}
         </Formik>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   )
 }
 
