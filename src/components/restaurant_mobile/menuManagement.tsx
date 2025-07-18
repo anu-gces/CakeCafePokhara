@@ -339,7 +339,7 @@ export function AddFoodDrawer() {
 
                   {/* Price Field */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodPrice">Price</Label>
+                    <Label htmlFor="foodPrice">Base Price</Label>
                     <div className="relative">
                       {formik.touched.foodPrice && formik.errors.foodPrice && (
                         <div className="top-0 absolute bg-white p-1 border border-red-400 rounded text-red-500 text-xs -translate-y-full transform">
@@ -638,7 +638,7 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
 
                   {/* Food Price */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodPrice">Price</Label>
+                    <Label htmlFor="foodPrice">Base Price</Label>
                     <Input
                       id="foodPrice"
                       name="foodPrice"

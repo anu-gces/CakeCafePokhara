@@ -41,13 +41,14 @@ export const Route = createLazyFileRoute('/home/billing')({
         <DataTable
           columns={columns}
           data={orders || []}
-          filterColumnId="receiptDate"
-          // visibleColumns={[
-          //   'receiptId',
-          //   'totalAmount',
-          //   'receiptDate',
-          //   'processedBy',
-          // ]}
+          filterColumnId="kotNumber"
+          visibleColumns={[
+            'actions',
+            'kotNumber',
+            'totalAmount',
+            'receiptDate',
+            'paymentMethod',
+          ]}
         />
       </div>
     )

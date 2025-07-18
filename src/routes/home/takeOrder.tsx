@@ -67,6 +67,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
+import * as Yup from 'yup'
 
 export const Route = createFileRoute('/home/takeOrder')({
   validateSearch: (search: Record<string, unknown>): Search => {
@@ -118,7 +119,6 @@ function MenuCard({
 
   const handleSubcategorySelect = (subcategory: SubcategoryOption) => {
     handleAddToCart(food, subcategory)
-    setSubcategoryDrawerOpen(false)
   }
 
   return (
@@ -273,6 +273,13 @@ export type AddToCart = {
   dismissed: boolean // Optional dismissed field
 }
 
+// Validation schema - only KOT number is mandatory
+const orderValidationSchema = Yup.object().shape({
+  kotNumber: Yup.string()
+    .required('KOT number is required')
+    .min(1, 'KOT number cannot be empty'),
+})
+
 // Cart Drawer Component
 function CartDrawer({
   cart,
@@ -344,6 +351,38 @@ function CartDrawer({
   const queryClient = useQueryClient()
   // Add state for addToCart if you want to reset it (optional, not required if you always build from props)
   // const [addToCart, setAddToCart] = useState<AddToCart | null>(null);
+
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({})
+  const [isFormValid, setIsFormValid] = useState(false)
+
+  // Validate form whenever kotNumber changes
+  useEffect(() => {
+    const validateForm = async () => {
+      try {
+        await orderValidationSchema.validate(
+          { kotNumber },
+          { abortEarly: false },
+        )
+        setValidationErrors({})
+        setIsFormValid(true)
+      } catch (error) {
+        if (error instanceof Yup.ValidationError) {
+          const errors: Record<string, string> = {}
+          error.inner.forEach((err) => {
+            if (err.path) {
+              errors[err.path] = err.message
+            }
+          })
+          setValidationErrors(errors)
+          setIsFormValid(false)
+        }
+      }
+    }
+    validateForm()
+  }, [kotNumber])
 
   const enterOrderMutation = useMutation({
     mutationFn: createOrderDocument,
@@ -481,9 +520,17 @@ function CartDrawer({
                         placeholder="Enter KOT number"
                         value={kotNumber}
                         onChange={(e) => setKotNumber(e.target.value)}
-                        className="flex-1"
+                        className={cn(
+                          'flex-1',
+                          validationErrors.kotNumber && 'border-red-500',
+                        )}
                         required
                       />
+                      {validationErrors.kotNumber && (
+                        <p className="mt-1 text-red-500 text-xs">
+                          {validationErrors.kotNumber}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {cart.map((item, index) => (
@@ -851,10 +898,18 @@ function CartDrawer({
               </div>
               <motion.button
                 className={cn(
-                  'flex justify-center items-center gap-2 bg-primary px-4 py-2 rounded-md w-full text-white',
+                  'flex justify-center items-center gap-2 px-4 py-2 rounded-md w-full text-white transition-colors',
+                  isFormValid && step === false
+                    ? 'bg-primary hover:bg-primary/90'
+                    : 'bg-primary/50 text-stone-500 cursor-not-allowed',
                 )}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                onClick={() => setStep(!step)}
+                onClick={() => {
+                  if (isFormValid || step === true) {
+                    setStep(!step)
+                  }
+                }}
+                disabled={!isFormValid && step === false}
               >
                 {step ? (
                   <motion.span

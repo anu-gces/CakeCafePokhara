@@ -8,7 +8,11 @@ import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
  * @returns The final total amount as a number
  */
 export function calculateOrderTotal(order: {
-  items: Array<{ foodPrice: number; qty: number }>
+  items: Array<{
+    foodPrice: number
+    qty: number
+    selectedSubcategory?: { price: number } | null
+  }>
   discountRate: number
   taxRate: number
   manualRounding?: number
@@ -18,24 +22,33 @@ export function calculateOrderTotal(order: {
   const discount = calculateOrderDiscount(subtotal, order.discountRate)
   const tax = calculateOrderTax(subtotal - discount, order.taxRate)
 
-  return (
+  const total =
     subtotal -
     discount +
     tax +
     (order.manualRounding || 0) +
     (order.deliveryFee || 0)
-  )
+
+  // Round to 2 decimal places to avoid floating point issues
+  return Math.round(total * 100) / 100
 }
 
 /**
  * Calculates the subtotal for an order (before discounts, taxes, and fees)
- * @param items - Array of order items with price and quantity
+ * @param items - Array of order items with price, quantity, and subcategory information
  * @returns The subtotal amount as a number
  */
 export function calculateOrderSubtotal(
-  items: Array<{ foodPrice: number; qty: number }>,
+  items: Array<{
+    foodPrice: number
+    qty: number
+    selectedSubcategory?: { price: number } | null
+  }>,
 ): number {
-  return items.reduce((sum, item) => sum + item.foodPrice * item.qty, 0)
+  return items.reduce((sum, item) => {
+    const price = item.selectedSubcategory?.price ?? item.foodPrice
+    return sum + price * item.qty
+  }, 0)
 }
 
 /**
@@ -84,22 +97,24 @@ export function calculateAverageOrderValue(orders: ProcessedOrder[]): number {
 }
 
 /**
- * Calculates total expenditure from ledger items, filtering by payment status
+ * Calculates total expenditure from ledger items
  * @param kitchenLedger - Array of kitchen ledger items
  * @param bakeryLedger - Array of bakery ledger items
- * @returns Total expenditure amount for paid items only
+ * @returns Total expenditure amount for all items
  */
 export function calculateTotalExpenditure(
   kitchenLedger: KitchenLedgerItem[],
   bakeryLedger: BakeryLedgerItem[],
 ): number {
-  const kitchenExpenses = kitchenLedger
-    .filter((item) => item.paymentStatus === 'paid')
-    .reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const kitchenExpenses = kitchenLedger.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  )
 
-  const bakeryExpenses = bakeryLedger
-    .filter((item) => item.paymentStatus === 'paid')
-    .reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const bakeryExpenses = bakeryLedger.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  )
 
   return kitchenExpenses + bakeryExpenses
 }

@@ -231,13 +231,13 @@ export function mapToRevenueData({
   }
 
   for (const item of kitchenLedger) {
-    if (item.addedAt && (item.paymentStatus || 'paid') === 'paid') {
+    if (item.addedAt) {
       push(item.addedAt, 0, item.price * item.quantity)
     }
   }
 
   for (const item of bakeryLedger) {
-    if (item.addedAt && (item.paymentStatus || 'paid') === 'paid') {
+    if (item.addedAt) {
       push(item.addedAt, 0, item.price * item.quantity)
     }
   }

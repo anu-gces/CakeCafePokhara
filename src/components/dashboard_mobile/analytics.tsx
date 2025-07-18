@@ -166,48 +166,30 @@ export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
 }
 
 const COLORS = [
-  '#16A34A', // Emerald
-  '#F59E42', // Orange
-  '#2563EB', // Blue
-  '#E11D48', // Rose
-  '#FACC15', // Yellow
-  '#7C3AED', // Violet
+  '#2563eb', // Purple for Cash
+  '#ebe72c', // Blue for Bank
+  '#16A34A', // Green for eSewa (matches eSewa logo)
 ]
 // Pie chart component
 function AnalyticsPieChart() {
   const { income } = useLoaderData({ from: '/home/dashboard' })
-  // Aggregate income by category
-  const categoryMap = income.reduce(
+  // Aggregate income by payment method
+  const paymentMethodMap = income.reduce(
     (acc, order) => {
-      // Ignore complementary and unpaid orders
-
       // Calculate order total using centralized function
       const finalOrderTotal = calculateOrderTotal(order)
 
-      // Calculate subtotal for proportional distribution
-      let orderSubtotal = 0
-      order.items.forEach((item) => {
-        orderSubtotal += item.foodPrice * item.qty
-      })
+      const paymentMethod = order.paymentMethod || 'cash'
+      acc[paymentMethod] = (acc[paymentMethod] || 0) + finalOrderTotal
 
-      // Distribute finalOrderTotal proportionally to each item's value
-      order.items.forEach((item) => {
-        const category = item.foodCategory || 'Uncategorized'
-        const itemValue = item.foodPrice * item.qty
-        const itemIncome =
-          orderSubtotal > 0 ? (itemValue / orderSubtotal) * finalOrderTotal : 0
-        // Round to 2 decimal places to avoid floating point precision issues
-        acc[category] =
-          Math.round(((acc[category] || 0) + itemIncome) * 100) / 100
-      })
       return acc
     },
     {} as Record<string, number>,
   )
 
   // Convert to pie chart data format
-  const pieData = Object.entries(categoryMap).map(([name, value]) => ({
-    name,
+  const pieData = Object.entries(paymentMethodMap).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1), // Capitalize first letter
     value: Math.round(value * 100) / 100, // Round to 2 decimal places
   }))
   return (
@@ -391,9 +373,9 @@ export function Analytics() {
         {/* Pie Chart */}
         <Card className="order-2 lg:order-2 col-span-full lg:col-span-3 h-full">
           <CardHeader>
-            <CardTitle>Sales by Menu Category</CardTitle>
+            <CardTitle>Sales by Payment Method</CardTitle>
             <CardDescription>
-              Percentage of sales by menu category.
+              Revenue breakdown by payment method.
             </CardDescription>
           </CardHeader>
           <CardContent>

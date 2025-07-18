@@ -10,14 +10,16 @@ import {
 } from './dropdown-menu'
 
 export function ModeToggle() {
-  const { setTheme } = useTheme()
+  const { setTheme, theme } = useTheme()
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex gap-2 w-full">
-          <Sun className="w-[1.2rem] h-[1.2rem] rotate-0 dark:-rotate-90 scale-100 dark:scale-0 transition-all" />
-          <Moon className="absolute w-[1.2rem] h-[1.2rem] rotate-90 dark:rotate-0 scale-0 dark:scale-100 transition-all" />
+        <Button variant="outline" className="flex items-center gap-2 w-full">
+          <div className="relative flex justify-center items-center w-[1.2rem] h-[1.2rem]">
+            {theme !== 'dark' && <Sun className="w-[1.2rem] h-[1.2rem]" />}
+            {theme === 'dark' && <Moon className="w-[1.2rem] h-[1.2rem]" />}
+          </div>
           <span>Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>

@@ -135,6 +135,11 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
     header: 'Receipt ID',
   },
   {
+    accessorKey: 'kotNumber',
+    id: 'kotNumber',
+    header: 'KOT Number',
+  },
+  {
     accessorKey: 'status',
     id: 'status',
     header: 'Status',
@@ -268,6 +273,7 @@ const EditDrawer = ({
   order,
 }: EditDrawerProps) => {
   const initialValues = {
+    kotNumber: order.kotNumber || '',
     status: order.status || '',
     discountRate: order.discountRate || 0,
     taxRate: order.taxRate || 0,
@@ -286,6 +292,7 @@ const EditDrawer = ({
 
   // Yup validation schema
   const EditOrderSchema = Yup.object().shape({
+    kotNumber: Yup.string().required('KOT Number is required'),
     discountRate: Yup.number()
       .min(0)
       .max(100)
@@ -303,6 +310,16 @@ const EditDrawer = ({
   })
 
   const queryClient = useQueryClient()
+
+  // Local state for manual rounding input as string (like takeOrder.tsx)
+  const [roundingInput, setRoundingInput] = React.useState(
+    (order.manualRounding || 0).toString(),
+  )
+
+  // Keep rounding input in sync with initial values
+  React.useEffect(() => {
+    setRoundingInput((order.manualRounding || 0).toString())
+  }, [order.manualRounding])
 
   const editOrderMutation = useMutation({
     mutationFn: async ({
@@ -385,6 +402,25 @@ const EditDrawer = ({
                   <div>
                     <Label
                       className="mb-1 font-semibold text-xs"
+                      htmlFor="kotNumber"
+                    >
+                      KOT Number
+                    </Label>
+                    <Input
+                      id="kotNumber"
+                      name="kotNumber"
+                      value={formik.values.kotNumber}
+                      onChange={formik.handleChange}
+                    />
+                    {formik.touched.kotNumber && formik.errors.kotNumber && (
+                      <div className="text-red-500 text-xs">
+                        {formik.errors.kotNumber}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      className="mb-1 font-semibold text-xs"
                       htmlFor="processedBy"
                     >
                       Processed By
@@ -460,13 +496,67 @@ const EditDrawer = ({
                     >
                       Manual Rounding
                     </Label>
-                    <Input
-                      id="manualRounding"
-                      name="manualRounding"
-                      type="number"
-                      value={formik.values.manualRounding}
-                      onChange={formik.handleChange}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="bg-transparent w-8 h-8"
+                        onClick={() => {
+                          const newValue = Number(roundingInput) - 1
+                          setRoundingInput(newValue.toString())
+                          formik.setFieldValue('manualRounding', newValue)
+                        }}
+                      >
+                        <span className="text-lg">-</span>
+                      </Button>
+                      <Input
+                        id="manualRounding"
+                        name="manualRounding"
+                        type="text"
+                        value={roundingInput}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setRoundingInput(val)
+                          if (/^-?\d*$/.test(val) && val !== '-') {
+                            const num = Number(val)
+                            if (!isNaN(num)) {
+                              formik.setFieldValue('manualRounding', num)
+                            }
+                          }
+                        }}
+                        onBlur={() => {
+                          // On blur, if input is not a valid number, reset to formik value
+                          if (
+                            roundingInput === '-' ||
+                            isNaN(Number(roundingInput))
+                          ) {
+                            setRoundingInput(
+                              formik.values.manualRounding.toString(),
+                            )
+                          } else {
+                            formik.setFieldValue(
+                              'manualRounding',
+                              Number(roundingInput),
+                            )
+                          }
+                        }}
+                        className="text-center"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="bg-transparent w-8 h-8"
+                        onClick={() => {
+                          const newValue = Number(roundingInput) + 1
+                          setRoundingInput(newValue.toString())
+                          formik.setFieldValue('manualRounding', newValue)
+                        }}
+                      >
+                        <span className="text-lg">+</span>
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <Label
@@ -774,7 +864,7 @@ function ReceiptDrawer({
 
             <ScrollArea className="h-72 overflow-y-auto">
               <Table className="table-fixed">
-                <TableHeader>
+                <TableHeader className="bg-background">
                   <TableRow>
                     <TableHead className="text-left">Item</TableHead>
                     <TableHead className="text-center">Qty</TableHead>
@@ -891,6 +981,14 @@ function ReceiptDrawer({
                     <TableCell className="text-right text-nowrap">
                       {data.manualRounding >= 0 ? '+ ' : '- '}Rs.{' '}
                       {Math.abs(data.manualRounding).toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-right">
+                      Delivery Fee
+                    </TableCell>
+                    <TableCell className="text-right text-nowrap">
+                      + Rs. {(data.deliveryFee || 0).toFixed(2)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
