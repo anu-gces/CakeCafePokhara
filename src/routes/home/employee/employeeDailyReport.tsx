@@ -5,9 +5,5 @@ export const Route = createFileRoute('/home/employee/employeeDailyReport')({
 })
 
 function RouteComponent() {
-  return (
-    <div>
-      <Outlet />
-    </div>
-  )
+  return <Outlet />
 }

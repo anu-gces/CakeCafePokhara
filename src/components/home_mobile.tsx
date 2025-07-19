@@ -151,7 +151,7 @@ export function Home() {
         </div>
         <div
           className={
-            'relative flex-grow overflow-x-hidden overflow-y-auto [view-transition-name:main-content] no-scrollbar overscroll-contain'
+            'relative flex-grow overflow-x-hidden overflow-y-hidden [view-transition-name:main-content]  overscroll-contain'
           }
         >
           <PullToRefresh />

@@ -101,7 +101,7 @@ function RouteComponent() {
   }
 
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       {/* Sticky Header with Total */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-7 py-6 max-w-xl">
@@ -181,11 +181,11 @@ function RouteComponent() {
                       )}
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
-                          <div className="flex justify-between items-center mb-2">
+                          <div className="flex flex-col gap-2 mb-2">
                             <h3 className="font-semibold text-primary text-base">
                               {item.itemName}
                             </h3>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Badge
                                 variant={
                                   item.paymentStatus === 'paid'
@@ -202,10 +202,13 @@ function RouteComponent() {
                                   ? 'Paid'
                                   : 'Credited'}
                               </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {new Date(item.addedAt).toLocaleDateString()}
+                              </Badge>
                               {item.paymentStatus === 'credited' && (
                                 <Button
                                   size="sm"
-                                  className="px-2 h-6 text-xs"
+                                  className="px-3 py-1 h-7 text-xs"
                                   onClick={() =>
                                     updatePaymentStatusMutation.mutate({
                                       itemId: item.id,
@@ -216,20 +219,19 @@ function RouteComponent() {
                                     updatePaymentStatusMutation.isPending
                                   }
                                 >
-                                  {updatePaymentStatusMutation.isPending && (
+                                  {updatePaymentStatusMutation.isPending ? (
                                     <>
                                       <LoaderIcon
                                         color="white"
-                                        className="mr-2 w-4 h-4 animate-spin"
+                                        className="mr-1 w-3 h-3 animate-spin"
                                       />
+                                      Paying...
                                     </>
+                                  ) : (
+                                    'Mark Paid'
                                   )}
-                                  Mark as Paid
                                 </Button>
                               )}
-                              <Badge variant="outline" className="text-xs">
-                                {new Date(item.addedAt).toLocaleDateString()}
-                              </Badge>
                             </div>
                           </div>
                           {/* Item details */}

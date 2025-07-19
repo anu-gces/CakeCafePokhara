@@ -33,8 +33,16 @@ export const Route = createLazyFileRoute('/home/billing')({
       }
     })
 
+    // const multipliedOrders = Array.from({ length: 100 }, (_, multiplier) =>
+    //   orders.map((order) => ({
+    //     ...order,
+    //     receiptId: `${order.receiptId}-${multiplier}`, // Unique receipt ID
+    //     kotNumber: `${order.kotNumber}-${multiplier}`, // Unique KOT number
+    //   })),
+    // ).flat()
+
     return (
-      <div className="flex flex-col px-4 h-full overflow-y-clip">
+      <div className="flex flex-col px-4 h-full">
         <h1 className="font-bold text-primary text-2xl text-left">
           Order History
         </h1>

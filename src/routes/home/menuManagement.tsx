@@ -27,10 +27,6 @@ export const Route = createFileRoute('/home/menuManagement')({
     }
   },
   component: () => {
-    return (
-      <div>
-        <MenuManagement />
-      </div>
-    )
+    return <MenuManagement />
   },
 })

@@ -808,7 +808,7 @@ const DeleteDrawer = ({
   )
 }
 
-function ReceiptDrawer({
+export function ReceiptDrawer({
   data,
   receiptOpen,
   setReceiptOpen,

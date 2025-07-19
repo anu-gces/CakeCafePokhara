@@ -65,7 +65,7 @@ export default function InventoryTracker() {
   }
 
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       {/* Sticky Header with Total */}
       <div className="top-0 z-10 sticky bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="mx-auto px-7 py-6 max-w-5xl">

@@ -113,6 +113,15 @@ export function DataTable<TData, TValue>({
   const virtualItems = rowVirtualizer.getVirtualItems()
   const totalSize = rowVirtualizer.getTotalSize()
 
+  // Debug virtualization
+  React.useEffect(() => {
+    console.log(`📊 Virtualization Stats:
+    - Total rows: ${rows.length}
+    - Rendered rows: ${virtualItems.length}
+    - Performance gain: ${Math.round((1 - virtualItems.length / rows.length) * 100)}%
+    - Virtual height: ${totalSize}px`)
+  }, [rows.length, virtualItems.length, totalSize])
+
   // const handleRowClick = (row: Row<TData>) => {
   //   setSelectedRow(row) // Set the selected row to show in the drawer
   //   setReceiptOpen(true) // Open the drawer

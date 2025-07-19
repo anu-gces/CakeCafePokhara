@@ -42,7 +42,7 @@ const tabs: TabItem[] = [
 
 export function Notifications() {
   return (
-    <div className="p-2 h-full">
+    <div className="p-2 h-full overflow-y-auto">
       <div>
         <ExpandableTabs className="ml-3 max-w-48" tabs={tabs} />
       </div>

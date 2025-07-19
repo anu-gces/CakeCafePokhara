@@ -100,7 +100,7 @@ function RouteComponent() {
   }
 
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       {/* Sticky Header with Total */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-7 py-6 max-w-xl">

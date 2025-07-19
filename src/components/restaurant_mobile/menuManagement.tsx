@@ -894,7 +894,7 @@ export function MenuManagement() {
   }
 
   return (
-    <div className="bg-background h-full">
+    <div className="flex flex-col bg-background h-full overflow-y-auto">
       {/* Header */}
       <div className="top-0 z-50 sticky bg-transparent backdrop-blur border-b">
         <div className="flex justify-between items-center p-4">

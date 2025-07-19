@@ -44,7 +44,6 @@ const HomeCalendarLazyImport = createFileRoute('/home/calendar')()
 const HomeBillingLazyImport = createFileRoute('/home/billing')()
 const HomeBaristaLedgerLazyImport = createFileRoute('/home/baristaLedger')()
 const HomeBakeryLedgerLazyImport = createFileRoute('/home/bakeryLedger')()
-const HomeAccountLazyImport = createFileRoute('/home/account')()
 const HomeAccessoriesLazyImport = createFileRoute('/home/accessories')()
 
 // Create/Update Routes
@@ -138,12 +137,6 @@ const HomeBakeryLedgerLazyRoute = HomeBakeryLedgerLazyImport.update({
 } as any).lazy(() =>
   import('./routes/home/bakeryLedger.lazy').then((d) => d.Route),
 )
-
-const HomeAccountLazyRoute = HomeAccountLazyImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => HomeRoute,
-} as any).lazy(() => import('./routes/home/account.lazy').then((d) => d.Route))
 
 const HomeAccessoriesLazyRoute = HomeAccessoriesLazyImport.update({
   id: '/accessories',
@@ -347,13 +340,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeAccessoriesLazyImport
       parentRoute: typeof HomeImport
     }
-    '/home/account': {
-      id: '/home/account'
-      path: '/account'
-      fullPath: '/home/account'
-      preLoaderRoute: typeof HomeAccountLazyImport
-      parentRoute: typeof HomeImport
-    }
     '/home/bakeryLedger': {
       id: '/home/bakeryLedger'
       path: '/bakeryLedger'
@@ -530,7 +516,6 @@ interface HomeRouteChildren {
   HomeStockRoute: typeof HomeStockRoute
   HomeTakeOrderRoute: typeof HomeTakeOrderRoute
   HomeAccessoriesLazyRoute: typeof HomeAccessoriesLazyRoute
-  HomeAccountLazyRoute: typeof HomeAccountLazyRoute
   HomeBakeryLedgerLazyRoute: typeof HomeBakeryLedgerLazyRoute
   HomeBaristaLedgerLazyRoute: typeof HomeBaristaLedgerLazyRoute
   HomeBillingLazyRoute: typeof HomeBillingLazyRoute
@@ -552,7 +537,6 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeStockRoute: HomeStockRoute,
   HomeTakeOrderRoute: HomeTakeOrderRoute,
   HomeAccessoriesLazyRoute: HomeAccessoriesLazyRoute,
-  HomeAccountLazyRoute: HomeAccountLazyRoute,
   HomeBakeryLedgerLazyRoute: HomeBakeryLedgerLazyRoute,
   HomeBaristaLedgerLazyRoute: HomeBaristaLedgerLazyRoute,
   HomeBillingLazyRoute: HomeBillingLazyRoute,
@@ -580,7 +564,6 @@ export interface FileRoutesByFullPath {
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
-  '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/billing': typeof HomeBillingLazyRoute
@@ -613,7 +596,6 @@ export interface FileRoutesByTo {
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
-  '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/billing': typeof HomeBillingLazyRoute
@@ -647,7 +629,6 @@ export interface FileRoutesById {
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/accessories': typeof HomeAccessoriesLazyRoute
-  '/home/account': typeof HomeAccountLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/billing': typeof HomeBillingLazyRoute
@@ -682,7 +663,6 @@ export interface FileRouteTypes {
     | '/home/stock'
     | '/home/takeOrder'
     | '/home/accessories'
-    | '/home/account'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/billing'
@@ -714,7 +694,6 @@ export interface FileRouteTypes {
     | '/home/stock'
     | '/home/takeOrder'
     | '/home/accessories'
-    | '/home/account'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/billing'
@@ -746,7 +725,6 @@ export interface FileRouteTypes {
     | '/home/stock'
     | '/home/takeOrder'
     | '/home/accessories'
-    | '/home/account'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/billing'
@@ -814,7 +792,6 @@ export const routeTree = rootRoute
         "/home/stock",
         "/home/takeOrder",
         "/home/accessories",
-        "/home/account",
         "/home/bakeryLedger",
         "/home/baristaLedger",
         "/home/billing",
@@ -873,10 +850,6 @@ export const routeTree = rootRoute
     },
     "/home/accessories": {
       "filePath": "home/accessories.lazy.tsx",
-      "parent": "/home"
-    },
-    "/home/account": {
-      "filePath": "home/account.lazy.tsx",
       "parent": "/home"
     },
     "/home/bakeryLedger": {

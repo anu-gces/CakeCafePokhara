@@ -20,7 +20,7 @@ export default function Dashboard() {
   }
   return (
     <>
-      <div className="md:flex flex-col px-2 h-full">
+      <div className="md:flex flex-col px-2 h-full overflow-y-auto">
         <div className="flex-1 space-y-4 pt-6 h-full">
           <Tabs
             defaultValue="overview"

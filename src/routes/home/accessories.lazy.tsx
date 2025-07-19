@@ -61,7 +61,7 @@ export default function AccessoriesTracker() {
     )
 
   return (
-    <div>
+    <div className="h-full overflow-y-auto">
       <div className="top-0 z-10 sticky bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="mx-auto px-7 py-6 max-w-5xl">
           <div className="flex justify-between items-center mb-3">
