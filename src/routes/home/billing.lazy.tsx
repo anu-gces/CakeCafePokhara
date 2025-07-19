@@ -7,9 +7,16 @@ import {
 } from '@/components/dashboard_mobile/dashboard.utils'
 import { getAllOrders, type ProcessedOrder } from '@/firebase/firestore'
 import { useQuery } from '@tanstack/react-query'
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
+import { isSameDay } from 'date-fns'
+import React from 'react'
 
 export const Route = createLazyFileRoute('/home/billing')({
   component: () => {
+    const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
+      new Date(),
+    )
+
     const { data: rawOrders = [] } = useQuery<ProcessedOrder[]>({
       queryKey: ['getAllOrders'],
       queryFn: getAllOrders,
@@ -22,7 +29,15 @@ export const Route = createLazyFileRoute('/home/billing')({
       (order) => order.status === 'paid' || order.status === 'credited',
     )
 
-    const orders = filteredOrders.map((order) => {
+    // Filter by selected date
+    const dateFilteredOrders = selectedDate
+      ? filteredOrders.filter((order) => {
+          const orderDate = new Date(order.receiptDate)
+          return isSameDay(orderDate, selectedDate)
+        })
+      : filteredOrders
+
+    const orders = dateFilteredOrders.map((order) => {
       const subTotalAmount = calculateOrderSubtotal(order.items)
       const totalAmount = calculateOrderTotal(order)
 
@@ -43,9 +58,20 @@ export const Route = createLazyFileRoute('/home/billing')({
 
     return (
       <div className="flex flex-col px-4 h-full">
-        <h1 className="font-bold text-primary text-2xl text-left">
-          Order History
-        </h1>
+        <div className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-4 mb-4 pt-2">
+          <h1 className="font-bold text-primary text-2xl text-left">
+            Order History
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">
+              Filter by date:
+            </span>
+            <DatePickerWithPresets
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+            />
+          </div>
+        </div>
         <DataTable
           columns={columns}
           data={orders || []}
