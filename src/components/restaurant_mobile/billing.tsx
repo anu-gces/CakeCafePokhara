@@ -225,7 +225,41 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   {
     accessorKey: 'paymentMethod',
     id: 'paymentMethod',
-    header: 'Payment Method',
+    header: ({ column }) => {
+      const currentFilter = column.getFilterValue() as string
+
+      // Default to 'cash' if no filter is set
+      const displayFilter = currentFilter || 'cash'
+
+      // Set initial filter to cash if none is set
+      if (!currentFilter) {
+        column.setFilterValue('cash')
+      }
+
+      return (
+        <div
+          className="cursor-pointer select-none"
+          onClick={() => {
+            // Cycle through filters: cash -> bank -> esewa -> cash
+            if (currentFilter === 'cash') {
+              column.setFilterValue('bank')
+            } else if (currentFilter === 'bank') {
+              column.setFilterValue('esewa')
+            } else {
+              column.setFilterValue('cash')
+            }
+          }}
+        >
+          <span className="bg-primary px-2 py-1 rounded font-medium text-primary-foreground text-xs">
+            {displayFilter.charAt(0).toUpperCase() + displayFilter.slice(1)}
+          </span>
+        </div>
+      )
+    },
+    cell: ({ getValue }) => {
+      const value = getValue<string>()
+      return value ? value.charAt(0).toUpperCase() + value.slice(1) : 'N/A'
+    },
   },
   {
     accessorKey: 'remarks',
