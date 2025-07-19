@@ -166,9 +166,9 @@ export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
 }
 
 const COLORS = [
-  '#2563eb', // Purple for Cash
-  '#ebe72c', // Blue for Bank
-  '#16A34A', // Green for eSewa (matches eSewa logo)
+  '#10B981', // Green for Bank (professional banking color)
+  '#3B82F6', // Blue for Cash (clean, classic)
+  '#F59E0B', // Orange for eSewa (matches eSewa brand better)
 ]
 // Pie chart component
 function AnalyticsPieChart() {
@@ -188,10 +188,12 @@ function AnalyticsPieChart() {
   )
 
   // Convert to pie chart data format
-  const pieData = Object.entries(paymentMethodMap).map(([name, value]) => ({
-    name: name.charAt(0).toUpperCase() + name.slice(1), // Capitalize first letter
-    value: Math.round(value * 100) / 100, // Round to 2 decimal places
-  }))
+  const pieData = Object.entries(paymentMethodMap)
+    .sort(([a], [b]) => a.localeCompare(b)) // Sort alphabetically by payment method name
+    .map(([name, value]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1), // Capitalize first letter
+      value: Math.round(value * 100) / 100, // Round to 2 decimal places
+    }))
   return (
     <ResponsiveContainer width="100%" height={400}>
       <PieChart>
@@ -214,12 +216,22 @@ function AnalyticsPieChart() {
             />
           ))}
         </Pie>
+        <Legend
+          verticalAlign="bottom"
+          height={36}
+          iconType="circle"
+          wrapperStyle={{
+            paddingTop: '20px',
+            fontSize: '14px',
+          }}
+        />
         <Tooltip
           contentStyle={{
             backgroundColor: '#1a1a1a', // Dark gray background
             border: '1px solid #404040', // Medium gray border
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+            color: '#ffffff', // White text
           }}
           labelStyle={{
             color: '#ffffff', // White text for labels
@@ -227,8 +239,9 @@ function AnalyticsPieChart() {
           itemStyle={{
             color: '#ffffff', // White text for items
           }}
-          formatter={(value: number) => [
-            `Rs. ${value.toFixed(2)}`, // Format tooltip values to 2 decimal places
+          formatter={(value: number, name: string) => [
+            `Rs. ${value.toFixed(2)}`,
+            name, // This will show the payment method name
           ]}
         />
       </PieChart>
