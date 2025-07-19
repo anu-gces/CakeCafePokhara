@@ -1,6 +1,12 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
-import { ArrowUpDownIcon, EyeIcon, LoaderIcon } from 'lucide-react'
+import {
+  ArrowUpDownIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  EyeIcon,
+  LoaderIcon,
+} from 'lucide-react'
 import {
   deleteOrder,
   editOrder,
@@ -137,7 +143,26 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   {
     accessorKey: 'kotNumber',
     id: 'kotNumber',
-    header: 'KOT Number',
+    header: ({ column }) => {
+      const sortDirection = column.getIsSorted()
+      const SortIcon =
+        sortDirection === 'asc'
+          ? ArrowUpIcon
+          : sortDirection === 'desc'
+            ? ArrowDownIcon
+            : ArrowUpDownIcon
+
+      return (
+        <div
+          className="flex gap-2 cursor-pointer"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        >
+          KOT Number
+          <SortIcon className="w-4 h-4" />
+        </div>
+      )
+    },
+    enableSorting: true,
   },
   {
     accessorKey: 'status',
@@ -181,15 +206,25 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   {
     accessorKey: 'receiptDate',
     id: 'receiptDate',
-    header: ({ column }) => (
-      <div
-        className="flex gap-2 cursor-pointer"
-        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-      >
-        Receipt Date
-        <ArrowUpDownIcon className="w-4 h-4" />
-      </div>
-    ),
+    header: ({ column }) => {
+      const sortDirection = column.getIsSorted()
+      const SortIcon =
+        sortDirection === 'asc'
+          ? ArrowUpIcon
+          : sortDirection === 'desc'
+            ? ArrowDownIcon
+            : ArrowUpDownIcon
+
+      return (
+        <div
+          className="flex gap-2 cursor-pointer"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+        >
+          Receipt Date
+          <SortIcon className="w-4 h-4" />
+        </div>
+      )
+    },
     cell: ({ getValue }) => {
       const raw = getValue<unknown>()
       const date =
@@ -225,34 +260,35 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   {
     accessorKey: 'paymentMethod',
     id: 'paymentMethod',
+
     header: ({ column }) => {
       const currentFilter = column.getFilterValue() as string
-
-      // Default to 'cash' if no filter is set
-      const displayFilter = currentFilter || 'cash'
-
-      // Set initial filter to cash if none is set
-      if (!currentFilter) {
-        column.setFilterValue('cash')
-      }
 
       return (
         <div
           className="cursor-pointer select-none"
           onClick={() => {
-            // Cycle through filters: cash -> bank -> esewa -> cash
-            if (currentFilter === 'cash') {
-              column.setFilterValue('bank')
-            } else if (currentFilter === 'bank') {
+            // Cycle through filters: all -> esewa -> cash -> bank -> all
+            if (!currentFilter) {
               column.setFilterValue('esewa')
-            } else {
+            } else if (currentFilter === 'esewa') {
               column.setFilterValue('cash')
+            } else if (currentFilter === 'cash') {
+              column.setFilterValue('bank')
+            } else {
+              column.setFilterValue(undefined)
             }
           }}
         >
-          <span className="bg-primary px-2 py-1 rounded font-medium text-primary-foreground text-xs">
-            {displayFilter.charAt(0).toUpperCase() + displayFilter.slice(1)}
-          </span>
+          {currentFilter ? (
+            <span className="flex justify-center items-center bg-primary rounded w-16 h-6 overflow-hidden font-medium text-primary-foreground text-xs">
+              {currentFilter.charAt(0).toUpperCase() + currentFilter.slice(1)}
+            </span>
+          ) : (
+            <span className="flex justify-center items-center bg-primary rounded w-16 h-6 overflow-hidden font-medium text-primary-foreground text-xs">
+              Method
+            </span>
+          )}
         </div>
       )
     },
