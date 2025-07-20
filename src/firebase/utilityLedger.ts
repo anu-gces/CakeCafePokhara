@@ -9,7 +9,7 @@ export type UtilityLedgerItem = {
   purchaseDate?: string // ISO date string, optional
   price: number
   notes?: string
-  vendorId: string
+  vendorId?: string
   addedBy: string
   addedAt: string // ISO date string
 }

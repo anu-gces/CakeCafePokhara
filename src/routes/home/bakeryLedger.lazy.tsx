@@ -21,15 +21,11 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { CalendarDateRangePicker } from '@/components/ui/daterangepicker'
-
-// Define DateRange type locally to match react-day-picker (from is required, but can be undefined)
-type DateRange = { from: Date | undefined; to?: Date }
-
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { Button } from '@/components/ui/button'
 import { LoaderIcon, ReceiptIcon, Trash2Icon } from 'lucide-react'
 import { useState } from 'react'
 import * as Yup from 'yup'
-import { Formik, Form, Field, ErrorMessage } from 'formik'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,6 +41,8 @@ import {
 import SplashScreen from '@/components/splashscreen'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getAllVendors } from '@/firebase/vendors'
+
+type DateRange = { from: Date | undefined; to?: Date }
 
 export const Route = createLazyFileRoute('/home/bakeryLedger')({
   component: RouteComponent,
@@ -91,13 +89,32 @@ function RouteComponent() {
   // Filter state
   const [selectedVendor, setSelectedVendor] = useState<string>('ALL')
   // CalendarDateRangePicker expects { from: Date | undefined, to?: Date }
-  const today = new Date()
+  // Set initial range to cover the full current day (00:00:00 to 23:59:59)
+  const now = new Date()
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0,
+  )
+  const endOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    23,
+    59,
+    59,
+    999,
+  )
   const [dateRange, setDateRange] = useState<DateRange>({
-    from: today,
-    to: today,
+    from: startOfToday,
+    to: endOfToday,
   })
 
-  // Filter items by vendor and datepicker range
+  // Filter items by vendor and purchaseDate range (use purchaseDate if present, else fallback to addedAt)
   let filteredItems = items || []
   if (selectedVendor !== 'ALL') {
     filteredItems = filteredItems.filter(
@@ -105,14 +122,18 @@ function RouteComponent() {
     )
   }
   if (dateRange.from && dateRange.to) {
+    // Use the provided from/to as is (should already be start/end of day)
+    const from = new Date(dateRange.from)
+    const to = new Date(dateRange.to)
     filteredItems = filteredItems.filter((item) => {
-      const itemDate = new Date(item.addedAt)
-      return itemDate >= dateRange.from! && itemDate <= dateRange.to!
+      const itemDate = new Date(item.purchaseDate || item.addedAt)
+      return itemDate >= from && itemDate <= to
     })
   } else if (dateRange.from) {
+    const from = new Date(dateRange.from)
     filteredItems = filteredItems.filter((item) => {
-      const itemDate = new Date(item.addedAt)
-      return itemDate >= dateRange.from!
+      const itemDate = new Date(item.purchaseDate || item.addedAt)
+      return itemDate >= from
     })
   }
 
@@ -281,7 +302,19 @@ function RouteComponent() {
                                   : 'Credited'}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
-                                {new Date(item.addedAt).toLocaleDateString()}
+                                {(() => {
+                                  const dt = new Date(
+                                    item.purchaseDate || item.addedAt,
+                                  )
+                                  return (
+                                    dt.toLocaleDateString() +
+                                    ' ' +
+                                    dt.toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  )
+                                })()}
                               </Badge>
                               {item.paymentStatus === 'credited' && (
                                 <Button
@@ -317,7 +350,7 @@ function RouteComponent() {
                             Vendor:{' '}
                             <span className="font-medium">
                               {vendors?.find((v) => v.id === item.vendorId)
-                                ?.nickname || 'Unknown'}
+                                ?.nickname || 'None'}
                             </span>
                           </div>
                           <div className="mb-2 text-muted-foreground text-xs">
@@ -421,7 +454,7 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
 
 const LedgerSchema = Yup.object().shape({
   itemName: Yup.string().required('Item name is required'),
-  vendorId: Yup.string().required('Vendor is required'),
+  vendorId: Yup.string(),
   price: Yup.number()
     .typeError('Price must be a number')
     .positive('Price must be greater than zero')
@@ -475,169 +508,203 @@ function LedgerDrawer() {
             Enter details for the new bakery ledger entry.
           </DrawerDescription>
         </DrawerHeader>
-        <Formik
-          initialValues={{
-            itemName: '',
-            vendorId: '',
-            price: '',
-            paymentStatus: 'paid',
-            purchaseDate: new Date().toISOString(),
-            notes: '',
-          }}
-          validationSchema={LedgerSchema}
-          onSubmit={(values: any, { resetForm }: any) => {
-            addItemMutation.mutate({
-              itemName: values.itemName,
-              vendorId: values.vendorId,
-              price: Number(values.price),
-              paymentStatus: values.paymentStatus as 'paid' | 'credited',
-              purchaseDate: values.purchaseDate,
-              notes: values.notes,
-              addedBy:
-                userAdditional?.firstName ||
-                user?.displayName ||
-                user?.email ||
-                'Unknown',
-              addedAt: new Date().toISOString(),
-            })
-            resetForm()
-          }}
-        >
-          {({ setFieldValue }) => (
-            <Form className="space-y-2">
-              <ScrollArea className="h-72 overflow-y-auto">
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="itemName">Item Name</Label>
-                  <Field as={Input} id="itemName" name="itemName" required />
-                  <ErrorMessage
-                    name="itemName"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="vendorId">Vendor</Label>
-                  <Field name="vendorId">
-                    {({ field }: any) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) =>
-                          setFieldValue('vendorId', value)
-                        }
-                        required
-                        disabled={isVendorsLoading}
-                      >
-                        <SelectTrigger id="vendorId">
-                          <SelectValue placeholder="Select vendor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vendors?.map((vendor: any) => (
-                            <SelectItem key={vendor.id} value={vendor.id}>
-                              {vendor.nickname} ({vendor.firstName}{' '}
-                              {vendor.lastName})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </Field>
-                  <ErrorMessage
-                    name="vendorId"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="price">Price</Label>
-                  <Field
-                    as={Input}
-                    id="price"
-                    name="price"
-                    type="number"
-                    required
-                  />
-                  <ErrorMessage
-                    name="price"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="purchaseDate">Purchase Date</Label>
-                  <Field
-                    as={Input}
-                    id="purchaseDate"
-                    name="purchaseDate"
-                    type="date"
-                    required
-                  />
-                  <ErrorMessage
-                    name="purchaseDate"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="paymentStatus">Payment Status</Label>
-                  <Field name="paymentStatus">
-                    {({ field, form }: any) => (
-                      <Select
-                        value={field.value}
-                        onValueChange={(value) =>
-                          form.setFieldValue('paymentStatus', value)
-                        }
-                        required
-                      >
-                        <SelectTrigger id="paymentStatus">
-                          <SelectValue placeholder="Select payment status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="paid">Paid</SelectItem>
-                          <SelectItem value="credited">Credited</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </Field>
-                  <ErrorMessage
-                    name="paymentStatus"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Field as={Textarea} id="notes" name="notes" />
-                  <ErrorMessage
-                    name="notes"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-              </ScrollArea>
-              <DrawerFooter>
-                <Button type="submit" disabled={addItemMutation.isPending}>
-                  {addItemMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <LoaderIcon
-                        className="w-4 h-4 animate-spin"
-                        color="white"
-                      />
-                      Saving...
-                    </span>
-                  ) : (
-                    <span>Save</span>
-                  )}
-                </Button>
-                <DrawerClose asChild>
-                  <Button variant="outline" type="button">
-                    Cancel
-                  </Button>
-                </DrawerClose>
-              </DrawerFooter>
-            </Form>
-          )}
-        </Formik>
+        <LedgerForm
+          addItemMutation={addItemMutation}
+          isVendorsLoading={isVendorsLoading}
+          vendors={vendors}
+          userAdditional={userAdditional}
+          user={user}
+          setOpen={setOpen}
+        />
       </DrawerContent>
     </Drawer>
+  )
+}
+
+function LedgerForm({
+  addItemMutation,
+  isVendorsLoading,
+  vendors,
+  userAdditional,
+  user,
+  setOpen,
+}: any) {
+  const [form, setForm] = useState({
+    itemName: '',
+    vendorId: '',
+    price: '',
+    paymentStatus: 'paid',
+    purchaseDate: new Date().toISOString(),
+    notes: '',
+  })
+  const [errors, setErrors] = useState<any>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleChange = (field: string, value: any) => {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    setErrors((prev: any) => ({ ...prev, [field]: undefined }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    try {
+      await LedgerSchema.validate(form, { abortEarly: false })
+      addItemMutation.mutate({
+        itemName: form.itemName,
+        vendorId: form.vendorId || null,
+        price: Number(form.price),
+        paymentStatus: form.paymentStatus,
+        purchaseDate: form.purchaseDate,
+        notes: form.notes,
+        addedBy:
+          userAdditional?.firstName ||
+          user?.displayName ||
+          user?.email ||
+          'Unknown',
+        addedAt: new Date().toISOString(),
+      })
+      setForm({
+        itemName: '',
+        vendorId: '',
+        price: '',
+        paymentStatus: 'paid',
+        purchaseDate: new Date().toISOString(),
+        notes: '',
+      })
+      setErrors({})
+      setOpen(false)
+    } catch (err: any) {
+      if (err.inner) {
+        const errObj: any = {}
+        err.inner.forEach((e: any) => {
+          errObj[e.path] = e.message
+        })
+        setErrors(errObj)
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="space-y-2" onSubmit={handleSubmit}>
+      <ScrollArea className="h-72 overflow-y-auto">
+        <div className="space-y-2 px-4 py-2">
+          <Label htmlFor="itemName">Item Name</Label>
+          <Input
+            id="itemName"
+            name="itemName"
+            value={form.itemName}
+            onChange={(e) => handleChange('itemName', e.target.value)}
+            required
+          />
+          {errors.itemName && (
+            <div className="text-red-500 text-xs">{errors.itemName}</div>
+          )}
+        </div>
+        <div className="space-y-2 px-4 py-2">
+          <Label htmlFor="vendorId">Vendor (optional)</Label>
+          <Select
+            value={form.vendorId || ''}
+            onValueChange={(value) => handleChange('vendorId', value)}
+            disabled={isVendorsLoading}
+          >
+            <SelectTrigger id="vendorId">
+              <SelectValue placeholder="Select vendor (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {vendors?.map((vendor: any) => (
+                <SelectItem key={vendor.id} value={vendor.id}>
+                  {vendor.nickname} ({vendor.firstName} {vendor.lastName})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.vendorId && (
+            <div className="text-red-500 text-xs">{errors.vendorId}</div>
+          )}
+        </div>
+        <div className="space-y-2 px-4 py-2">
+          <Label htmlFor="price">Price</Label>
+          <Input
+            id="price"
+            name="price"
+            type="number"
+            value={form.price}
+            onChange={(e) => handleChange('price', e.target.value)}
+            required
+          />
+          {errors.price && (
+            <div className="text-red-500 text-xs">{errors.price}</div>
+          )}
+        </div>
+        <div className="space-y-2 px-4 py-2">
+          <Label htmlFor="purchaseDate">Purchase Date</Label>
+          <DatePickerWithPresets
+            selected={
+              form.purchaseDate ? new Date(form.purchaseDate) : undefined
+            }
+            onSelect={(date: Date | undefined) =>
+              handleChange('purchaseDate', date ? date.toISOString() : '')
+            }
+          />
+          {errors.purchaseDate && (
+            <div className="text-red-500 text-xs">{errors.purchaseDate}</div>
+          )}
+        </div>
+        <div className="space-y-2 px-4 py-2">
+          <Label htmlFor="paymentStatus">Payment Status</Label>
+          <Select
+            value={form.paymentStatus}
+            onValueChange={(value) => handleChange('paymentStatus', value)}
+            required
+          >
+            <SelectTrigger id="paymentStatus">
+              <SelectValue placeholder="Select payment status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="credited">Credited</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.paymentStatus && (
+            <div className="text-red-500 text-xs">{errors.paymentStatus}</div>
+          )}
+        </div>
+        <div className="space-y-2 px-4 py-2">
+          <Label htmlFor="notes">Notes</Label>
+          <Textarea
+            id="notes"
+            name="notes"
+            value={form.notes}
+            onChange={(e) => handleChange('notes', e.target.value)}
+          />
+          {errors.notes && (
+            <div className="text-red-500 text-xs">{errors.notes}</div>
+          )}
+        </div>
+      </ScrollArea>
+      <DrawerFooter>
+        <Button
+          type="submit"
+          disabled={addItemMutation.isPending || submitting}
+        >
+          {addItemMutation.isPending || submitting ? (
+            <span className="flex items-center gap-2">
+              <LoaderIcon className="w-4 h-4 animate-spin" color="white" />
+              Saving...
+            </span>
+          ) : (
+            <span>Save</span>
+          )}
+        </Button>
+        <DrawerClose asChild>
+          <Button variant="outline" type="button">
+            Cancel
+          </Button>
+        </DrawerClose>
+      </DrawerFooter>
+    </form>
   )
 }
