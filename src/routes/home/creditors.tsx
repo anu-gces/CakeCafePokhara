@@ -240,7 +240,7 @@ function CreditorCard({
         <Card
           onClick={() =>
             navigate({
-              to: `/home/${creditor.nickname}`,
+              to: `/home/creditors/${creditor.nickname}`,
               viewTransition: { types: ['slide-left'] },
             })
           }
