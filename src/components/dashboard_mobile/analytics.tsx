@@ -37,8 +37,8 @@ import {
   calculateTotalExpenditure,
 } from './dashboard.utils'
 import type { ProcessedOrder } from '@/firebase/firestore'
-import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
-import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
+import { type KitchenLedgerItem } from '@/firebase/kitchenLedger'
+import { type BakeryLedgerItem } from '@/firebase/bakeryLedger'
 
 export interface RevenueData {
   timestamp: string
