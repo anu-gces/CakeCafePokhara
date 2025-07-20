@@ -86,10 +86,26 @@ export const Route = createFileRoute('/home/takeOrder')({
   },
 })
 
+//commenting this as a context
+// (alias) type SubcategoryOption = {
+//     id: string;
+//     name: string;
+//     price: number;
+// }
+
 type CartItem = Omit<FoodItemProps, 'foodPhoto'> & {
   qty: number
   selectedSubcategory?: SubcategoryOption | null
-  finalPrice: number
+  foodPrice: number
+}
+
+// Minimal type for order submission
+type OrderItem = {
+  foodId: string
+  foodName: string
+  qty: number
+  foodPrice: number
+  selectedSubcategory?: SubcategoryOption | null
 }
 
 // Menu Card Component
@@ -229,7 +245,7 @@ function CartPreview({ cart }: { cart: CartItem[] }) {
                 </span>
               )}
             </span>
-            <span>Rs. {(item.finalPrice * item.qty).toFixed(2)}</span>
+            <span>Rs. {(item.foodPrice * item.qty).toFixed(2)}</span>
           </div>
         ))}
       </div>
@@ -241,7 +257,7 @@ function CartPreview({ cart }: { cart: CartItem[] }) {
           <span>
             Rs.{' '}
             {cart
-              .reduce((sum, item) => sum + item.finalPrice * item.qty, 0)
+              .reduce((sum, item) => sum + item.foodPrice * item.qty, 0)
               .toFixed(2)}
           </span>
         </div>
@@ -252,7 +268,7 @@ function CartPreview({ cart }: { cart: CartItem[] }) {
 
 export type AddToCart = {
   kotNumber: string
-  items: CartItem[]
+  items: OrderItem[]
   discountRate: number
   taxRate: number
   tableNumber: number
@@ -432,7 +448,7 @@ function CartDrawer({
 
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0)
   const subtotal = cart.reduce(
-    (sum, item) => sum + item.finalPrice * item.qty,
+    (sum, item) => sum + item.foodPrice * item.qty,
     0,
   )
   // Calculate discount and tax
@@ -444,8 +460,19 @@ function CartDrawer({
 
   // Submit handler
   const handleSubmit = () => {
-    const addToCart: AddToCart = {
-      items: cart,
+    // Map cart to minimal order items for billing (include foodId for type safety)
+    const orderItems = cart.map((item) => ({
+      foodId: item.foodId ?? '',
+      foodName: item.foodName,
+      subcategory: item.selectedSubcategory
+        ? item.selectedSubcategory.name
+        : null,
+      foodPrice: item.foodPrice,
+      qty: item.qty,
+      selectedSubcategory: item.selectedSubcategory ?? null,
+    }))
+    const addToCart = {
+      items: orderItems,
       kotNumber,
       discountRate,
       taxRate,
@@ -459,7 +486,7 @@ function CartDrawer({
         : new Date().toISOString(),
       paymentMethod: selectedPaymentMethod,
       creditor: selectedCreditor || null,
-      status: 'pending',
+      status: 'pending' as const,
       dismissed: false, // Set dismissed to false by default for notification purposes
     }
     enterOrderMutation.mutate(addToCart)
@@ -546,7 +573,7 @@ function CartDrawer({
                           </Badge>
                         )}
                         <div className="text-muted-foreground text-sm">
-                          Rs. {item.finalPrice.toFixed(2)} each
+                          Rs. {item.foodPrice.toFixed(2)} each
                         </div>
                       </div>
 
@@ -587,7 +614,7 @@ function CartDrawer({
 
                       <div className="text-right">
                         <div className="font-medium">
-                          Rs. {(item.finalPrice * item.qty).toFixed(2)}
+                          Rs. {(item.foodPrice * item.qty).toFixed(2)}
                         </div>
                       </div>
                     </div>
@@ -898,10 +925,7 @@ function CartDrawer({
               </div>
               <motion.button
                 className={cn(
-                  'flex justify-center items-center gap-2 px-4 py-2 rounded-md w-full text-white transition-colors',
-                  isFormValid && step === false
-                    ? 'bg-primary hover:bg-primary/90'
-                    : 'bg-primary/50 text-stone-500 cursor-not-allowed',
+                  'flex justify-center items-center gap-2 bg-primary hover:bg-primary/90 px-4 py-2 rounded-md w-full text-white transition-colors',
                 )}
                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 onClick={() => {
@@ -909,7 +933,6 @@ function CartDrawer({
                     setStep(!step)
                   }
                 }}
-                disabled={!isFormValid && step === false}
               >
                 {step ? (
                   <motion.span
@@ -1028,7 +1051,7 @@ export function TakeOrder() {
     food: FoodItemProps,
     subcategory?: SubcategoryOption,
   ) => {
-    const finalPrice = subcategory ? subcategory.price : food.foodPrice
+    const foodPrice = subcategory ? subcategory.price : food.foodPrice
 
     setCart((prev) => {
       const existing = prev.find(
@@ -1051,7 +1074,7 @@ export function TakeOrder() {
           ...food,
           qty: 1,
           selectedSubcategory: subcategory ?? null,
-          finalPrice,
+          foodPrice,
         }
         updatedCart = [...prev, newItem]
       }
@@ -1132,7 +1155,7 @@ export function TakeOrder() {
                 <div className="text-muted-foreground text-xs">
                   Rs.{' '}
                   {cart
-                    .reduce((sum, item) => sum + item.finalPrice * item.qty, 0)
+                    .reduce((sum, item) => sum + item.foodPrice * item.qty, 0)
                     .toFixed(2)}
                 </div>
               </div>

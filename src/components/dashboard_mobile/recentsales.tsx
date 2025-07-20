@@ -10,7 +10,7 @@ function calculateTotal(
     item.selectedSubcategory &&
     typeof item.selectedSubcategory.price === 'number'
       ? item.selectedSubcategory.price
-      : item.finalPrice
+      : item.foodPrice
 
   const baseTotal = basePrice * item.qty
   const discounted = baseTotal * (1 - discountRate / 100)
