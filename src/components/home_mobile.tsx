@@ -309,7 +309,7 @@ function HamburgerDrawer() {
           )}
 
           <Link
-            to="/home/creditors"
+            to="/home/creditors/creditorsAll"
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >

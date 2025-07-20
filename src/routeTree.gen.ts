@@ -31,6 +31,7 @@ import { Route as HomeNotificationsOrderNotificationImport } from './routes/home
 import { Route as HomeEmployeeTableImport } from './routes/home/employee/table'
 import { Route as HomeEmployeeEmployeeDailyReportImport } from './routes/home/employee/employeeDailyReport'
 import { Route as HomeEmployeeSalaryLedgerImport } from './routes/home/employee/$salaryLedger'
+import { Route as HomeCreditorsCreditorsAllImport } from './routes/home/creditors/creditorsAll'
 import { Route as HomeCreditorsNicknameImport } from './routes/home/creditors/$nickname'
 import { Route as HomeEmployeeEmployeeDailyReportEmployeeIdImport } from './routes/home/employee/employeeDailyReport/$employeeId'
 import { Route as HomeEmployeeEmployeeIdSalesImport } from './routes/home/employee/$employeeId/sales'
@@ -248,6 +249,12 @@ const HomeEmployeeSalaryLedgerRoute = HomeEmployeeSalaryLedgerImport.update({
   getParentRoute: () => HomeEmployeeRoute,
 } as any)
 
+const HomeCreditorsCreditorsAllRoute = HomeCreditorsCreditorsAllImport.update({
+  id: '/creditorsAll',
+  path: '/creditorsAll',
+  getParentRoute: () => HomeCreditorsRoute,
+} as any)
+
 const HomeCreditorsNicknameRoute = HomeCreditorsNicknameImport.update({
   id: '/$nickname',
   path: '/$nickname',
@@ -440,6 +447,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeCreditorsNicknameImport
       parentRoute: typeof HomeCreditorsImport
     }
+    '/home/creditors/creditorsAll': {
+      id: '/home/creditors/creditorsAll'
+      path: '/creditorsAll'
+      fullPath: '/home/creditors/creditorsAll'
+      preLoaderRoute: typeof HomeCreditorsCreditorsAllImport
+      parentRoute: typeof HomeCreditorsImport
+    }
     '/home/employee/$salaryLedger': {
       id: '/home/employee/$salaryLedger'
       path: '/$salaryLedger'
@@ -503,10 +517,12 @@ declare module '@tanstack/react-router' {
 
 interface HomeCreditorsRouteChildren {
   HomeCreditorsNicknameRoute: typeof HomeCreditorsNicknameRoute
+  HomeCreditorsCreditorsAllRoute: typeof HomeCreditorsCreditorsAllRoute
 }
 
 const HomeCreditorsRouteChildren: HomeCreditorsRouteChildren = {
   HomeCreditorsNicknameRoute: HomeCreditorsNicknameRoute,
+  HomeCreditorsCreditorsAllRoute: HomeCreditorsCreditorsAllRoute,
 }
 
 const HomeCreditorsRouteWithChildren = HomeCreditorsRoute._addFileChildren(
@@ -645,6 +661,7 @@ export interface FileRoutesByFullPath {
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
   '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
+  '/home/creditors/creditorsAll': typeof HomeCreditorsCreditorsAllRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
   '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
@@ -680,6 +697,7 @@ export interface FileRoutesByTo {
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
   '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
+  '/home/creditors/creditorsAll': typeof HomeCreditorsCreditorsAllRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
   '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
@@ -716,6 +734,7 @@ export interface FileRoutesById {
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
   '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
+  '/home/creditors/creditorsAll': typeof HomeCreditorsCreditorsAllRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
   '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
@@ -753,6 +772,7 @@ export interface FileRouteTypes {
     | '/home/settings'
     | '/home/utilityLedger'
     | '/home/creditors/$nickname'
+    | '/home/creditors/creditorsAll'
     | '/home/employee/$salaryLedger'
     | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
@@ -787,6 +807,7 @@ export interface FileRouteTypes {
     | '/home/settings'
     | '/home/utilityLedger'
     | '/home/creditors/$nickname'
+    | '/home/creditors/creditorsAll'
     | '/home/employee/$salaryLedger'
     | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
@@ -821,6 +842,7 @@ export interface FileRouteTypes {
     | '/home/settings'
     | '/home/utilityLedger'
     | '/home/creditors/$nickname'
+    | '/home/creditors/creditorsAll'
     | '/home/employee/$salaryLedger'
     | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
@@ -899,7 +921,8 @@ export const routeTree = rootRoute
       "filePath": "home/creditors.tsx",
       "parent": "/home",
       "children": [
-        "/home/creditors/$nickname"
+        "/home/creditors/$nickname",
+        "/home/creditors/creditorsAll"
       ]
     },
     "/home/dashboard": {
@@ -989,6 +1012,10 @@ export const routeTree = rootRoute
     },
     "/home/creditors/$nickname": {
       "filePath": "home/creditors/$nickname.tsx",
+      "parent": "/home/creditors"
+    },
+    "/home/creditors/creditorsAll": {
+      "filePath": "home/creditors/creditorsAll.tsx",
       "parent": "/home/creditors"
     },
     "/home/employee/$salaryLedger": {

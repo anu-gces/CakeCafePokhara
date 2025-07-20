@@ -75,7 +75,7 @@ function RouteComponent() {
           <Button
             onClick={() =>
               navigate({
-                to: '/home/creditors',
+                to: '/home/creditors/creditorsAll',
                 viewTransition: { types: ['slide-right'] },
               })
             }
