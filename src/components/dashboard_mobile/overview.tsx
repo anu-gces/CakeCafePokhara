@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useLoaderData, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { DollarSign } from 'lucide-react'
 import {
   Bar,
@@ -23,6 +23,10 @@ import {
   calculateOrderTotal,
   calculateTotalExpenditure,
 } from './dashboard.utils'
+
+import { type ProcessedOrder } from '@/firebase/firestore'
+import { type KitchenLedgerItem } from '@/firebase/kitchenLedger'
+import { type BakeryLedgerItem } from '@/firebase/bakeryLedger'
 
 export function OverviewBarChart({
   data,
@@ -76,29 +80,38 @@ export function OverviewBarChart({
   )
 }
 
-export function Overview() {
+export function Overview({
+  rawOrders,
+  kitchenLedger,
+  bakeryLedger,
+}: {
+  rawOrders: ProcessedOrder[]
+  kitchenLedger: KitchenLedgerItem[]
+  bakeryLedger: BakeryLedgerItem[]
+}) {
   const navigate = useNavigate()
-  const {
-    income: rawOrders,
-    kitchenLedger,
-    bakeryLedger,
-  } = useLoaderData({ from: '/home/dashboard' }) // Default to empty array if no orders
 
-  const totalRevenue = calculateTotalRevenue(rawOrders)
+  const filteredOrders = rawOrders.filter(
+    (order) => !order.complementary && order.status === 'paid',
+  )
 
-  const ordersByDay = rawOrders.reduce((acc: Record<string, number>, order) => {
-    // receiptDate is always an ISO string
-    const day = format(parseISO(order.receiptDate), 'EEEE') // Get the day of the week
-    acc[day] = (acc[day] || 0) + 1 // Increment the count for the day
-    return acc
-  }, {})
+  const totalRevenue = calculateTotalRevenue(filteredOrders)
+
+  const ordersByDay = filteredOrders.reduce(
+    (acc: Record<string, number>, order) => {
+      const day = format(parseISO(order.receiptDate), 'EEEE') // Get the day of the week
+      acc[day] = (acc[day] || 0) + 1 // Increment the count for the day
+      return acc
+    },
+    {},
+  )
 
   // Handle the case when there are no orders or no data for the busiest day
   const sortedDays = Object.entries(ordersByDay).sort((a, b) => b[1] - a[1])
   const [busiestDay, busiestDaySales] =
     sortedDays.length > 0 ? sortedDays[0] : ['No data', 0]
 
-  const totalSales = rawOrders.reduce((sum, order) => {
+  const totalSales = filteredOrders.reduce((sum, order) => {
     const salesCount = order.items.reduce(
       (itemSum, item) => itemSum + item.qty,
       0,
@@ -106,7 +119,7 @@ export function Overview() {
     return sum + salesCount
   }, 0)
 
-  const topSellingItems = rawOrders
+  const topSellingItems = filteredOrders
     .flatMap((order) => order.items)
     .reduce((acc: Record<string, number>, item) => {
       acc[item.foodName] = (acc[item.foodName] || 0) + item.qty
@@ -120,7 +133,7 @@ export function Overview() {
     .join(', ')
 
   const monthlyRevenue = Array.from({ length: 12 }, (_, index) => {
-    const monthOrders = rawOrders.filter((order) => {
+    const monthOrders = filteredOrders.filter((order) => {
       // receiptDate is always an ISO string
       const month = parseISO(order.receiptDate).getMonth() // 0-indexed (Jan = 0)
       return month === index
@@ -278,7 +291,7 @@ export function Overview() {
             <CardDescription>Last 10 Sales. Click for more.</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentSales />
+            <RecentSales income={filteredOrders} />
           </CardContent>
         </Card>
       </div>

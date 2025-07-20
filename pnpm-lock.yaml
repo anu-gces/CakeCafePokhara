@@ -95,6 +95,9 @@ dependencies:
   formik:
     specifier: ^2.4.6
     version: 2.4.6(react@19.1.0)
+  lodash:
+    specifier: ^4.17.21
+    version: 4.17.21
   lucide-react:
     specifier: ^0.476.0
     version: 0.476.0(react@19.1.0)
@@ -166,6 +169,9 @@ devDependencies:
   '@types/fullcalendar':
     specifier: ^3.8.0
     version: 3.8.0
+  '@types/lodash':
+    specifier: ^4.17.20
+    version: 4.17.20
   '@types/react':
     specifier: ^19.0.8
     version: 19.1.6
@@ -3929,6 +3935,10 @@ packages:
 
   /@types/json-schema@7.0.15:
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+    dev: true
+
+  /@types/lodash@4.17.20:
+    resolution: {integrity: sha512-H3MHACvFUEiujabxhaI/ImO6gUrd8oOurg7LQtS7mbwIXA/cUqWrvBsaeJ23aZEPk1TAYkurjfMbSELfoCXlGA==}
     dev: true
 
   /@types/node@22.15.29:

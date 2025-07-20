@@ -17,6 +17,7 @@ import { Route as ProfileCompleteImport } from './routes/profileComplete'
 import { Route as HomeImport } from './routes/home'
 import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
+import { Route as HomeVendorsImport } from './routes/home/vendors'
 import { Route as HomeTakeOrderImport } from './routes/home/takeOrder'
 import { Route as HomeStockImport } from './routes/home/stock'
 import { Route as HomeNotificationsImport } from './routes/home/notifications'
@@ -24,17 +25,19 @@ import { Route as HomeMenuManagementImport } from './routes/home/menuManagement'
 import { Route as HomeEmployeeImport } from './routes/home/employee'
 import { Route as HomeDashboardImport } from './routes/home/dashboard'
 import { Route as HomeCreditorsImport } from './routes/home/creditors'
-import { Route as HomeNicknameImport } from './routes/home/$nickname'
+import { Route as HomeVendorsNicknameImport } from './routes/home/vendors/$nickname'
 import { Route as HomeNotificationsStockNotificationImport } from './routes/home/notifications/stockNotification'
 import { Route as HomeNotificationsOrderNotificationImport } from './routes/home/notifications/orderNotification'
 import { Route as HomeEmployeeTableImport } from './routes/home/employee/table'
 import { Route as HomeEmployeeEmployeeDailyReportImport } from './routes/home/employee/employeeDailyReport'
 import { Route as HomeEmployeeSalaryLedgerImport } from './routes/home/employee/$salaryLedger'
+import { Route as HomeCreditorsNicknameImport } from './routes/home/creditors/$nickname'
 import { Route as HomeEmployeeEmployeeDailyReportEmployeeIdImport } from './routes/home/employee/employeeDailyReport/$employeeId'
 import { Route as HomeEmployeeEmployeeIdSalesImport } from './routes/home/employee/$employeeId/sales'
 
 // Create Virtual Routes
 
+const HomeUtilityLedgerLazyImport = createFileRoute('/home/utilityLedger')()
 const HomeSettingsLazyImport = createFileRoute('/home/settings')()
 const HomeKitchenLedgerLazyImport = createFileRoute('/home/kitchenLedger')()
 const HomeInventoryLazyImport = createFileRoute('/home/inventory')()
@@ -73,6 +76,14 @@ const IndexRoute = IndexImport.update({
   path: '/',
   getParentRoute: () => rootRoute,
 } as any)
+
+const HomeUtilityLedgerLazyRoute = HomeUtilityLedgerLazyImport.update({
+  id: '/utilityLedger',
+  path: '/utilityLedger',
+  getParentRoute: () => HomeRoute,
+} as any).lazy(() =>
+  import('./routes/home/utilityLedger.lazy').then((d) => d.Route),
+)
 
 const HomeSettingsLazyRoute = HomeSettingsLazyImport.update({
   id: '/settings',
@@ -146,6 +157,12 @@ const HomeAccessoriesLazyRoute = HomeAccessoriesLazyImport.update({
   import('./routes/home/accessories.lazy').then((d) => d.Route),
 )
 
+const HomeVendorsRoute = HomeVendorsImport.update({
+  id: '/vendors',
+  path: '/vendors',
+  getParentRoute: () => HomeRoute,
+} as any)
+
 const HomeTakeOrderRoute = HomeTakeOrderImport.update({
   id: '/takeOrder',
   path: '/takeOrder',
@@ -190,10 +207,10 @@ const HomeCreditorsRoute = HomeCreditorsImport.update({
   getParentRoute: () => HomeRoute,
 } as any)
 
-const HomeNicknameRoute = HomeNicknameImport.update({
+const HomeVendorsNicknameRoute = HomeVendorsNicknameImport.update({
   id: '/$nickname',
   path: '/$nickname',
-  getParentRoute: () => HomeRoute,
+  getParentRoute: () => HomeVendorsRoute,
 } as any)
 
 const HomeNotificationsStockNotificationRoute =
@@ -229,6 +246,12 @@ const HomeEmployeeSalaryLedgerRoute = HomeEmployeeSalaryLedgerImport.update({
   id: '/$salaryLedger',
   path: '/$salaryLedger',
   getParentRoute: () => HomeEmployeeRoute,
+} as any)
+
+const HomeCreditorsNicknameRoute = HomeCreditorsNicknameImport.update({
+  id: '/$nickname',
+  path: '/$nickname',
+  getParentRoute: () => HomeCreditorsRoute,
 } as any)
 
 const HomeEmployeeEmployeeDailyReportEmployeeIdRoute =
@@ -277,13 +300,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProfileCompleteImport
       parentRoute: typeof rootRoute
     }
-    '/home/$nickname': {
-      id: '/home/$nickname'
-      path: '/$nickname'
-      fullPath: '/home/$nickname'
-      preLoaderRoute: typeof HomeNicknameImport
-      parentRoute: typeof HomeImport
-    }
     '/home/creditors': {
       id: '/home/creditors'
       path: '/creditors'
@@ -331,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/takeOrder'
       fullPath: '/home/takeOrder'
       preLoaderRoute: typeof HomeTakeOrderImport
+      parentRoute: typeof HomeImport
+    }
+    '/home/vendors': {
+      id: '/home/vendors'
+      path: '/vendors'
+      fullPath: '/home/vendors'
+      preLoaderRoute: typeof HomeVendorsImport
       parentRoute: typeof HomeImport
     }
     '/home/accessories': {
@@ -403,6 +426,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeSettingsLazyImport
       parentRoute: typeof HomeImport
     }
+    '/home/utilityLedger': {
+      id: '/home/utilityLedger'
+      path: '/utilityLedger'
+      fullPath: '/home/utilityLedger'
+      preLoaderRoute: typeof HomeUtilityLedgerLazyImport
+      parentRoute: typeof HomeImport
+    }
+    '/home/creditors/$nickname': {
+      id: '/home/creditors/$nickname'
+      path: '/$nickname'
+      fullPath: '/home/creditors/$nickname'
+      preLoaderRoute: typeof HomeCreditorsNicknameImport
+      parentRoute: typeof HomeCreditorsImport
+    }
     '/home/employee/$salaryLedger': {
       id: '/home/employee/$salaryLedger'
       path: '/$salaryLedger'
@@ -438,6 +475,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeNotificationsStockNotificationImport
       parentRoute: typeof HomeNotificationsImport
     }
+    '/home/vendors/$nickname': {
+      id: '/home/vendors/$nickname'
+      path: '/$nickname'
+      fullPath: '/home/vendors/$nickname'
+      preLoaderRoute: typeof HomeVendorsNicknameImport
+      parentRoute: typeof HomeVendorsImport
+    }
     '/home/employee/$employeeId/sales': {
       id: '/home/employee/$employeeId/sales'
       path: '/$employeeId/sales'
@@ -456,6 +500,18 @@ declare module '@tanstack/react-router' {
 }
 
 // Create and export the route tree
+
+interface HomeCreditorsRouteChildren {
+  HomeCreditorsNicknameRoute: typeof HomeCreditorsNicknameRoute
+}
+
+const HomeCreditorsRouteChildren: HomeCreditorsRouteChildren = {
+  HomeCreditorsNicknameRoute: HomeCreditorsNicknameRoute,
+}
+
+const HomeCreditorsRouteWithChildren = HomeCreditorsRoute._addFileChildren(
+  HomeCreditorsRouteChildren,
+)
 
 interface HomeEmployeeEmployeeDailyReportRouteChildren {
   HomeEmployeeEmployeeDailyReportEmployeeIdRoute: typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
@@ -506,15 +562,27 @@ const HomeNotificationsRouteChildren: HomeNotificationsRouteChildren = {
 const HomeNotificationsRouteWithChildren =
   HomeNotificationsRoute._addFileChildren(HomeNotificationsRouteChildren)
 
+interface HomeVendorsRouteChildren {
+  HomeVendorsNicknameRoute: typeof HomeVendorsNicknameRoute
+}
+
+const HomeVendorsRouteChildren: HomeVendorsRouteChildren = {
+  HomeVendorsNicknameRoute: HomeVendorsNicknameRoute,
+}
+
+const HomeVendorsRouteWithChildren = HomeVendorsRoute._addFileChildren(
+  HomeVendorsRouteChildren,
+)
+
 interface HomeRouteChildren {
-  HomeNicknameRoute: typeof HomeNicknameRoute
-  HomeCreditorsRoute: typeof HomeCreditorsRoute
+  HomeCreditorsRoute: typeof HomeCreditorsRouteWithChildren
   HomeDashboardRoute: typeof HomeDashboardRoute
   HomeEmployeeRoute: typeof HomeEmployeeRouteWithChildren
   HomeMenuManagementRoute: typeof HomeMenuManagementRoute
   HomeNotificationsRoute: typeof HomeNotificationsRouteWithChildren
   HomeStockRoute: typeof HomeStockRoute
   HomeTakeOrderRoute: typeof HomeTakeOrderRoute
+  HomeVendorsRoute: typeof HomeVendorsRouteWithChildren
   HomeAccessoriesLazyRoute: typeof HomeAccessoriesLazyRoute
   HomeBakeryLedgerLazyRoute: typeof HomeBakeryLedgerLazyRoute
   HomeBaristaLedgerLazyRoute: typeof HomeBaristaLedgerLazyRoute
@@ -525,17 +593,18 @@ interface HomeRouteChildren {
   HomeInventoryLazyRoute: typeof HomeInventoryLazyRoute
   HomeKitchenLedgerLazyRoute: typeof HomeKitchenLedgerLazyRoute
   HomeSettingsLazyRoute: typeof HomeSettingsLazyRoute
+  HomeUtilityLedgerLazyRoute: typeof HomeUtilityLedgerLazyRoute
 }
 
 const HomeRouteChildren: HomeRouteChildren = {
-  HomeNicknameRoute: HomeNicknameRoute,
-  HomeCreditorsRoute: HomeCreditorsRoute,
+  HomeCreditorsRoute: HomeCreditorsRouteWithChildren,
   HomeDashboardRoute: HomeDashboardRoute,
   HomeEmployeeRoute: HomeEmployeeRouteWithChildren,
   HomeMenuManagementRoute: HomeMenuManagementRoute,
   HomeNotificationsRoute: HomeNotificationsRouteWithChildren,
   HomeStockRoute: HomeStockRoute,
   HomeTakeOrderRoute: HomeTakeOrderRoute,
+  HomeVendorsRoute: HomeVendorsRouteWithChildren,
   HomeAccessoriesLazyRoute: HomeAccessoriesLazyRoute,
   HomeBakeryLedgerLazyRoute: HomeBakeryLedgerLazyRoute,
   HomeBaristaLedgerLazyRoute: HomeBaristaLedgerLazyRoute,
@@ -546,6 +615,7 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeInventoryLazyRoute: HomeInventoryLazyRoute,
   HomeKitchenLedgerLazyRoute: HomeKitchenLedgerLazyRoute,
   HomeSettingsLazyRoute: HomeSettingsLazyRoute,
+  HomeUtilityLedgerLazyRoute: HomeUtilityLedgerLazyRoute,
 }
 
 const HomeRouteWithChildren = HomeRoute._addFileChildren(HomeRouteChildren)
@@ -555,14 +625,14 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/home': typeof HomeRouteWithChildren
   '/profileComplete': typeof ProfileCompleteRoute
-  '/home/$nickname': typeof HomeNicknameRoute
-  '/home/creditors': typeof HomeCreditorsRoute
+  '/home/creditors': typeof HomeCreditorsRouteWithChildren
   '/home/dashboard': typeof HomeDashboardRoute
   '/home/employee': typeof HomeEmployeeRouteWithChildren
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
+  '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
@@ -573,11 +643,14 @@ export interface FileRoutesByFullPath {
   '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
+  '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
+  '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
   '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
   '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
+  '/home/vendors/$nickname': typeof HomeVendorsNicknameRoute
   '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
   '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
@@ -587,14 +660,14 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/home': typeof HomeRouteWithChildren
   '/profileComplete': typeof ProfileCompleteRoute
-  '/home/$nickname': typeof HomeNicknameRoute
-  '/home/creditors': typeof HomeCreditorsRoute
+  '/home/creditors': typeof HomeCreditorsRouteWithChildren
   '/home/dashboard': typeof HomeDashboardRoute
   '/home/employee': typeof HomeEmployeeRouteWithChildren
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
+  '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
@@ -605,11 +678,14 @@ export interface FileRoutesByTo {
   '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
+  '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
+  '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
   '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
   '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
+  '/home/vendors/$nickname': typeof HomeVendorsNicknameRoute
   '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
   '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
@@ -620,14 +696,14 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/home': typeof HomeRouteWithChildren
   '/profileComplete': typeof ProfileCompleteRoute
-  '/home/$nickname': typeof HomeNicknameRoute
-  '/home/creditors': typeof HomeCreditorsRoute
+  '/home/creditors': typeof HomeCreditorsRouteWithChildren
   '/home/dashboard': typeof HomeDashboardRoute
   '/home/employee': typeof HomeEmployeeRouteWithChildren
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
+  '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
@@ -638,11 +714,14 @@ export interface FileRoutesById {
   '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
+  '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
+  '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
   '/home/employee/$salaryLedger': typeof HomeEmployeeSalaryLedgerRoute
   '/home/employee/employeeDailyReport': typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
   '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
+  '/home/vendors/$nickname': typeof HomeVendorsNicknameRoute
   '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
   '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
@@ -654,7 +733,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/home'
     | '/profileComplete'
-    | '/home/$nickname'
     | '/home/creditors'
     | '/home/dashboard'
     | '/home/employee'
@@ -662,6 +740,7 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
+    | '/home/vendors'
     | '/home/accessories'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
@@ -672,11 +751,14 @@ export interface FileRouteTypes {
     | '/home/inventory'
     | '/home/kitchenLedger'
     | '/home/settings'
+    | '/home/utilityLedger'
+    | '/home/creditors/$nickname'
     | '/home/employee/$salaryLedger'
     | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
     | '/home/notifications/orderNotification'
     | '/home/notifications/stockNotification'
+    | '/home/vendors/$nickname'
     | '/home/employee/$employeeId/sales'
     | '/home/employee/employeeDailyReport/$employeeId'
   fileRoutesByTo: FileRoutesByTo
@@ -685,7 +767,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/home'
     | '/profileComplete'
-    | '/home/$nickname'
     | '/home/creditors'
     | '/home/dashboard'
     | '/home/employee'
@@ -693,6 +774,7 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
+    | '/home/vendors'
     | '/home/accessories'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
@@ -703,11 +785,14 @@ export interface FileRouteTypes {
     | '/home/inventory'
     | '/home/kitchenLedger'
     | '/home/settings'
+    | '/home/utilityLedger'
+    | '/home/creditors/$nickname'
     | '/home/employee/$salaryLedger'
     | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
     | '/home/notifications/orderNotification'
     | '/home/notifications/stockNotification'
+    | '/home/vendors/$nickname'
     | '/home/employee/$employeeId/sales'
     | '/home/employee/employeeDailyReport/$employeeId'
   id:
@@ -716,7 +801,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/home'
     | '/profileComplete'
-    | '/home/$nickname'
     | '/home/creditors'
     | '/home/dashboard'
     | '/home/employee'
@@ -724,6 +808,7 @@ export interface FileRouteTypes {
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
+    | '/home/vendors'
     | '/home/accessories'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
@@ -734,11 +819,14 @@ export interface FileRouteTypes {
     | '/home/inventory'
     | '/home/kitchenLedger'
     | '/home/settings'
+    | '/home/utilityLedger'
+    | '/home/creditors/$nickname'
     | '/home/employee/$salaryLedger'
     | '/home/employee/employeeDailyReport'
     | '/home/employee/table'
     | '/home/notifications/orderNotification'
     | '/home/notifications/stockNotification'
+    | '/home/vendors/$nickname'
     | '/home/employee/$employeeId/sales'
     | '/home/employee/employeeDailyReport/$employeeId'
   fileRoutesById: FileRoutesById
@@ -783,7 +871,6 @@ export const routeTree = rootRoute
     "/home": {
       "filePath": "home.tsx",
       "children": [
-        "/home/$nickname",
         "/home/creditors",
         "/home/dashboard",
         "/home/employee",
@@ -791,6 +878,7 @@ export const routeTree = rootRoute
         "/home/notifications",
         "/home/stock",
         "/home/takeOrder",
+        "/home/vendors",
         "/home/accessories",
         "/home/bakeryLedger",
         "/home/baristaLedger",
@@ -800,19 +888,19 @@ export const routeTree = rootRoute
         "/home/help",
         "/home/inventory",
         "/home/kitchenLedger",
-        "/home/settings"
+        "/home/settings",
+        "/home/utilityLedger"
       ]
     },
     "/profileComplete": {
       "filePath": "profileComplete.tsx"
     },
-    "/home/$nickname": {
-      "filePath": "home/$nickname.tsx",
-      "parent": "/home"
-    },
     "/home/creditors": {
       "filePath": "home/creditors.tsx",
-      "parent": "/home"
+      "parent": "/home",
+      "children": [
+        "/home/creditors/$nickname"
+      ]
     },
     "/home/dashboard": {
       "filePath": "home/dashboard.tsx",
@@ -847,6 +935,13 @@ export const routeTree = rootRoute
     "/home/takeOrder": {
       "filePath": "home/takeOrder.tsx",
       "parent": "/home"
+    },
+    "/home/vendors": {
+      "filePath": "home/vendors.tsx",
+      "parent": "/home",
+      "children": [
+        "/home/vendors/$nickname"
+      ]
     },
     "/home/accessories": {
       "filePath": "home/accessories.lazy.tsx",
@@ -888,6 +983,14 @@ export const routeTree = rootRoute
       "filePath": "home/settings.lazy.tsx",
       "parent": "/home"
     },
+    "/home/utilityLedger": {
+      "filePath": "home/utilityLedger.lazy.tsx",
+      "parent": "/home"
+    },
+    "/home/creditors/$nickname": {
+      "filePath": "home/creditors/$nickname.tsx",
+      "parent": "/home/creditors"
+    },
     "/home/employee/$salaryLedger": {
       "filePath": "home/employee/$salaryLedger.tsx",
       "parent": "/home/employee"
@@ -910,6 +1013,10 @@ export const routeTree = rootRoute
     "/home/notifications/stockNotification": {
       "filePath": "home/notifications/stockNotification.tsx",
       "parent": "/home/notifications"
+    },
+    "/home/vendors/$nickname": {
+      "filePath": "home/vendors/$nickname.tsx",
+      "parent": "/home/vendors"
     },
     "/home/employee/$employeeId/sales": {
       "filePath": "home/employee/$employeeId/sales.tsx",

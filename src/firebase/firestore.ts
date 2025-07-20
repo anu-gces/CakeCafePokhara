@@ -36,7 +36,7 @@ import type { InventoryItem } from '@/routes/home/inventory.lazy'
 import type { EquipmentItem } from '@/routes/home/equipment.lazy'
 import type { AccessoriesItem } from '@/routes/home/accessories.lazy'
 
-import { memoize } from '@fullcalendar/core/internal'
+import memoize from 'lodash/memoize'
 
 //export const db = getFirestore(app);
 

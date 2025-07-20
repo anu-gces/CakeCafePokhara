@@ -1,4 +1,3 @@
-import { useLoaderData } from '@tanstack/react-router'
 import type { ProcessedOrder } from '@/firebase/firestore'
 
 function calculateTotal(
@@ -19,12 +18,10 @@ function calculateTotal(
   return Math.round(taxed)
 }
 
-export function RecentSales() {
-  const { income: rawOrder } = useLoaderData({ from: '/home/dashboard' })
-
+export function RecentSales({ income }: { income: ProcessedOrder[] }) {
   return (
     <div className="space-y-6 w-full h-[400px] overflow-y-auto">
-      {rawOrder.slice(0, 10).map((sale: ProcessedOrder) => (
+      {income.slice(0, 10).map((sale: ProcessedOrder) => (
         <div key={sale.receiptId} className="pb-4 border-b">
           <p className="text-muted-foreground text-xs">
             {new Date(sale.receiptDate).toLocaleString()} · Processed by{' '}

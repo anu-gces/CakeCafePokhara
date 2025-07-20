@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ReceiptIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { AddToCart } from './takeOrder'
+import type { AddToCart } from '../takeOrder'
 import {
   getCreditorOrdersByNickname,
   updateOrderStatus,
@@ -33,7 +33,7 @@ function getTotal(
   return Math.round(subtotal - discount + taxed + manualRounding)
 }
 
-export const Route = createFileRoute('/home/$nickname')({
+export const Route = createFileRoute('/home/vendors/$nickname')({
   component: RouteComponent,
 })
 

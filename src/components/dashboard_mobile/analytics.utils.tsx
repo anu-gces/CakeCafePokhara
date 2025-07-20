@@ -1,8 +1,8 @@
 import { addDays, differenceInDays, format, parseISO } from 'date-fns'
 import type { RevenueData } from './analytics'
 import type { ProcessedOrder } from '@/firebase/firestore'
-import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
-import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
+import type { KitchenLedgerItem } from '@/firebase/kitchenLedger'
+import type { BakeryLedgerItem } from '@/firebase/bakeryLedger'
 import { calculateOrderTotal } from './dashboard.utils'
 
 export function groupDataByHour(dataArray: RevenueData[]) {
@@ -232,13 +232,13 @@ export function mapToRevenueData({
 
   for (const item of kitchenLedger) {
     if (item.addedAt) {
-      push(item.addedAt, 0, item.price * item.quantity)
+      push(item.addedAt, 0, item.price)
     }
   }
 
   for (const item of bakeryLedger) {
     if (item.addedAt) {
-      push(item.addedAt, 0, item.price * item.quantity)
+      push(item.addedAt, 0, item.price)
     }
   }
 

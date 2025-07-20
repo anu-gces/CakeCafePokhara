@@ -1,6 +1,6 @@
 import type { ProcessedOrder } from '@/firebase/firestore'
-import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
-import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
+import type { KitchenLedgerItem } from '@/firebase/kitchenLedger'
+import type { BakeryLedgerItem } from '@/firebase/bakeryLedger'
 
 /**
  * Calculates the total amount for an order including all fees and adjustments
@@ -107,14 +107,11 @@ export function calculateTotalExpenditure(
   bakeryLedger: BakeryLedgerItem[],
 ): number {
   const kitchenExpenses = kitchenLedger.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + item.price,
     0,
   )
 
-  const bakeryExpenses = bakeryLedger.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  )
+  const bakeryExpenses = bakeryLedger.reduce((sum, item) => sum + item.price, 0)
 
   return kitchenExpenses + bakeryExpenses
 }

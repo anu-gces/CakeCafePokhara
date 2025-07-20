@@ -11,6 +11,7 @@ import {
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
 import {
   BoxIcon,
+  FuelIcon,
   MicrowaveIcon,
   PartyPopperIcon,
   RefreshCcwIcon,
@@ -76,7 +77,7 @@ const tabs: TabItem[] = [
   {
     title: 'Dashboard',
     icon: DollarSignIcon,
-    to: '/home/dashboard?tab=overview',
+    to: '/home/dashboard',
   },
   { title: 'Calendar', icon: CalendarIcon, to: '/home/calendar' },
 ]
@@ -299,7 +300,6 @@ function HamburgerDrawer() {
             userAdditional?.role === 'owner') && (
             <Link
               to="/home/dashboard"
-              search={{ tab: 'analytics' }}
               onClick={() => setOpen(false)}
               className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
             >
@@ -318,6 +318,15 @@ function HamburgerDrawer() {
           </Link>
 
           <Link
+            to="/home/vendors"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <HandCoinsIcon className="w-5 h-5" />
+            <span>Vendors</span>
+          </Link>
+
+          <Link
             to="/home/kitchenLedger"
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
@@ -332,6 +341,14 @@ function HamburgerDrawer() {
           >
             <DonutIcon className="w-5 h-5" />
             <span>Bakery Ledger</span>
+          </Link>
+          <Link
+            to="/home/bakeryLedger"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <FuelIcon className="w-5 h-5" />
+            <span>Utility Ledger</span>
           </Link>
 
           {userAdditional?.role === 'admin' ||

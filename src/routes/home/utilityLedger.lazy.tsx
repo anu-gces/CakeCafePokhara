@@ -36,17 +36,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  addBakeryLedgerItem,
-  deleteBakeryLedgerItem,
-  getAllBakeryLedgerItems,
-  updateBakeryLedgerItemPaymentStatus,
-  type BakeryLedgerItem,
-} from '@/firebase/bakeryLedger' // adjust path as needed
+  addUtilityLedgerItem,
+  deleteUtilityLedgerItem,
+  getAllUtilityLedgerItems,
+  updateUtilityLedgerItemPaymentStatus,
+  type UtilityLedgerItem,
+} from '@/firebase/utilityLedger' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getAllVendors } from '@/firebase/vendors'
 
-export const Route = createLazyFileRoute('/home/bakeryLedger')({
+export const Route = createLazyFileRoute('/home/utilityLedger')({
   component: RouteComponent,
 })
 
@@ -54,14 +54,14 @@ function RouteComponent() {
   const { userAdditional } = useFirebaseAuth()
   const queryClient = useQueryClient()
 
-  // Fetch bakeryLedger collection
+  // Fetch utilityLedger collection
   const {
     data: items,
     isLoading,
     isError,
-  } = useQuery<BakeryLedgerItem[]>({
-    queryKey: ['bakeryLedger'],
-    queryFn: getAllBakeryLedgerItems,
+  } = useQuery<UtilityLedgerItem[]>({
+    queryKey: ['utilityLedger'],
+    queryFn: getAllUtilityLedgerItems,
   })
 
   const { data: vendors } = useQuery({
@@ -77,10 +77,10 @@ function RouteComponent() {
       itemId: string
       paymentStatus: 'paid' | 'credited'
     }) => {
-      return await updateBakeryLedgerItemPaymentStatus(itemId, paymentStatus)
+      return await updateUtilityLedgerItemPaymentStatus(itemId, paymentStatus)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bakeryLedger'] })
+      queryClient.invalidateQueries({ queryKey: ['utilityLedger'] })
       toast.success('Payment status updated successfully!')
     },
     onError: (error) => {
@@ -135,7 +135,7 @@ function RouteComponent() {
   if (isError) {
     return (
       <div className="top-1/2 left-1/2 absolute text-red-500 -translate-x-1/2 -translate-y-1/2">
-        Error loading bakery ledger items.
+        Error loading utility ledger items.
       </div>
     )
   }
@@ -147,7 +147,9 @@ function RouteComponent() {
         <div className="mx-auto px-7 py-6 max-w-xl">
           <div className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-3 mb-3">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-bold text-primary text-2xl">Bakery Ledger</h1>
+              <h1 className="font-bold text-primary text-2xl">
+                Utility Ledger
+              </h1>
               {/* Vendor Filter */}
               <Select value={selectedVendor} onValueChange={setSelectedVendor}>
                 <SelectTrigger className="w-36" id="vendorFilter">
@@ -228,7 +230,7 @@ function RouteComponent() {
               <ReceiptIcon />
               <p>No items found.</p>
               <p className="text-sm">
-                Add your first bakery item to get started.
+                Add your first utility item to get started.
               </p>
             </div>
           ) : (
@@ -362,10 +364,10 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
   const queryClient = useQueryClient()
 
   const deleteItemMutation = useMutation({
-    mutationFn: deleteBakeryLedgerItem,
+    mutationFn: deleteUtilityLedgerItem,
     onSuccess: (itemId) => {
-      queryClient.setQueryData<BakeryLedgerItem[]>(
-        ['bakeryLedger'],
+      queryClient.setQueryData<UtilityLedgerItem[]>(
+        ['utilityLedger'],
         (oldItems) => oldItems?.filter((item) => item.id !== itemId) || [],
       )
       toast.success('Item deleted successfully!')
@@ -439,10 +441,10 @@ function LedgerDrawer() {
   const { userAdditional, user } = useFirebaseAuth()
 
   const addItemMutation = useMutation({
-    mutationFn: addBakeryLedgerItem,
+    mutationFn: addUtilityLedgerItem,
     onSuccess: (newItem) => {
-      queryClient.setQueryData<BakeryLedgerItem[]>(
-        ['bakeryLedger'],
+      queryClient.setQueryData<UtilityLedgerItem[]>(
+        ['utilityLedger'],
         (oldItems) => [...(oldItems || []), newItem],
       )
       toast.success('Item added successfully!')
@@ -470,9 +472,9 @@ function LedgerDrawer() {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Add Bakery Item</DrawerTitle>
+          <DrawerTitle>Add Utility Item</DrawerTitle>
           <DrawerDescription>
-            Enter details for the new bakery ledger entry.
+            Enter details for the new utility ledger entry.
           </DrawerDescription>
         </DrawerHeader>
         <Formik

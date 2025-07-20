@@ -203,7 +203,7 @@ export function ExpandableTabs({
   return (
     <div
       className={cn(
-        'flex flex-no-wrap min-w-fit  items-center gap-2 rounded-2xl border bg-background p-1 shadow-sm',
+        'flex flex-no-wrap items-center gap-2 bg-background shadow-sm p-1 border rounded-2xl min-w-fit',
         className,
       )}
     >
@@ -222,11 +222,11 @@ export function ExpandableTabs({
             custom={selected === index}
             onClick={() => {
               handleSelect(index)
-              navigate({ to: tab.to, viewTransition: { types: ['fade-zoom'] } })
+              navigate({ to: tab.to })
             }}
             transition={transition}
             className={cn(
-              'relative flex items-center flex-1 text-xs tiny:text-sm text-nowrap rounded-xl px-4 py-2 font-medium text-center justify-center transition-colors duration-300',
+              'relative flex flex-1 justify-center items-center px-4 py-2 rounded-xl font-medium text-xs tiny:text-sm text-center text-nowrap transition-colors duration-300',
               selected === index
                 ? cn('bg-muted', activeColor)
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',

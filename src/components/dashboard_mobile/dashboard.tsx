@@ -1,23 +1,51 @@
 import { CalendarDateRangePicker } from '@/components/ui/daterangepicker'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useNavigate } from '@tanstack/react-router'
-import { type Tab, Route as dashboardRoute } from '../../routes/home/dashboard'
 import { Overview } from './overview'
 import { BarChartIcon, LayoutDashboardIcon } from 'lucide-react'
 import { Analytics } from './analytics'
+import type { DateRange } from 'react-day-picker'
+import { useState } from 'react'
+import { subDays } from 'date-fns'
+import { useQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
+import { getOrdersInRange } from '@/firebase/firestore'
+import { getKitchenLedgerInRange } from '@/firebase/kitchenLedger'
+import { getBakeryLedgerInRange } from '@/firebase/bakeryLedger'
 
 export default function Dashboard() {
-  const navigate = useNavigate()
-  const { tab } = dashboardRoute.useSearch() as { tab: Tab }
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 6),
+    to: new Date(),
+  })
 
-  const handleTabChange = (newTabUntyped: string) => {
-    const newTab: Tab = newTabUntyped as Tab
+  // Format dates for query keys and API
+  const from = date?.from ? format(date.from, 'yyyy-MM-dd') : ''
+  const to = date?.to ? format(date.to, 'yyyy-MM-dd') : ''
 
-    navigate({
-      to: '/home/dashboard',
-      search: (prev: { [key: string]: string }) => ({ ...prev, tab: newTab }),
-    })
-  }
+  const incomeQuery = useQuery({
+    queryKey: ['orderHistoryDashboard', from, to],
+    queryFn: () => getOrdersInRange(from, to),
+
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  })
+
+  const kitchenLedgerQuery = useQuery({
+    queryKey: ['kitchenLedgerDashboard', from, to],
+    queryFn: () => getKitchenLedgerInRange(from, to),
+
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  })
+
+  const bakeryLedgerQuery = useQuery({
+    queryKey: ['bakeryLedgerDashboard', from, to],
+    queryFn: () => getBakeryLedgerInRange(from, to),
+
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  })
+
   return (
     <>
       <div className="md:flex flex-col px-2 h-full overflow-y-auto">
@@ -25,8 +53,6 @@ export default function Dashboard() {
           <Tabs
             defaultValue="overview"
             className="flex flex-col space-y-4 h-full"
-            onValueChange={handleTabChange}
-            value={tab}
           >
             <div className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2">
               <TabsList className="flex-wrap">
@@ -39,7 +65,7 @@ export default function Dashboard() {
               </TabsList>
               <div className="flex flex-nowrap items-center gap-2 min-w-0">
                 <div className="flex-shrink">
-                  <CalendarDateRangePicker />
+                  <CalendarDateRangePicker value={date} onChange={setDate} />
                 </div>
                 {/* <Button className="flex-shrink gap-2">
                   <Download color="#ffffff" size={16} /> Download
@@ -51,13 +77,21 @@ export default function Dashboard() {
             </div>
             <TabsContent value="overview" className="space-y-4 h-full">
               <div className="flex flex-col gap-4 h-full">
-                <Overview />
+                <Overview
+                  rawOrders={incomeQuery.data || []}
+                  kitchenLedger={kitchenLedgerQuery.data || []}
+                  bakeryLedger={bakeryLedgerQuery.data || []}
+                />
               </div>
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-4 h-full">
               <div className="flex flex-col gap-4 h-full">
-                <Analytics />
+                <Analytics
+                  rawOrders={incomeQuery.data || []}
+                  kitchenLedger={kitchenLedgerQuery.data || []}
+                  bakeryLedger={bakeryLedgerQuery.data || []}
+                />
               </div>
             </TabsContent>
           </Tabs>

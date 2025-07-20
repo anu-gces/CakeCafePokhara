@@ -580,7 +580,7 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
           <PencilIcon className="w-4 h-4" />
         </Button>
       </SheetTrigger>
-      <SheetContent>
+      <SheetContent side="bottom">
         <SheetHeader>
           <SheetTitle>Edit Food Item</SheetTitle>
           <SheetDescription>
@@ -894,7 +894,7 @@ export function MenuManagement() {
   }
 
   return (
-    <div className="flex flex-col bg-background h-full overflow-y-auto">
+    <div className="flex flex-col bg-background h-full">
       {/* Header */}
       <div className="top-0 z-50 sticky bg-transparent backdrop-blur border-b">
         <div className="flex justify-between items-center p-4">

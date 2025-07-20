@@ -29,7 +29,6 @@ import {
   groupRevenueData,
   mapToRevenueData,
 } from './analytics.utils'
-import { useLoaderData } from '@tanstack/react-router'
 import AnimatedCounter from '../ui/animatedCounter'
 import { CreditCardIcon, TrendingUpIcon } from 'lucide-react'
 import {
@@ -37,6 +36,9 @@ import {
   calculateOrderTotal,
   calculateTotalExpenditure,
 } from './dashboard.utils'
+import type { ProcessedOrder } from '@/firebase/firestore'
+import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger.lazy'
+import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger.lazy'
 
 export interface RevenueData {
   timestamp: string
@@ -171,8 +173,7 @@ const COLORS = [
   '#F59E0B', // Orange for eSewa (matches eSewa brand better)
 ]
 // Pie chart component
-function AnalyticsPieChart() {
-  const { income } = useLoaderData({ from: '/home/dashboard' })
+function AnalyticsPieChart({ income }: { income: ProcessedOrder[] }) {
   // Aggregate income by payment method
   const paymentMethodMap = income.reduce(
     (acc, order) => {
@@ -249,10 +250,18 @@ function AnalyticsPieChart() {
   )
 }
 
-export function Analytics() {
-  const { income, kitchenLedger, bakeryLedger } = useLoaderData({
-    from: '/home/dashboard',
-  }) // Default to empty array if no orders
+export function Analytics({
+  rawOrders,
+  kitchenLedger,
+  bakeryLedger,
+}: {
+  rawOrders: ProcessedOrder[]
+  kitchenLedger: KitchenLedgerItem[]
+  bakeryLedger: BakeryLedgerItem[]
+}) {
+  const income = rawOrders.filter(
+    (order) => !order.complementary && order.status === 'paid',
+  )
 
   const revenueData = mapToRevenueData({ income, kitchenLedger, bakeryLedger })
 
@@ -392,7 +401,7 @@ export function Analytics() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <AnalyticsPieChart />
+            <AnalyticsPieChart income={income} />
           </CardContent>
         </Card>
       </div>

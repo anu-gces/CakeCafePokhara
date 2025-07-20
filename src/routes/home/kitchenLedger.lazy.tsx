@@ -12,6 +12,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
+
 import {
   Select,
   SelectTrigger,
@@ -19,6 +20,10 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select'
+import { CalendarDateRangePicker } from '@/components/ui/daterangepicker'
+
+// Define DateRange type locally to match react-day-picker (from is required, but can be undefined)
+type DateRange = { from: Date | undefined; to?: Date }
 
 import { Button } from '@/components/ui/button'
 import { LoaderIcon, ReceiptIcon, Trash2Icon } from 'lucide-react'
@@ -35,21 +40,11 @@ import {
   deleteKitchenLedgerItem,
   getAllKitchenLedgerItems,
   updateKitchenLedgerItemPaymentStatus,
-} from '@/firebase/firestore' // adjust path as needed
+  type KitchenLedgerItem,
+} from '@/firebase/kitchenLedger' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 import { ScrollArea } from '@/components/ui/scroll-area'
-
-export type KitchenLedgerItem = {
-  id: string
-  itemName: string
-  quantity: number
-  paymentStatus: 'paid' | 'credited'
-  unit: string
-  price: number
-  notes?: string
-  addedBy: string
-  addedAt: string // ISO date string
-}
+import { getAllVendors } from '@/firebase/vendors'
 
 export const Route = createLazyFileRoute('/home/kitchenLedger')({
   component: RouteComponent,
@@ -67,6 +62,11 @@ function RouteComponent() {
   } = useQuery<KitchenLedgerItem[]>({
     queryKey: ['kitchenLedger'],
     queryFn: getAllKitchenLedgerItems,
+  })
+
+  const { data: vendors } = useQuery({
+    queryKey: ['vendors'],
+    queryFn: getAllVendors,
   })
 
   const updatePaymentStatusMutation = useMutation({
@@ -88,6 +88,46 @@ function RouteComponent() {
     },
   })
 
+  // Filter state
+  const [selectedVendor, setSelectedVendor] = useState<string>('ALL')
+  // CalendarDateRangePicker expects { from: Date | undefined, to?: Date }
+  const today = new Date()
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: today,
+    to: today,
+  })
+
+  // Filter items by vendor and datepicker range
+  let filteredItems = items || []
+  if (selectedVendor !== 'ALL') {
+    filteredItems = filteredItems.filter(
+      (item) => item.vendorId === selectedVendor,
+    )
+  }
+  if (dateRange.from && dateRange.to) {
+    filteredItems = filteredItems.filter((item) => {
+      const itemDate = new Date(item.addedAt)
+      return itemDate >= dateRange.from! && itemDate <= dateRange.to!
+    })
+  } else if (dateRange.from) {
+    filteredItems = filteredItems.filter((item) => {
+      const itemDate = new Date(item.addedAt)
+      return itemDate >= dateRange.from!
+    })
+  }
+
+  // Calculate totals for accounting (filtered)
+  const totalSpent =
+    filteredItems.reduce((sum, item) => sum + Number(item.price), 0) || 0
+  const totalCredited =
+    filteredItems
+      .filter((item) => item.paymentStatus === 'credited')
+      .reduce((sum, item) => sum + Number(item.price), 0) || 0
+  const totalPaid =
+    filteredItems
+      .filter((item) => item.paymentStatus === 'paid')
+      .reduce((sum, item) => sum + Number(item.price), 0) || 0
+
   if (isLoading) {
     return <SplashScreen />
   }
@@ -102,41 +142,81 @@ function RouteComponent() {
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Sticky Header with Total */}
+      {/* Sticky Header with Totals, Accounting, and Filters */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-7 py-6 max-w-xl">
-          <div className="flex justify-between items-center mb-3">
-            <h1 className="font-bold text-primary text-2xl">Kitchen Ledger</h1>
+          <div className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-3 mb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-bold text-primary text-2xl">
+                Kitchen Ledger
+              </h1>
+              {/* Vendor Filter */}
+              <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+                <SelectTrigger className="w-36" id="vendorFilter">
+                  <SelectValue placeholder="All Vendors" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Vendors</SelectItem>
+                  {vendors?.map((vendor: any) => (
+                    <SelectItem key={vendor.id} value={vendor.id}>
+                      {vendor.nickname} ({vendor.firstName} {vendor.lastName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Date Range Picker */}
+              <CalendarDateRangePicker
+                value={dateRange}
+                onChange={(range) =>
+                  setDateRange({
+                    from: range?.from ?? undefined,
+                    to: range?.to ?? undefined,
+                  })
+                }
+                className="w-64"
+              />
+            </div>
             {userAdditional?.role !== 'employee' && <LedgerDrawer />}
           </div>
-          {/* Total Amount Card */}
+          {/* Accounting Summary Card */}
           <motion.div
             className="hover:bg-white/30 dark:hover:bg-zinc-800/30 bg-gradient-to-r from-primary/10 dark:from-primary/20 to-primary/5 dark:to-primary/10 hover:shadow-lg hover:backdrop-blur-md p-3 border border-primary/20 hover:border-primary/40 dark:hover:border-zinc-600 rounded-lg transition-all duration-300"
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <ReceiptIcon />
-                <span className="font-medium text-primary text-sm">
-                  Total Spent
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <ReceiptIcon />
+                  <span className="font-medium text-primary text-sm">
+                    Total Spent
+                  </span>
+                </div>
+                <div className="font-bold text-primary text-lg">
+                  Rs. {totalSpent.toFixed(2)}
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-orange-700 dark:text-orange-300 text-xs">
+                  Credited (Unpaid)
+                </span>
+                <span className="font-semibold text-orange-700 dark:text-orange-300 text-sm">
+                  Rs. {totalCredited.toFixed(2)}
                 </span>
               </div>
-              <div className="font-bold text-primary text-lg">
-                Rs.{' '}
-                {items
-                  ?.reduce(
-                    (sum, item) =>
-                      sum + Number(item.price) * Number(item.quantity),
-                    0,
-                  )
-                  .toFixed(2)}
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-green-700 dark:text-green-300 text-xs">
+                  Paid
+                </span>
+                <span className="font-semibold text-green-700 dark:text-green-300 text-sm">
+                  Rs. {totalPaid.toFixed(2)}
+                </span>
               </div>
-            </div>
-            <div className="mt-1 text-muted-foreground text-xs">
-              {items?.length ?? 0} items • Last updated{' '}
-              {new Date().toLocaleDateString()}
+              <div className="mt-1 text-muted-foreground text-xs">
+                {filteredItems.length ?? 0} items • Last updated{' '}
+                {new Date().toLocaleDateString()}
+              </div>
             </div>
           </motion.div>
         </div>
@@ -145,7 +225,7 @@ function RouteComponent() {
       {/* Scrollable Content */}
       <div className="mx-auto px-7 py-6 pb-20 max-w-xl">
         <div className="space-y-4">
-          {items?.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-muted-foreground text-center">
               <ReceiptIcon />
               <p>No items found.</p>
@@ -155,8 +235,8 @@ function RouteComponent() {
             </div>
           ) : (
             <AnimatePresence>
-              {items
-                ?.slice() // copy to avoid mutating original
+              {filteredItems
+                .slice() // copy to avoid mutating original
                 .sort(
                   (a, b) =>
                     new Date(b.addedAt).getTime() -
@@ -176,7 +256,7 @@ function RouteComponent() {
                       {/* Timeline dot */}
                       <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-white dark:border-zinc-900 rounded-full w-3 h-3" />
                       {/* Timeline line */}
-                      {i !== items.length - 1 && (
+                      {i !== filteredItems.length - 1 && (
                         <div className="top-10 -left-[10px] absolute dark:bg-zinc-700 bg-border w-[1px] h-[calc(100%-2.5rem)]" />
                       )}
                       <div className="flex justify-between items-start mb-3">
@@ -234,19 +314,12 @@ function RouteComponent() {
                               )}
                             </div>
                           </div>
-                          {/* Item details */}
-                          <div className="gap-2 grid grid-cols-2 mb-2 text-muted-foreground text-xs">
-                            <span>
-                              Qty:{' '}
-                              <span className="font-medium">
-                                {item.quantity} {item.unit}
-                              </span>
-                            </span>
-                            <span>
-                              Rate:{' '}
-                              <span className="font-medium">
-                                Rs.{item.price}
-                              </span>
+                          {/* Vendor info */}
+                          <div className="mb-2 text-muted-foreground text-xs">
+                            Vendor:{' '}
+                            <span className="font-medium">
+                              {vendors?.find((v) => v.id === item.vendorId)
+                                ?.nickname || 'Unknown'}
                             </span>
                           </div>
                           <div className="mb-2 text-muted-foreground text-xs">
@@ -261,13 +334,10 @@ function RouteComponent() {
                           {/* Item total */}
                           <div className="flex justify-between items-center pt-2 border-gray-100 dark:border-zinc-800 border-t">
                             <span className="text-muted-foreground text-xs">
-                              Item Total
+                              Amount
                             </span>
                             <span className="font-semibold text-primary">
-                              Rs.
-                              {(
-                                Number(item.price) * Number(item.quantity)
-                              ).toFixed(2)}
+                              Rs. {Number(item.price).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -353,11 +423,7 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
 
 const LedgerSchema = Yup.object().shape({
   itemName: Yup.string().required('Item name is required'),
-  quantity: Yup.number()
-    .typeError('Quantity must be a number')
-    .positive('Quantity must be greater than zero')
-    .required('Quantity is required'),
-  unit: Yup.string().required('Unit is required'),
+  vendorId: Yup.string().required('Vendor is required'),
   price: Yup.number()
     .typeError('Price must be a number')
     .positive('Price must be greater than zero')
@@ -365,13 +431,14 @@ const LedgerSchema = Yup.object().shape({
   paymentStatus: Yup.string()
     .oneOf(['paid', 'credited'])
     .required('Payment status is required'),
+  purchaseDate: Yup.string(),
   notes: Yup.string(),
 })
 
 function LedgerDrawer() {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
-  const { userAdditional } = useFirebaseAuth()
+  const { userAdditional, user } = useFirebaseAuth()
 
   const addItemMutation = useMutation({
     mutationFn: addKitchenLedgerItem,
@@ -388,12 +455,17 @@ function LedgerDrawer() {
     },
   })
 
+  const { data: vendors, isLoading: isVendorsLoading } = useQuery({
+    queryKey: ['vendors'],
+    queryFn: getAllVendors,
+  })
+
   return (
     <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
       open={open}
       onOpenChange={setOpen}
+      shouldScaleBackground={true}
+      setBackgroundColorOnScale={true}
     >
       <DrawerTrigger asChild>
         <Button variant="default">Add Item</Button>
@@ -408,31 +480,32 @@ function LedgerDrawer() {
         <Formik
           initialValues={{
             itemName: '',
-            quantity: '',
-            unit: 'kg',
+            vendorId: '',
             price: '',
             paymentStatus: 'paid',
+            purchaseDate: new Date().toISOString(),
             notes: '',
           }}
           validationSchema={LedgerSchema}
-          onSubmit={(values, { resetForm }) => {
-            // Add logic to save item, e.g.:
-            // addItem({ ...values, addedBy: loggedInUser, addedAt: Date.now() })
+          onSubmit={(values: any, { resetForm }: any) => {
             addItemMutation.mutate({
               itemName: values.itemName,
-              quantity: Number(values.quantity),
-              unit: values.unit,
+              vendorId: values.vendorId,
               price: Number(values.price),
               paymentStatus: values.paymentStatus as 'paid' | 'credited',
+              purchaseDate: values.purchaseDate,
               notes: values.notes,
-              addedBy: userAdditional?.firstName || 'Unknown',
+              addedBy:
+                userAdditional?.firstName ||
+                user?.displayName ||
+                user?.email ||
+                'Unknown',
               addedAt: new Date().toISOString(),
             })
-
             resetForm()
           }}
         >
-          {() => (
+          {({ setFieldValue }) => (
             <Form className="space-y-2">
               <ScrollArea className="h-72 overflow-y-auto">
                 <div className="space-y-2 px-4 py-2">
@@ -445,51 +518,39 @@ function LedgerDrawer() {
                   />
                 </div>
                 <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Field
-                    as={Input}
-                    id="quantity"
-                    name="quantity"
-                    type="number"
-                    required
-                  />
-                  <ErrorMessage
-                    name="quantity"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Field name="unit">
-                    {({ field, form }: any) => (
+                  <Label htmlFor="vendorId">Vendor</Label>
+                  <Field name="vendorId">
+                    {({ field }: any) => (
                       <Select
-                        defaultValue="kg"
                         value={field.value}
                         onValueChange={(value) =>
-                          form.setFieldValue('unit', value)
+                          setFieldValue('vendorId', value)
                         }
+                        required
+                        disabled={isVendorsLoading}
                       >
-                        <SelectTrigger id="unit">
-                          <SelectValue placeholder="Select unit" />
+                        <SelectTrigger id="vendorId">
+                          <SelectValue placeholder="Select vendor" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="litre">litre</SelectItem>
-                          <SelectItem value="packet">packet</SelectItem>
-                          <SelectItem value="piece">piece</SelectItem>
+                          {vendors?.map((vendor: any) => (
+                            <SelectItem key={vendor.id} value={vendor.id}>
+                              {vendor.nickname} ({vendor.firstName}{' '}
+                              {vendor.lastName})
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}
                   </Field>
                   <ErrorMessage
-                    name="unit"
+                    name="vendorId"
                     component="div"
                     className="text-red-500 text-xs"
                   />
                 </div>
                 <div className="space-y-2 px-4 py-2">
-                  <Label htmlFor="price">Price(Per Item)</Label>
+                  <Label htmlFor="price">Price</Label>
                   <Field
                     as={Input}
                     id="price"
@@ -504,15 +565,30 @@ function LedgerDrawer() {
                   />
                 </div>
                 <div className="space-y-2 px-4 py-2">
+                  <Label htmlFor="purchaseDate">Purchase Date</Label>
+                  <Field
+                    as={Input}
+                    id="purchaseDate"
+                    name="purchaseDate"
+                    type="date"
+                    required
+                  />
+                  <ErrorMessage
+                    name="purchaseDate"
+                    component="div"
+                    className="text-red-500 text-xs"
+                  />
+                </div>
+                <div className="space-y-2 px-4 py-2">
                   <Label htmlFor="paymentStatus">Payment Status</Label>
                   <Field name="paymentStatus">
                     {({ field, form }: any) => (
                       <Select
-                        defaultValue="paid"
                         value={field.value}
                         onValueChange={(value) =>
                           form.setFieldValue('paymentStatus', value)
                         }
+                        required
                       >
                         <SelectTrigger id="paymentStatus">
                           <SelectValue placeholder="Select payment status" />
