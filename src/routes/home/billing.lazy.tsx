@@ -26,7 +26,10 @@ export const Route = createLazyFileRoute('/home/billing')({
     })
 
     const filteredOrders = rawOrders.filter(
-      (order) => order.status === 'paid' || order.status === 'credited',
+      (order) =>
+        order.status === 'paid' ||
+        order.status === 'credited' ||
+        order.status === 'cancelled',
     )
 
     // Filter by selected date

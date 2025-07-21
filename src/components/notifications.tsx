@@ -1,4 +1,15 @@
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerClose,
+} from './ui/drawer'
+
 import { useEffect, useState } from 'react'
+import { ReceiptDrawer } from './restaurant_mobile/billing'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   dismissOrderNotification,
@@ -17,6 +28,7 @@ import {
   HandIcon,
   CheckIcon,
   XIcon,
+  LoaderIcon,
 } from 'lucide-react'
 import type { CardType } from './ui/kanbanBoard'
 import { Outlet } from '@tanstack/react-router'
@@ -160,33 +172,31 @@ export function StockNotification() {
 }
 
 export function OrderNotification() {
+  // All hooks at the top, always called in the same order
   const [orders, setOrders] = useState<
     ({ docId: string } & ProcessedOrder)[] | null
   >(null)
-
+  const [cancelDrawer, setCancelDrawer] = useState<{
+    open: boolean
+    docId?: string
+    receiptId?: string
+  }>({ open: false })
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [receiptDrawer, setReceiptDrawer] = useState<{
+    open: boolean
+    order?: { docId: string } & ProcessedOrder
+  }>({ open: false })
   const userAdditional = useFirebaseAuth().userAdditional
-
   useEffect(() => {
     const unsubscribe = listenToAllOrders((orders) => {
       setOrders(orders)
     })
-
     return () => unsubscribe()
   }, [])
 
   if (orders === null) {
     return <SplashScreen />
   }
-
-  // if (error) {
-  //   return (
-  //     <div className="top-1/2 left-1/2 absolute text-center -translate-x-1/2 -translate-y-1/2 transform">
-  //       <AlertCircle className="mx-auto mb-2 w-10 h-10 text-destructive" />
-  //       <p className="font-medium text-destructive">Failed to load orders</p>
-  //     </div>
-  //   )
-  // }
-
   if (orders.length === 0) {
     return (
       <div className="flex flex-col justify-center items-center h-full text-centers">
@@ -201,8 +211,8 @@ export function OrderNotification() {
   return (
     <div className="space-y-3 p-3">
       <AnimatePresence mode="popLayout">
-        {orders.map(
-          ({
+        {orders.map((order) => {
+          const {
             docId,
             receiptId,
             status,
@@ -213,14 +223,16 @@ export function OrderNotification() {
             creditor,
             complementary,
             dismissed,
-          }) => (
+          } = order
+          return (
             <motion.div
               key={receiptId}
               layout
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, x: -100 }}
-              className="bg-card shadow-sm p-4 border rounded-xl"
+              className="group bg-card shadow-sm p-4 border rounded-xl cursor-pointer"
+              onClick={() => setReceiptDrawer({ open: true, order })}
             >
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2">
@@ -279,8 +291,18 @@ export function OrderNotification() {
                 </div>
               )}
 
+              {/* Tap for details label */}
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-muted-foreground group-hover:text-primary text-xs transition-colors select-none">
+                  Tap for details
+                </span>
+              </div>
+
               {!dismissed && (
-                <div className="flex gap-2 mt-2">
+                <div
+                  className="flex gap-2 mt-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {status === 'pending' &&
                     (userAdditional?.department === 'kitchen' ||
                       userAdditional?.role === 'owner') && (
@@ -344,7 +366,7 @@ export function OrderNotification() {
                       variant="outline"
                       className="active:scale-95"
                       onClick={() =>
-                        updateOrderStatus(docId, 'cancelled', receiptId)
+                        setCancelDrawer({ open: true, docId, receiptId })
                       }
                     >
                       <XIcon className="mr-1 w-4 h-4" />
@@ -370,9 +392,83 @@ export function OrderNotification() {
                 </div>
               )}
             </motion.div>
-          ),
-        )}
+          )
+        })}
       </AnimatePresence>
+      {/* Cancel Order Confirmation Drawer */}
+      <CancelOrderDrawer
+        open={cancelDrawer.open}
+        onOpenChange={(open) => setCancelDrawer((prev) => ({ ...prev, open }))}
+        onConfirm={async () => {
+          if (!cancelDrawer.docId || !cancelDrawer.receiptId) return
+          setCancelLoading(true)
+          try {
+            await updateOrderStatus(
+              cancelDrawer.docId,
+              'cancelled',
+              cancelDrawer.receiptId,
+            )
+            setCancelDrawer({ open: false })
+          } finally {
+            setCancelLoading(false)
+          }
+        }}
+        loading={cancelLoading}
+      />
+      {/* Receipt Drawer for order details */}
+      {receiptDrawer.order && (
+        <ReceiptDrawer
+          data={receiptDrawer.order}
+          receiptOpen={receiptDrawer.open}
+          setReceiptOpen={(open: boolean) =>
+            setReceiptDrawer((prev) => ({ ...prev, open }))
+          }
+        />
+      )}
     </div>
+  )
+}
+
+function CancelOrderDrawer({
+  open,
+  onOpenChange,
+  onConfirm,
+  loading = false,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+  loading?: boolean
+}) {
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Cancel Order?</DrawerTitle>
+          <DrawerDescription>
+            Are you sure you want to cancel this order? This action cannot be
+            undone.
+          </DrawerDescription>
+        </DrawerHeader>
+        <DrawerFooter>
+          <Button onClick={onConfirm} disabled={loading}>
+            {loading ? (
+              <>
+                <LoaderIcon
+                  color="white"
+                  className="inline-block mr-2 w-4 h-4 align-middle animate-spin"
+                />
+                Deleting...
+              </>
+            ) : (
+              'Yes, Cancel Order'
+            )}
+          </Button>
+          <DrawerClose asChild>
+            <Button variant="outline">No, Go Back</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }
