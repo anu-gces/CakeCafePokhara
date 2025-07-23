@@ -160,7 +160,7 @@ function MenuCard({
             <strong className="font-medium text-base">{food.foodName}</strong>
             {food.hasSubcategories && (
               <Badge variant="secondary" className="text-xs">
-                Options
+                {food.subcategories.length} Options
               </Badge>
             )}
           </div>
@@ -169,8 +169,30 @@ function MenuCard({
               ? `From Rs. ${food.foodPrice}`
               : `Rs. ${food.foodPrice}`}
           </p>
+          {/* Subcategory chips */}
+          {food.hasSubcategories &&
+            food.subcategories &&
+            food.subcategories.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {food.subcategories.slice(0, 3).map((sub) => (
+                  <span
+                    key={sub.id}
+                    className="bg-gray-50 dark:bg-card px-2 py-1 rounded text-card-foreground text-xs"
+                  >
+                    {sub.name}
+                  </span>
+                ))}
+                {food.subcategories.length > 3 && (
+                  <span className="px-2 py-1 rounded text-card-foreground text-xs">
+                    +{food.subcategories.length - 3} more
+                  </span>
+                )}
+              </div>
+            )}
           {food.hasSubcategories && (
-            <p className="text-muted-foreground text-xs">Tap to see options</p>
+            <p className="text-muted-foreground text-xs">
+              Tap to see more options
+            </p>
           )}
         </div>
 
@@ -183,6 +205,8 @@ function MenuCard({
 
       {/* Subcategory Selection Drawer */}
       <Drawer
+        setBackgroundColorOnScale
+        shouldScaleBackground
         open={subcategoryDrawerOpen}
         onOpenChange={setSubcategoryDrawerOpen}
       >
@@ -1186,7 +1210,7 @@ export function TakeOrder() {
               placeholder="Search food..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 rounded-none"
+              className="pl-10 border-x-0 rounded-none"
             />
           </div>
           {search !== '' && (

@@ -158,13 +158,13 @@ const MenuItemCard = memo(function MenuItemCard({
             {(food.subcategories ?? []).slice(0, 3).map((sub) => (
               <span
                 key={sub.id}
-                className="bg-card px-2 py-1 rounded text-card-foreground text-xs"
+                className="bg-gray-50 dark:bg-card px-2 py-1 rounded text-card-foreground text-xs"
               >
                 {sub.name}
               </span>
             ))}
             {food.subcategories && food.subcategories.length > 3 && (
-              <span className="text-muted-foreground text-xs">
+              <span className="px-2 py-1 rounded text-card-foreground text-xs">
                 +{food.subcategories.length - 3} more
               </span>
             )}
@@ -894,7 +894,7 @@ export function MenuManagement() {
   }
 
   return (
-    <div className="flex flex-col bg-background h-full">
+    <div className="flex flex-col bg-background h-full overflow-y-auto">
       {/* Header */}
       <div className="top-0 z-50 sticky bg-transparent backdrop-blur border-b">
         <div className="flex justify-between items-center p-4">
@@ -924,7 +924,7 @@ export function MenuManagement() {
             placeholder="Search food..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 rounded-none"
+            className="pl-10 border-x-0 rounded-none"
           />
         </div>
         {search !== '' && (
