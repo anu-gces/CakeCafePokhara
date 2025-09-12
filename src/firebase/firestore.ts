@@ -1,5 +1,5 @@
 import type { calendarEventProps } from '@/components/calendar_mobile'
-import type { FoodItemProps } from '@/components/restaurant_mobile/menuManagement'
+import type { FoodItemProps } from '@/components/restaurant_mobile/editMenu'
 // import { FirebaseError } from "firebase/app";
 import { type User, onAuthStateChanged } from 'firebase/auth'
 import { type User as UserType } from '@/components/employee'
@@ -23,18 +23,16 @@ import {
 } from 'firebase/firestore'
 import { app, auth } from './firebase'
 import { deleteMenuItemImage } from './firebase_storage'
-import type { AddToCart } from '@/routes/home/takeOrder'
+import type { AddToCart } from '@/components/restaurant_mobile/editMenu'
 import {
   generateReceiptId,
   getWeeklyDocId,
   getWeeklyDocIdsInRange,
 } from './firestore.utils'
 import type { CardType as KanbanCardType } from '@/components/ui/kanbanBoard'
-import type { InventoryItem } from '@/routes/home/inventory.lazy'
-import type { EquipmentItem } from '@/routes/home/equipment.lazy'
-import type { AccessoriesItem } from '@/routes/home/accessories.lazy'
-
-import memoize from 'lodash/memoize'
+import type { KitchenLedgerItem } from '@/routes/home/kitchenLedger'
+import type { BakeryLedgerItem } from '@/routes/home/bakeryLedger'
+import { memoize } from '@fullcalendar/core/internal'
 
 //export const db = getFirestore(app);
 
@@ -263,7 +261,9 @@ export async function editUserDetails(updatedDetails: {
   try {
     // Update the user document with the merged data
     await updateDoc(userRef, updatedUserData)
+    console.log(`User with UID ${uid} has been updated successfully.`)
   } catch (error) {
+    console.error('Error updating user details:', error)
     throw new Error('Failed to update user details.')
   }
 }
@@ -297,7 +297,9 @@ export async function deleteUser(uidToDelete: string): Promise<void> {
 
   try {
     await deleteDoc(userRef)
+    console.log(`User with UID ${uidToDelete} has been deleted`)
   } catch (error) {
+    console.error('Error deleting user:', error)
     throw new Error('Failed to delete user')
   }
 }
@@ -376,7 +378,7 @@ export async function enterCalendarEvent(event: calendarEventProps[]) {
 }
 
 export async function getFoodItems(): Promise<FoodItemProps[]> {
-  const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory')
+  const foodItemsRef = doc(db, 'menu', 'allFoodItems')
   const foodItemsSnap = await getDoc(foodItemsRef)
 
   if (foodItemsSnap.exists()) {
@@ -416,7 +418,7 @@ export async function enterFoodItem(foodItem: FoodItemProps) {
       dateModified: now,
     } // Add uid to the food item object
     // console.log("food item with uid", foodItemWithUid);
-    const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory') // Reference to the 'allFoodItems' document
+    const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
 
     // Get the existing data
     const docSnap = await getDoc(foodItemsRef)
@@ -444,7 +446,7 @@ export async function editFoodItem(foodItem: FoodItemProps) {
   if (user) {
     const now = new Date().toISOString()
     const foodItemWithUid = { ...foodItem, uid: user.uid!, dateModified: now } // Add uid to the food item object
-    const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory') // Reference to the 'allFoodItems' document
+    const foodItemsRef = doc(db, 'menu', 'allFoodItems') // Reference to the 'allFoodItems' document
 
     // Get the existing data
     const docSnap = await getDoc(foodItemsRef)
@@ -478,12 +480,13 @@ export async function deleteFoodItem(foodIdToDelete: string) {
 
   if (!user) return
 
-  const foodItemsRef = doc(db, 'menu', 'allFoodItemsSubCategory')
+  const foodItemsRef = doc(db, 'menu', 'allFoodItems')
 
   try {
     const docSnap = await getDoc(foodItemsRef)
 
     if (!docSnap.exists()) {
+      console.error('No food items document found.')
       return
     }
 
@@ -507,7 +510,9 @@ export async function deleteFoodItem(foodIdToDelete: string) {
         error,
       )
     }
-  } catch (error) {}
+  } catch (error) {
+    console.error('Failed to delete food item:', error)
+  }
 }
 
 export async function createOrderDocument(orderDetails: AddToCart) {
@@ -519,8 +524,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   const processedBy =
     userDoc?.firstName || user.displayName || user.email || 'unknown'
   const receiptId = generateReceiptId()
-
-  const receiptDate = orderDetails.receiptDate
+  const receiptDate = new Date().toISOString()
 
   const orderData = {
     ...orderDetails,
@@ -531,7 +535,7 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   }
 
   // Use weekly batching
-  const docId = getWeeklyDocId(new Date(orderDetails.receiptDate))
+  const docId = getWeeklyDocId()
   const batchRef = doc(collection(db, 'orderHistoryWeekly'), docId)
 
   // Get current batch
@@ -545,15 +549,12 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   orders.push(orderData)
 
   // Save back to Firestore
-  try {
-    await setDoc(batchRef, { orders }, { merge: true })
-  } catch (err) {
-    throw err
-  }
+  await setDoc(batchRef, { orders }, { merge: true })
 }
 
 export interface ProcessedOrder extends AddToCart {
   processedBy: string
+  receiptDate: string
   updatedAt: string
   receiptId: string
 }
@@ -572,84 +573,6 @@ export async function getAllOrders(): Promise<ProcessedOrder[]> {
       new Date(b.receiptDate).getTime() - new Date(a.receiptDate).getTime(),
   )
   return allOrders
-}
-
-export async function editOrder(
-  originalBatchDocId: string,
-  updatedOrder: ProcessedOrder,
-) {
-  const originalBatchRef = doc(db, 'orderHistoryWeekly', originalBatchDocId)
-  const originalBatchSnap = await getDoc(originalBatchRef)
-  if (!originalBatchSnap.exists()) throw new Error('Original batch not found')
-
-  const originalOrders: ProcessedOrder[] = originalBatchSnap.data().orders || []
-  const orderIndex = originalOrders.findIndex(
-    (o) => o.receiptId === updatedOrder.receiptId,
-  )
-  if (orderIndex === -1) throw new Error('Order not found in original batch')
-
-  const oldOrder = originalOrders[orderIndex]
-  const oldDate = new Date(oldOrder.receiptDate)
-  const newDate = new Date(updatedOrder.receiptDate)
-
-  const oldDocId = getWeeklyDocId(oldDate)
-  const newDocId = getWeeklyDocId(newDate)
-
-  updatedOrder.updatedAt = new Date().toISOString()
-
-  if (oldDocId === newDocId) {
-    // Same week: update in-place
-    originalOrders[orderIndex] = { ...oldOrder, ...updatedOrder }
-    await setDoc(originalBatchRef, { orders: originalOrders }, { merge: true })
-  } else {
-    // Remove from old batch
-    const updatedOriginalOrders = originalOrders.filter(
-      (o) => o.receiptId !== updatedOrder.receiptId,
-    )
-    await setDoc(
-      originalBatchRef,
-      { orders: updatedOriginalOrders },
-      { merge: true },
-    )
-
-    // Add to new batch
-    const newBatchRef = doc(db, 'orderHistoryWeekly', newDocId)
-    const newBatchSnap = await getDoc(newBatchRef)
-    let newOrders: ProcessedOrder[] = []
-
-    if (newBatchSnap.exists()) {
-      newOrders = newBatchSnap.data().orders || []
-    }
-
-    newOrders.push(updatedOrder)
-    await setDoc(newBatchRef, { orders: newOrders }, { merge: true })
-  }
-}
-
-export async function deleteOrder(batchDocId: string, receiptId: string) {
-  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
-  const batchSnap = await getDoc(batchRef)
-  if (!batchSnap.exists()) throw new Error('Batch document not found')
-
-  let orders = batchSnap.data().orders || []
-  orders = orders.filter((o: any) => o.receiptId !== receiptId)
-  await setDoc(batchRef, { orders }, { merge: true })
-}
-
-export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
-  const orderHistoryRef = collection(db, 'orderHistory')
-  const q = query(orderHistoryRef, orderBy('receiptDate', 'desc'), limit(n))
-
-  try {
-    const querySnapshot = await getDocs(q)
-    const lastNOrders = querySnapshot.docs.map(
-      (doc) => doc.data() as ProcessedOrder,
-    )
-
-    return lastNOrders
-  } catch (error) {
-    throw error
-  }
 }
 
 // export function listenToAllOrders(
@@ -701,7 +624,7 @@ export function listenToAllOrders(
 
       // Filter out cancelled/dismissed
       allOrders = allOrders.filter(
-        (order) => order.status !== 'cancelled' && order.dismissed !== true,
+        (order) => order.status !== 'cancelled' && order.status !== 'dismissed',
       )
 
       // Sort by receiptDate descending
@@ -745,29 +668,44 @@ export async function updateOrderStatus(
   await setDoc(batchRef, { orders }, { merge: true })
 }
 
-export async function dismissOrderNotification(
-  batchDocId: string,
-  receiptId: string,
-) {
-  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
-  const batchSnap = await getDoc(batchRef)
-  if (!batchSnap.exists()) throw new Error('Batch document not found')
-
-  const orders = batchSnap.data().orders || []
-
-  const idx = orders.findIndex((o: any) => o.receiptId === receiptId)
-  if (idx === -1) throw new Error('Order not found in batch')
-
-  orders[idx].dismissed = true
-  orders[idx].updatedAt = new Date().toISOString()
-
-  await setDoc(batchRef, { orders }, { merge: true })
-}
-
 // export async function deleteOrder(docId: string) {
 //   const orderRef = doc(db, 'orderHistory', docId)
 //   await deleteDoc(orderRef)
 // }
+
+export async function deleteOrder(batchDocId: string, receiptId: string) {
+  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchSnap = await getDoc(batchRef)
+  if (!batchSnap.exists()) throw new Error('Batch document not found')
+
+  let orders = batchSnap.data().orders || []
+  orders = orders.filter((o: any) => o.receiptId !== receiptId)
+  await setDoc(batchRef, { orders }, { merge: true })
+}
+
+export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
+  const orderHistoryRef = collection(db, 'orderHistory')
+  const q = query(orderHistoryRef, orderBy('receiptDate', 'desc'), limit(n))
+
+  try {
+    const querySnapshot = await getDocs(q)
+    const lastNOrders = querySnapshot.docs.map(
+      (doc) =>
+        doc.data() as AddToCart & {
+          processedBy: string
+          receiptDate: string
+          receiptId: string
+          updatedAt: string
+        },
+    )
+
+    console.log('Last N Orders:', lastNOrders)
+    return lastNOrders
+  } catch (error) {
+    console.error('Error fetching last N orders:', error)
+    throw error
+  }
+}
 
 // export async function getOrdersInRange(
 //   from: string,
@@ -885,15 +823,19 @@ export async function getOrdersInRange(
     weekIds.map((weekId) => memoizedFetchOrderWeeklyDoc(weekId)),
   )
 
+  // rest of your existing code unchanged
   const allOrders: ProcessedOrder[] = docs.flatMap(
     (doc) => (doc?.orders || []) as ProcessedOrder[],
   )
 
+  const startDate = new Date(from)
+  const endDate = new Date(to)
+  endDate.setDate(endDate.getDate() + 1)
+
   return allOrders
     .filter((order) => {
       const orderDate = new Date(order.receiptDate)
-      const orderLocalDateStr = orderDate.toLocaleDateString('en-CA') // "YYYY-MM-DD"
-      return orderLocalDateStr >= from && orderLocalDateStr <= to
+      return orderDate >= startDate && orderDate < endDate
     })
     .sort(
       (a, b) =>
@@ -913,32 +855,21 @@ export async function addCreditorToFirestore(creditor: Creditor) {
   return docRef.id
 }
 
-export async function getAllCreditors(): Promise<
-  (Creditor & { id: string })[]
-> {
+export async function getAllCreditors(): Promise<Creditor[]> {
   const creditorsRef = collection(db, 'creditors')
   const querySnapshot = await getDocs(creditorsRef)
-  const creditors = querySnapshot.docs.map(
-    (doc) =>
-      ({
-        id: doc.id, // <-- include Firestore doc ID
-        ...doc.data(),
-      }) as Creditor & { id: string },
+  const creditors: Creditor[] = querySnapshot.docs.map(
+    (doc) => doc.data() as Creditor,
   )
   return creditors
 }
 
 export async function getCreditorOrdersByNickname(nickname: string) {
   const weeklySnapshots = await getDocs(collection(db, 'orderHistoryWeekly'))
-  let allOrders: (ProcessedOrder & { docId: string })[] = []
+  let allOrders: ProcessedOrder[] = []
   weeklySnapshots.forEach((doc) => {
     const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
-    // Attach docId to each order
-    const batchOrdersWithDocId = batchOrders.map((order) => ({
-      ...order,
-      docId: doc.id,
-    }))
-    allOrders = allOrders.concat(batchOrdersWithDocId)
+    allOrders = allOrders.concat(batchOrders)
   })
   // Filter by creditor nickname
   return allOrders.filter((order) => order.creditor === nickname)
@@ -1038,28 +969,62 @@ export async function getWaiternDepartmentFcmTokens(): Promise<string[]> {
   return tokens
 }
 
-// Get all inventory items (flattened from all weekly docs)
-export async function getAllInventoryItems(): Promise<InventoryItem[]> {
-  const snapshot = await getDocs(collection(db, 'inventoryWeekly'))
-  let allItems: InventoryItem[] = []
+// Get all kitchen ledger items (flattened from all weekly docs)
+export async function getAllKitchenLedgerItems(): Promise<KitchenLedgerItem[]> {
+  const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
+  let allItems: KitchenLedgerItem[] = []
   snapshot.forEach((doc) => {
-    const batchItems = (doc.data().items || []) as InventoryItem[]
+    const batchItems = (doc.data().items || []) as KitchenLedgerItem[]
     allItems = allItems.concat(batchItems)
   })
-  // Sort by lastUpdated descending (latest first)
+  // Sort by addedAt descending (latest first)
   allItems.sort(
-    (a, b) =>
-      new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
+    (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
   )
   return allItems
 }
 
-// Add an inventory item to the correct weekly batch
-export async function addInventoryItem(newItem: Omit<InventoryItem, 'id'>) {
-  const docId = getWeeklyDocId(new Date(newItem.lastUpdated))
-  const batchRef = doc(collection(db, 'inventoryWeekly'), docId)
+const memoizedFetchKitchenWeeklyLedgerDoc = memoize(async (weekId: string) => {
+  const snap = await getDoc(doc(db, 'kitchenLedgerWeekly', weekId))
+  return snap.data()
+})
+
+export async function getKitchenLedgerInRange(
+  from: string,
+  to: string,
+): Promise<KitchenLedgerItem[]> {
+  const weekIds = getWeeklyDocIdsInRange(from, to)
+
+  const docs = await Promise.all(
+    weekIds.map((weekId) => memoizedFetchKitchenWeeklyLedgerDoc(weekId)),
+  )
+
+  const allItems: KitchenLedgerItem[] = docs.flatMap(
+    (doc) => (doc?.items || []) as KitchenLedgerItem[],
+  )
+
+  const startDate = new Date(from)
+  const endDate = new Date(to)
+  endDate.setDate(endDate.getDate() + 1)
+
+  return allItems
+    .filter((item) => {
+      const itemDate = new Date(item.addedAt)
+      return itemDate >= startDate && itemDate < endDate
+    })
+    .sort(
+      (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+    )
+}
+
+// Add a kitchen ledger item to the correct weekly batch
+export async function addKitchenLedgerItem(
+  newItem: Omit<KitchenLedgerItem, 'id'>,
+) {
+  const docId = getWeeklyDocId(new Date(newItem.addedAt))
+  const batchRef = doc(collection(db, 'kitchenLedgerWeekly'), docId)
   const batchSnap = await getDoc(batchRef)
-  let items: InventoryItem[] = []
+  let items: KitchenLedgerItem[] = []
   if (batchSnap.exists()) {
     items = batchSnap.data().items || []
   }
@@ -1070,28 +1035,11 @@ export async function addInventoryItem(newItem: Omit<InventoryItem, 'id'>) {
   return { ...newItem, id }
 }
 
-// Edit an inventory item in the correct weekly batch
-export async function editInventoryItem(updatedItem: InventoryItem) {
-  // Find the batch doc by lastUpdated date
-  const docId = getWeeklyDocId(new Date(updatedItem.lastUpdated))
-  const batchRef = doc(collection(db, 'inventoryWeekly'), docId)
-  const batchSnap = await getDoc(batchRef)
-  if (!batchSnap.exists()) throw new Error('Batch document not found')
-
-  let items: InventoryItem[] = batchSnap.data().items || []
-  const idx = items.findIndex((item: any) => item.id === updatedItem.id)
-  if (idx === -1) throw new Error('Item not found in batch')
-
-  items[idx] = { ...updatedItem }
-  await setDoc(batchRef, { items }, { merge: true })
-  return updatedItem
-}
-
-// Delete an inventory item from the correct weekly batch
-export async function deleteInventoryItem(itemId: string) {
-  const snapshot = await getDocs(collection(db, 'inventoryWeekly'))
+// Delete a kitchen ledger item from the correct weekly batch
+export async function deleteKitchenLedgerItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
   let batchDocId: string | null = null
-  let items: InventoryItem[] = []
+  let items: KitchenLedgerItem[] = []
   snapshot.forEach((doc) => {
     const batchItems = doc.data().items || []
     if (batchItems.some((item: any) => item.id === itemId)) {
@@ -1102,35 +1050,68 @@ export async function deleteInventoryItem(itemId: string) {
   if (!batchDocId) throw new Error('Item not found in any batch')
   const newItems = items.filter((item: any) => item.id !== itemId)
   await setDoc(
-    doc(db, 'inventoryWeekly', batchDocId),
+    doc(db, 'kitchenLedgerWeekly', batchDocId),
     { items: newItems },
     { merge: true },
   )
   return itemId
 }
 
-// Get all equipment items (flattened from all weekly docs)
-export async function getAllEquipmentItems(): Promise<EquipmentItem[]> {
-  const snapshot = await getDocs(collection(db, 'equipmentWeekly'))
-  let allItems: EquipmentItem[] = []
+export async function getAllBakeryLedgerItems(): Promise<BakeryLedgerItem[]> {
+  const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
+  let allItems: BakeryLedgerItem[] = []
   snapshot.forEach((doc) => {
-    const batchItems = (doc.data().items || []) as EquipmentItem[]
+    const batchItems = (doc.data().items || []) as BakeryLedgerItem[]
     allItems = allItems.concat(batchItems)
   })
-  // Sort by lastUpdated descending (latest first)
+  // Sort by addedAt descending (latest first)
   allItems.sort(
-    (a, b) =>
-      new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
+    (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
   )
   return allItems
 }
 
-// Add an equipment item to the correct weekly batch
-export async function addEquipmentItem(newItem: Omit<EquipmentItem, 'id'>) {
-  const docId = getWeeklyDocId(new Date(newItem.lastUpdated))
-  const batchRef = doc(collection(db, 'equipmentWeekly'), docId)
+const memoizedFetchBakeryWeeklyLedgerDoc = memoize(async (weekId: string) => {
+  const snap = await getDoc(doc(db, 'bakeryLedgerWeekly', weekId))
+  return snap.data()
+})
+
+export async function getBakeryLedgerInRange(
+  from: string,
+  to: string,
+): Promise<BakeryLedgerItem[]> {
+  const weekIds = getWeeklyDocIdsInRange(from, to)
+
+  const docs = await Promise.all(
+    weekIds.map((weekId) => memoizedFetchBakeryWeeklyLedgerDoc(weekId)),
+  )
+
+  const allItems: BakeryLedgerItem[] = docs.flatMap(
+    (doc) => (doc?.items || []) as BakeryLedgerItem[],
+  )
+
+  const startDate = new Date(from)
+  const endDate = new Date(to)
+  endDate.setDate(endDate.getDate() + 1)
+
+  return allItems
+    .filter((item) => {
+      const itemDate = new Date(item.addedAt)
+      return itemDate >= startDate && itemDate < endDate
+    })
+    .sort(
+      (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime(),
+    )
+}
+
+// Add a bakery ledger item to the correct weekly batch
+export async function addBakeryLedgerItem(
+  newItem: Omit<BakeryLedgerItem, 'id'>,
+) {
+  const docId = getWeeklyDocId(new Date(newItem.addedAt))
+  const batchRef = doc(collection(db, 'bakeryLedgerWeekly'), docId)
   const batchSnap = await getDoc(batchRef)
-  let items: EquipmentItem[] = []
+  let items: BakeryLedgerItem[] = []
   if (batchSnap.exists()) {
     items = batchSnap.data().items || []
   }
@@ -1141,28 +1122,11 @@ export async function addEquipmentItem(newItem: Omit<EquipmentItem, 'id'>) {
   return { ...newItem, id }
 }
 
-// Edit an equipment item in the correct weekly batch
-export async function editEquipmentItem(updatedItem: EquipmentItem) {
-  // Find the batch doc by lastUpdated date
-  const docId = getWeeklyDocId(new Date(updatedItem.lastUpdated))
-  const batchRef = doc(collection(db, 'equipmentWeekly'), docId)
-  const batchSnap = await getDoc(batchRef)
-  if (!batchSnap.exists()) throw new Error('Batch document not found')
-
-  let items: EquipmentItem[] = batchSnap.data().items || []
-  const idx = items.findIndex((item: any) => item.id === updatedItem.id)
-  if (idx === -1) throw new Error('Item not found in batch')
-
-  items[idx] = { ...updatedItem }
-  await setDoc(batchRef, { items }, { merge: true })
-  return updatedItem
-}
-
-// Delete an equipment item from the correct weekly batch
-export async function deleteEquipmentItem(itemId: string) {
-  const snapshot = await getDocs(collection(db, 'equipmentWeekly'))
+// Delete a bakery ledger item from the correct weekly batch
+export async function deleteBakeryLedgerItem(itemId: string) {
+  const snapshot = await getDocs(collection(db, 'bakeryLedgerWeekly'))
   let batchDocId: string | null = null
-  let items: EquipmentItem[] = []
+  let items: BakeryLedgerItem[] = []
   snapshot.forEach((doc) => {
     const batchItems = doc.data().items || []
     if (batchItems.some((item: any) => item.id === itemId)) {
@@ -1173,78 +1137,7 @@ export async function deleteEquipmentItem(itemId: string) {
   if (!batchDocId) throw new Error('Item not found in any batch')
   const newItems = items.filter((item: any) => item.id !== itemId)
   await setDoc(
-    doc(db, 'equipmentWeekly', batchDocId),
-    { items: newItems },
-    { merge: true },
-  )
-  return itemId
-}
-
-// Get all accessories items (flattened from all weekly docs)
-export async function getAllAccessoriesItems(): Promise<AccessoriesItem[]> {
-  const snapshot = await getDocs(collection(db, 'accessoriesWeekly'))
-  let allItems: AccessoriesItem[] = []
-  snapshot.forEach((doc) => {
-    const batchItems = (doc.data().items || []) as AccessoriesItem[]
-    allItems = allItems.concat(batchItems)
-  })
-  // Sort by lastUpdated descending (latest first)
-  allItems.sort(
-    (a, b) =>
-      new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime(),
-  )
-  return allItems
-}
-
-// Add an accessories item to the correct weekly batch
-export async function addAccessoriesItem(newItem: Omit<AccessoriesItem, 'id'>) {
-  const docId = getWeeklyDocId(new Date(newItem.lastUpdated))
-  const batchRef = doc(collection(db, 'accessoriesWeekly'), docId)
-  const batchSnap = await getDoc(batchRef)
-  let items: AccessoriesItem[] = []
-  if (batchSnap.exists()) {
-    items = batchSnap.data().items || []
-  }
-  // Generate a unique id for the item
-  const id = crypto.randomUUID()
-  items.push({ ...newItem, id })
-  await setDoc(batchRef, { items }, { merge: true })
-  return { ...newItem, id }
-}
-
-// Edit an accessories item in the correct weekly batch
-export async function editAccessoriesItem(updatedItem: AccessoriesItem) {
-  // Find the batch doc by lastUpdated date
-  const docId = getWeeklyDocId(new Date(updatedItem.lastUpdated))
-  const batchRef = doc(collection(db, 'accessoriesWeekly'), docId)
-  const batchSnap = await getDoc(batchRef)
-  if (!batchSnap.exists()) throw new Error('Batch document not found')
-
-  let items: AccessoriesItem[] = batchSnap.data().items || []
-  const idx = items.findIndex((item: any) => item.id === updatedItem.id)
-  if (idx === -1) throw new Error('Item not found in batch')
-
-  items[idx] = { ...updatedItem }
-  await setDoc(batchRef, { items }, { merge: true })
-  return updatedItem
-}
-
-// Delete an accessories item from the correct weekly batch
-export async function deleteAccessoriesItem(itemId: string) {
-  const snapshot = await getDocs(collection(db, 'accessoriesWeekly'))
-  let batchDocId: string | null = null
-  let items: AccessoriesItem[] = []
-  snapshot.forEach((doc) => {
-    const batchItems = doc.data().items || []
-    if (batchItems.some((item: any) => item.id === itemId)) {
-      batchDocId = doc.id
-      items = batchItems
-    }
-  })
-  if (!batchDocId) throw new Error('Item not found in any batch')
-  const newItems = items.filter((item: any) => item.id !== itemId)
-  await setDoc(
-    doc(db, 'accessoriesWeekly', batchDocId),
+    doc(db, 'bakeryLedgerWeekly', batchDocId),
     { items: newItems },
     { merge: true },
   )
