@@ -67,7 +67,9 @@ import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 import * as Yup from 'yup'
 import {
+  editMultipleInventoryItems,
   getCurrentInventory,
+  type InventoryHistory,
   type InventoryMenuItem,
 } from '@/firebase/inventoryManagement'
 
@@ -372,6 +374,8 @@ const orderValidationSchema = Yup.object().shape({
 // Cart Drawer Component
 function CartDrawer({
   cart,
+  displayFoods,
+  setDisplayFoods,
   isOpen,
   onOpenChange,
   onUpdateQuantity,
@@ -403,11 +407,13 @@ function CartDrawer({
   setReceiptDate,
 }: {
   cart: CartItem[]
+  displayFoods: InventoryMenuItem[]
+  setDisplayFoods: React.Dispatch<React.SetStateAction<InventoryMenuItem[]>>
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   onUpdateQuantity: (index: number, newQty: number) => void
   onRemoveItem: (index: number) => void
-  onClearCart: () => void
+  onClearCart: (callingFromCreateOrder?: boolean) => void
   selectedTable: number
   setSelectedTable: (table: number) => void
   kotNumber: string
@@ -438,8 +444,7 @@ function CartDrawer({
     queryFn: getAllCreditors,
   })
   const queryClient = useQueryClient()
-  // Add state for addToCart if you want to reset it (optional, not required if you always build from props)
-  // const [addToCart, setAddToCart] = useState<AddToCart | null>(null);
+  const { userAdditional } = useFirebaseAuth()
 
   // Validation state
   const [validationErrors, setValidationErrors] = useState<
@@ -478,10 +483,53 @@ function CartDrawer({
     onSuccess: async (_, addToCart) => {
       toast.success('Order placed successfully!')
       // Optionally reset cart/order state here
-      onClearCart()
+      onClearCart(true)
       setStep(false)
       // If you have a Drawer open state, close it here (setOpen(false))
       queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
+      queryClient.invalidateQueries({ queryKey: ['inventoryItems'] })
+
+      // --- Inventory depletion and history logging ---
+      try {
+        const depletionArray: InventoryHistory[] = cart.map((item) => {
+          const food = displayFoods.find((f) => f.foodId === item.foodId)
+          if (!food) throw new Error('Food not found in displayFoods')
+
+          let inventoryData: InventoryMenuItem
+          if (item.selectedSubcategory) {
+            inventoryData = {
+              ...food,
+              subcategories: food.subcategories.map((sub) =>
+                sub.id === item.selectedSubcategory?.id
+                  ? {
+                      ...sub,
+                      currentStockCount: sub.currentStockCount,
+                      lastStockCount: sub.lastStockCount,
+                    }
+                  : sub,
+              ),
+            }
+          } else {
+            inventoryData = { ...food }
+          }
+
+          return {
+            ...inventoryData,
+            date: new Date().toISOString(),
+            reasonForEdit: 'sale',
+            editedBy: userAdditional?.uid ?? 'unknown',
+          }
+        })
+
+        await editMultipleInventoryItems(depletionArray)
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Failed to update inventory and log history.',
+        )
+      }
+
       // --- Send FCM notification to kitchen department ---
       try {
         const tokensWithUid = await getKitchenDepartmentFcmTokens()
@@ -533,6 +581,8 @@ function CartDrawer({
 
   // Submit handler
   const handleSubmit = () => {
+    // Prepare depletion array for stock update
+
     // Map cart to minimal order items for billing (include foodId for type safety)
     const orderItems = cart.map((item) => ({
       foodId: item.foodId ?? '',
@@ -577,7 +627,7 @@ function CartDrawer({
           <DrawerTitle>
             <div className="flex justify-between items-center gap-4">
               <span>Your Order</span>
-              <Button variant="outline" onClick={onClearCart}>
+              <Button variant="outline" onClick={() => onClearCart()}>
                 <RotateCwIcon />
                 Clear Cart
               </Button>
@@ -655,9 +705,38 @@ function CartDrawer({
                           variant="outline"
                           size="icon"
                           className="bg-transparent w-8 h-8"
-                          onClick={() =>
+                          onClick={() => {
                             onUpdateQuantity(index, Math.max(0, item.qty - 1))
-                          }
+                            setDisplayFoods((prevFoods) =>
+                              prevFoods.map((food) => {
+                                if (food.foodId !== item.foodId) return food
+                                if (item.selectedSubcategory) {
+                                  // Subcategory item
+                                  return {
+                                    ...food,
+                                    subcategories: food.subcategories?.map(
+                                      (sub) =>
+                                        sub.id === item.selectedSubcategory?.id
+                                          ? {
+                                              ...sub,
+                                              currentStockCount:
+                                                (sub.currentStockCount ?? 0) +
+                                                1,
+                                            }
+                                          : sub,
+                                    ),
+                                  }
+                                } else {
+                                  // Main item
+                                  return {
+                                    ...food,
+                                    currentStockCount:
+                                      (food.currentStockCount ?? 0) + 1,
+                                  }
+                                }
+                              }),
+                            )
+                          }}
                         >
                           <MinusIcon className="w-4 h-4" />
                         </Button>
@@ -670,19 +749,66 @@ function CartDrawer({
                           variant="outline"
                           size="icon"
                           className="bg-transparent w-8 h-8"
-                          onClick={() => onUpdateQuantity(index, item.qty + 1)}
+                          disabled={(() => {
+                            const food = displayFoods.find(
+                              (f) => f.foodId === item.foodId,
+                            )
+                            if (item.selectedSubcategory) {
+                              const sub = food?.subcategories?.find(
+                                (s) => s.id === item.selectedSubcategory?.id,
+                              )
+                              return (sub?.currentStockCount ?? 0) === 0
+                            } else {
+                              return (food?.currentStockCount ?? 0) === 0
+                            }
+                          })()}
+                          onClick={() => {
+                            onUpdateQuantity(index, item.qty + 1)
+                            setDisplayFoods((prevFoods) =>
+                              prevFoods.map((food) => {
+                                if (food.foodId !== item.foodId) return food
+                                if (item.selectedSubcategory) {
+                                  // Subcategory item
+                                  return {
+                                    ...food,
+                                    subcategories: food.subcategories?.map(
+                                      (sub) =>
+                                        sub.id === item.selectedSubcategory?.id
+                                          ? {
+                                              ...sub,
+                                              currentStockCount:
+                                                (sub.currentStockCount ?? 0) -
+                                                1,
+                                            }
+                                          : sub,
+                                    ),
+                                  }
+                                } else {
+                                  // Main item
+                                  return {
+                                    ...food,
+                                    currentStockCount:
+                                      (food.currentStockCount ?? 0) - 1,
+                                  }
+                                }
+                              }),
+                            )
+                          }}
                         >
                           <PlusIcon className="w-4 h-4" />
                         </Button>
 
-                        <Button
+                        {/* <Button
                           variant="outline"
                           size="icon"
                           className="bg-transparent w-8 h-8 text-red-500 hover:text-red-700"
-                          onClick={() => onRemoveItem(index)}
+                          onClick={() => {
+                            onRemoveItem(index)
+                            
+                          }}
                         >
                           <Trash2Icon className="w-4 h-4" />
-                        </Button>
+                        </Button> */}
                       </div>
 
                       <div className="text-right">
@@ -1099,9 +1225,9 @@ export function TakeOrder() {
     queryFn: async () => {
       const foodItems = await getFoodItems()
       const stockData = await getCurrentInventory()
-      return foodItems.map((item) => {
+      const inventoryMenuItems = foodItems.map((item) => {
         const stockEntry = stockData.find((s) => s.foodId === item.foodId)
-        const inventoryMenuItem: InventoryMenuItem = {
+        return {
           ...item,
           currentStockCount: stockEntry?.currentStockCount ?? 0,
           lastStockCount: stockEntry?.lastStockCount ?? 0,
@@ -1116,17 +1242,16 @@ export function TakeOrder() {
             }
           }),
         }
-        return inventoryMenuItem
       })
+      setDisplayFoods(inventoryMenuItems)
+      return inventoryMenuItems
     },
     refetchOnWindowFocus: false,
   })
 
   // Local state to track depleted stock for UI
   const [displayFoods, setDisplayFoods] = useState<InventoryMenuItem[]>([])
-  useEffect(() => {
-    setDisplayFoods(foods)
-  }, [foods])
+
   const { userAdditional } = useFirebaseAuth()
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
@@ -1238,7 +1363,7 @@ export function TakeOrder() {
   }
 
   // Enhanced clearCart: resets all order state
-  const clearCart = () => {
+  const clearCart = (callingFromCreateOrder?: boolean) => {
     setCart([])
     setSelectedTable(-1)
     setKotNumber('')
@@ -1253,6 +1378,9 @@ export function TakeOrder() {
     setStep(false) // Reset stepper
     setCartDrawerOpen(false)
     setReceiptDate(undefined)
+    if (callingFromCreateOrder !== true) {
+      setDisplayFoods(foods)
+    }
   }
 
   if (isLoading) {
@@ -1307,7 +1435,7 @@ export function TakeOrder() {
             <Button
               variant="outline"
               className="bg-transparent p-6"
-              onClick={clearCart}
+              onClick={() => clearCart()}
             >
               <RotateCwIcon />
               Clear
@@ -1396,6 +1524,8 @@ export function TakeOrder() {
       {/* Cart Drawer */}
       <CartDrawer
         cart={cart}
+        displayFoods={displayFoods}
+        setDisplayFoods={setDisplayFoods}
         isOpen={cartDrawerOpen}
         onOpenChange={setCartDrawerOpen}
         onUpdateQuantity={updateCartQuantity}
