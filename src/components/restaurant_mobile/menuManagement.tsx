@@ -10,8 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
+
 import {
   Drawer,
   DrawerClose,
@@ -34,7 +33,6 @@ import {
 } from '@/components/ui/sheet'
 import {
   PlusIcon,
-  MinusIcon,
   LoaderIcon,
   PencilIcon,
   Trash2Icon,
@@ -55,10 +53,11 @@ import {
   enterFoodItem,
   editFoodItem,
   deleteFoodItem,
-} from '@/firebase/firestore'
+  type FoodItemProps,
+} from '@/firebase/menuManagement'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DonutImage from '@/assets/donutImage'
-import { Formik, Form, FieldArray } from 'formik'
+import { Formik, Form } from 'formik'
 import * as Yup from 'yup'
 import SplashScreen from '@/components/splashscreen'
 import { uploadMenuItemImage } from '@/firebase/firebase_storage'
@@ -66,6 +65,7 @@ import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import { useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
+import { AnimatePresence, motion } from 'motion/react'
 
 // Food categories configuration
 export const categories = [
@@ -78,22 +78,6 @@ export const categories = [
   { id: 'specials', name: 'Specials' },
   { id: 'others', name: 'Others' },
 ]
-
-export type SubcategoryOption = {
-  id: string
-  name: string
-  price: number
-}
-
-export type FoodItemProps = {
-  foodId?: string // optional for form usage
-  foodName: string
-  foodPrice: number
-  foodCategory: string
-  foodPhoto: File | string | null
-  subcategories: SubcategoryOption[]
-  hasSubcategories: boolean
-}
 
 function CategoryTabs() {
   return (
@@ -120,103 +104,69 @@ function CategoryTabs() {
 
 // Menu Item Card Component
 const MenuItemCard = memo(function MenuItemCard({
-  food,
+  foods,
 }: {
-  food: FoodItemProps
+  foods: FoodItemProps[]
 }) {
+  // All foods have the same type, so use the first item's type or name as the heading
+  const type = foods[0]?.type?.toUpperCase() || foods[0]?.name.toUpperCase()
+
   return (
-    <div className="flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-muted py-2 pr-2 border-b transition-colors">
-      <div className="flex justify-center items-center border-red-500 rounded-lg w-16 h-16">
-        {typeof food.foodPhoto === 'string' && food.foodPhoto ? (
-          <img
-            alt={food.foodName}
-            src={food.foodPhoto}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <DonutImage />
-        )}
-      </div>
-
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-medium">{food.foodName}</h3>
-          {food.hasSubcategories && (
-            <Badge variant="secondary" className="text-xs">
-              {food.subcategories?.length} Options
-            </Badge>
-          )}
-        </div>
-        <p className="text-muted-foreground text-sm">
-          {food.hasSubcategories
-            ? `From Rs. ${food.foodPrice}`
-            : `Rs. ${food.foodPrice}`}
-        </p>
-        {food.hasSubcategories && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {(food.subcategories ?? []).slice(0, 3).map((sub) => (
-              <span
-                key={sub.id}
-                className="bg-gray-50 dark:bg-card px-2 py-1 rounded text-card-foreground text-xs"
-              >
-                {sub.name}
-              </span>
-            ))}
-            {food.subcategories && food.subcategories.length > 3 && (
-              <span className="px-2 py-1 rounded text-card-foreground text-xs">
-                +{food.subcategories.length - 3} more
-              </span>
-            )}
+    <div className="mb-8 p-4 border rounded-xl">
+      <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
+      <div className="flex flex-col gap-2">
+        {foods.map((food) => (
+          <div
+            key={food.foodId}
+            className="flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors"
+          >
+            <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
+              {food.photoURL ? (
+                <img
+                  alt={food.name}
+                  src={food.photoURL}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <DonutImage />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium">{food.name}</h3>
+              <p className="text-muted-foreground text-sm">Rs. {food.price}</p>
+            </div>
+            {/* Edit and Delete Buttons */}
+            <div className="flex gap-2">
+              <EditFoodDrawer food={food} />
+              <DeleteFoodDrawer food={food} />
+            </div>
           </div>
-        )}
-      </div>
-
-      <div className="flex gap-2">
-        <EditFoodDrawer food={food} />
-        <DeleteFoodDrawer food={food} />
+        ))}
       </div>
     </div>
   )
 })
+
 // Validation schema for food form
 const foodValidationSchema = Yup.object({
-  foodName: Yup.string()
+  name: Yup.string()
     .trim()
     .min(2, 'Too short')
     .max(64, 'Too long')
     .required('Required'),
-  foodPrice: Yup.number()
-    .typeError('Must be a number')
-    .min(1, 'Must be greater than 0')
-    .required('Required'),
-  foodCategory: Yup.string()
+  mainCategory: Yup.string()
     .oneOf(
       categories.map((cat) => cat.id),
       'Invalid',
     )
     .required('Required'),
-  hasSubcategories: Yup.boolean().required(),
-  subcategories: Yup.array()
-    .of(
-      Yup.object({
-        id: Yup.string().required(),
-        name: Yup.string()
-          .trim()
-          .min(1, 'Required')
-          .max(64, 'Too long')
-          .required('Required'),
-        price: Yup.number()
-          .typeError('Must be a number')
-          .min(0, 'Must be >= 0')
-          .required('Required'),
-      }),
-    )
-    .when('hasSubcategories', {
-      is: true,
-      then: (schema) => schema.min(1, 'At least one subcategory required'),
-      otherwise: (schema) => schema.max(0),
-    }),
+  price: Yup.number()
+    .typeError('Must be a number')
+    .min(1, 'Must be greater than 0')
+    .required('Required'),
+  type: Yup.string().nullable(),
+  photoURL: Yup.mixed().nullable(),
 })
 
 export function AddFoodDrawer() {
@@ -225,18 +175,18 @@ export function AddFoodDrawer() {
 
   const enterFoodItemsMutation = useMutation({
     mutationFn: async (values: Omit<FoodItemProps, 'foodId'>) => {
-      const foodId = Math.random().toString(16).slice(2)
-      const valuesWithId: FoodItemProps = { ...values, foodId }
-      const photoFile: File | null = valuesWithId.foodPhoto as File | null
+      const id = crypto.randomUUID()
+      const valuesWithId: FoodItemProps = { ...values, foodId: id }
+      const photoFile: File | null = valuesWithId.photoURL as File | null
 
       let storageURL = null
       if (photoFile !== null) {
-        storageURL = await uploadMenuItemImage(foodId, photoFile)
+        storageURL = await uploadMenuItemImage(id, photoFile)
       }
 
       const valuesWithPhotoURL = {
         ...valuesWithId,
-        foodPhoto: storageURL,
+        photoURL: storageURL,
       }
 
       await enterFoodItem(valuesWithPhotoURL)
@@ -254,9 +204,10 @@ export function AddFoodDrawer() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <div className="right-4 bottom-16 z-50 fixed flex justify-center items-center bg-white/40 hover:bg-white/60 dark:bg-black/40 dark:hover:bg-black/60 shadow-xl backdrop-blur-md border border-white/30 dark:border-white/20 rounded-full w-10 h-10 text-gray-800 dark:text-white align-middle">
-          <PlusIcon className="text-rose-600 dark:text-white" />
-        </div>
+        <Button>
+          <PlusIcon color="white" />
+          Add Food Item
+        </Button>
       </SheetTrigger>
       <SheetContent side="bottom">
         <SheetHeader>
@@ -266,18 +217,21 @@ export function AddFoodDrawer() {
           </SheetDescription>
         </SheetHeader>
 
-        <Formik<FoodItemProps>
+        <Formik<Omit<FoodItemProps, 'foodId'>> // id will be generated
           initialValues={{
-            foodName: '',
-            foodCategory: '',
-            foodPrice: 0,
-            foodPhoto: null,
-            hasSubcategories: false,
-            subcategories: [],
+            name: '',
+            mainCategory: 'appetizers',
+            price: 0,
+            type: null,
+            photoURL: null,
           }}
           validationSchema={foodValidationSchema}
           onSubmit={(values) => {
-            enterFoodItemsMutation.mutate(values)
+            const normalizedValues = {
+              ...values,
+              type: values.type ? values.type.toLowerCase() : null,
+            }
+            enterFoodItemsMutation.mutate(normalizedValues)
           }}
         >
           {(formik) => (
@@ -286,233 +240,103 @@ export function AddFoodDrawer() {
                 <div className="flex flex-col gap-4 px-4 py-4">
                   {/* Name Field */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodName">Food Name</Label>
-                    <div className="relative">
-                      {formik.touched.foodName && formik.errors.foodName && (
-                        <div className="top-0 absolute bg-white p-1 border border-red-400 rounded text-red-500 text-xs -translate-y-full transform">
-                          {formik.errors.foodName}
-                        </div>
-                      )}
-                      <Input
-                        id="foodName"
-                        name="foodName"
-                        className="w-full"
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        value={formik.values.foodName}
-                      />
-                    </div>
+                    <Label htmlFor="name">Food Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      className="w-full"
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      value={formik.values.name}
+                    />
+                    {formik.touched.name && formik.errors.name && (
+                      <div className="text-red-500 text-xs">
+                        {formik.errors.name}
+                      </div>
+                    )}
                   </div>
 
                   {/* Category Select */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodCategory">Category</Label>
-                    <div className="relative">
-                      {formik.touched.foodCategory &&
-                        formik.errors.foodCategory && (
-                          <div className="top-0 absolute bg-white p-1 border border-red-400 rounded text-red-500 text-xs -translate-y-full transform">
-                            {formik.errors.foodCategory}
-                          </div>
-                        )}
-                      <Select
-                        name="foodCategory"
-                        value={formik.values.foodCategory}
-                        onValueChange={(value) =>
-                          formik.setFieldValue('foodCategory', value)
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="appetizers">Appetizers</SelectItem>
-                          <SelectItem value="main_courses">
-                            Main Course
+                    <Label htmlFor="mainCategory">Category</Label>
+                    <Select
+                      name="mainCategory"
+                      value={formik.values.mainCategory}
+                      onValueChange={(value) =>
+                        formik.setFieldValue('mainCategory', value)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
                           </SelectItem>
-                          <SelectItem value="bakery">Bakery</SelectItem>
-                          <SelectItem value="desserts">Dessert</SelectItem>
-                          <SelectItem value="beverages">Beverages</SelectItem>
-                          <SelectItem value="hard_drinks">
-                            Hard Drinks
-                          </SelectItem>
-                          <SelectItem value="specials">Specials</SelectItem>
-                          <SelectItem value="others">Others</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formik.touched.mainCategory &&
+                      formik.errors.mainCategory && (
+                        <div className="text-red-500 text-xs">
+                          {formik.errors.mainCategory}
+                        </div>
+                      )}
                   </div>
 
                   {/* Price Field */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodPrice">Base Price</Label>
-                    <div className="relative">
-                      {formik.touched.foodPrice && formik.errors.foodPrice && (
-                        <div className="top-0 absolute bg-white p-1 border border-red-400 rounded text-red-500 text-xs -translate-y-full transform">
-                          {formik.errors.foodPrice}
-                        </div>
-                      )}
-                      <Input
-                        id="foodPrice"
-                        name="foodPrice"
-                        type="number"
-                        className="w-full"
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        value={formik.values.foodPrice}
-                      />
-                    </div>
+                    <Label htmlFor="price">Price</Label>
+                    <Input
+                      id="price"
+                      name="price"
+                      type="number"
+                      className="w-full"
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      value={formik.values.price}
+                    />
+                    {formik.touched.price && formik.errors.price && (
+                      <div className="text-red-500 text-xs">
+                        {formik.errors.price}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Type Field (optional) */}
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="type">
+                      Type (optional): For example, enter "pizza" for Chicken
+                      Pizza. Leave blank for items like Plain Water.
+                    </Label>
+                    <Input
+                      id="type"
+                      name="type"
+                      className="w-full"
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      value={formik.values.type || ''}
+                    />
                   </div>
 
                   {/* File Upload */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodPhoto">Photo</Label>
-                    <div className="relative">
-                      {formik.touched.foodPhoto && formik.errors.foodPhoto && (
-                        <div className="top-0 absolute bg-white p-1 border border-red-400 rounded text-red-500 text-xs -translate-y-full transform">
-                          {formik.errors.foodPhoto}
-                        </div>
-                      )}
-                      <Input
-                        type="file"
-                        id="foodPhoto"
-                        name="foodPhoto"
-                        className="w-full"
-                        onChange={(e) => {
-                          formik.setFieldValue(
-                            'foodPhoto',
-                            e.currentTarget.files?.[0] || null,
-                          )
-                        }}
-                        onBlur={formik.handleBlur}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Has Subcategories Checkbox */}
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="hasSubcategories"
-                      checked={formik.values.hasSubcategories}
-                      onCheckedChange={(checked) =>
-                        formik.setFieldValue('hasSubcategories', !!checked)
-                      }
+                    <Label htmlFor="photoURL">Photo</Label>
+                    <Input
+                      type="file"
+                      id="photoURL"
+                      name="photoURL"
+                      className="w-full"
+                      onChange={(e) => {
+                        formik.setFieldValue(
+                          'photoURL',
+                          e.currentTarget.files?.[0] || null,
+                        )
+                      }}
+                      onBlur={formik.handleBlur}
                     />
-                    <Label htmlFor="hasSubcategories" className="select-none">
-                      Has Subcategories?
-                    </Label>
                   </div>
-
-                  {/* Subcategories List */}
-                  {formik.values.hasSubcategories && (
-                    <FieldArray name="subcategories">
-                      {({ push, remove }) => (
-                        <div className="flex flex-col gap-3">
-                          {formik.values.subcategories.map((_, index) => (
-                            <div
-                              key={index}
-                              className="flex gap-2 bg-muted/20 p-2 rounded"
-                            >
-                              {/* Name */}
-                              <div className="flex-1">
-                                <Input
-                                  name={`subcategories.${index}.name`}
-                                  placeholder="Subcategory Name"
-                                  value={
-                                    formik.values.subcategories[index].name
-                                  }
-                                  onChange={formik.handleChange}
-                                  onBlur={formik.handleBlur}
-                                />
-                                {typeof formik.errors.subcategories?.[index] ===
-                                  'object' &&
-                                  formik.errors.subcategories?.[index] !==
-                                    null &&
-                                  'name' in
-                                    (formik.errors.subcategories[
-                                      index
-                                    ] as object) &&
-                                  formik.touched.subcategories?.[index]
-                                    ?.name && (
-                                    <p className="mt-1 text-red-500 text-xs">
-                                      {
-                                        (
-                                          formik.errors.subcategories[
-                                            index
-                                          ] as { name?: string }
-                                        ).name
-                                      }
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* Price */}
-                              <div className="w-24">
-                                <Input
-                                  name={`subcategories.${index}.price`}
-                                  type="number"
-                                  placeholder="Price"
-                                  value={
-                                    formik.values.subcategories[index].price
-                                  }
-                                  onChange={formik.handleChange}
-                                  onBlur={formik.handleBlur}
-                                />
-                                {typeof formik.errors.subcategories?.[index] ===
-                                  'object' &&
-                                  formik.errors.subcategories?.[index] !==
-                                    null &&
-                                  'price' in
-                                    (formik.errors.subcategories[
-                                      index
-                                    ] as object) &&
-                                  formik.touched.subcategories?.[index]
-                                    ?.price && (
-                                    <p className="mt-1 text-red-500 text-xs">
-                                      {
-                                        (
-                                          formik.errors.subcategories[
-                                            index
-                                          ] as { price?: string }
-                                        ).price
-                                      }
-                                    </p>
-                                  )}
-                              </div>
-
-                              {/* Remove Button */}
-                              <Button
-                                variant="outline"
-                                type="button"
-                                onClick={() => remove(index)}
-                                size="sm"
-                                className="flex justify-center items-center p-0 w-8 h-8"
-                                aria-label="Remove subcategory"
-                              >
-                                <Trash2Icon className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-
-                          {/* Add Subcategory Button */}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            className="flex items-center gap-2"
-                            onClick={() =>
-                              push({
-                                id: Math.random().toString(16).slice(2),
-                                name: '',
-                                price: 0,
-                              })
-                            }
-                          >
-                            <PlusIcon className="w-4 h-4" />
-                            Add Subcategory
-                          </Button>
-                        </div>
-                      )}
-                    </FieldArray>
-                  )}
                 </div>
               </ScrollArea>
 
@@ -520,10 +344,10 @@ export function AddFoodDrawer() {
                 <Button
                   className="text-white"
                   type="submit"
-                  disabled={enterFoodItemsMutation.isPending}
+                  disabled={formik.isSubmitting}
                 >
-                  {enterFoodItemsMutation.isPending ? (
-                    <LoaderIcon className="animate-spin" color="white" />
+                  {formik.isSubmitting ? (
+                    <LoaderIcon color="white" className="animate-spin" />
                   ) : (
                     'Submit'
                   )}
@@ -548,17 +372,20 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
   const queryClient = useQueryClient()
 
   const updateFoodItemsMutation = useMutation({
-    mutationFn: async (values: FoodItemProps) => {
-      const photoFile: File | null = values.foodPhoto as File | null
+    mutationFn: async (
+      values: Omit<FoodItemProps, 'foodId'> & { foodId: string },
+    ) => {
+      const photoFile: File | null = values.photoURL as File | null
 
       let storageURL = null
       if (photoFile !== null) {
-        storageURL = await uploadMenuItemImage(values.foodId!, photoFile)
+        storageURL = await uploadMenuItemImage(values.foodId, photoFile)
       }
 
       const valuesWithPhotoURL = {
         ...values,
-        foodPhoto: storageURL || values.foodPhoto,
+        type: values.type ?? null, // ensure null
+        photoURL: storageURL ?? null, // ensure null if no file uploaded
       }
 
       await editFoodItem(valuesWithPhotoURL)
@@ -584,43 +411,48 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
         <SheetHeader>
           <SheetTitle>Edit Food Item</SheetTitle>
           <SheetDescription>
-            Update the details of {food.foodName}. Click save when you're done.
+            Update the details of {food.name}. Click save when you're done.
           </SheetDescription>
         </SheetHeader>
 
-        <Formik<FoodItemProps>
-          initialValues={food}
-          validationSchema={foodValidationSchema}
-          onSubmit={(values) => {
-            updateFoodItemsMutation.mutate(values)
+        <Formik<Omit<FoodItemProps, 'foodId'> & { foodId: string }>
+          initialValues={{
+            foodId: food.foodId,
+            name: food.name,
+            mainCategory: food.mainCategory,
+            price: food.price,
+            type: food.type ?? null, // ensure null
+            photoURL: food.photoURL ?? null, // ensure null
           }}
+          validationSchema={foodValidationSchema}
+          onSubmit={(values) => updateFoodItemsMutation.mutate(values)}
         >
           {(formik) => (
             <Form>
               <ScrollArea className="max-h-96 overflow-y-auto">
                 <div className="flex flex-col gap-4 px-4 py-4">
-                  {/* Food Name */}
+                  {/* Name */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodName">Food Name</Label>
+                    <Label htmlFor="name">Food Name</Label>
                     <Input
-                      id="foodName"
-                      name="foodName"
+                      id="name"
+                      name="name"
                       type="text"
                       className="w-full"
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      value={formik.values.foodName}
+                      value={formik.values.name}
                     />
                   </div>
 
-                  {/* Food Category */}
+                  {/* Category */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodCategory">Category</Label>
+                    <Label htmlFor="mainCategory">Category</Label>
                     <Select
-                      name="foodCategory"
-                      value={formik.values.foodCategory}
+                      name="mainCategory"
+                      value={formik.values.mainCategory}
                       onValueChange={(value) =>
-                        formik.setFieldValue('foodCategory', value)
+                        formik.setFieldValue('mainCategory', value)
                       }
                     >
                       <SelectTrigger>
@@ -636,123 +468,51 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
                     </Select>
                   </div>
 
-                  {/* Food Price */}
+                  {/* Price */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodPrice">Base Price</Label>
+                    <Label htmlFor="price">Price</Label>
                     <Input
-                      id="foodPrice"
-                      name="foodPrice"
+                      id="price"
+                      name="price"
                       type="number"
                       className="w-full"
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      value={formik.values.foodPrice}
+                      value={formik.values.price}
                     />
                   </div>
 
-                  {/* File Upload */}
+                  {/* Type */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="foodPhoto">Photo</Label>
+                    <Label htmlFor="type">
+                      Type (optional): e.g., "pizza" for Chicken Pizza. Leave
+                      blank for items like Plain Water.
+                    </Label>
+                    <Input
+                      id="type"
+                      name="type"
+                      className="w-full"
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      value={formik.values.type || ''}
+                    />
+                  </div>
+
+                  {/* Photo */}
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="photoURL">Photo</Label>
                     <Input
                       type="file"
-                      id="foodPhoto"
-                      name="foodPhoto"
+                      id="photoURL"
+                      name="photoURL"
                       className="w-full"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null
-                        formik.setFieldValue('foodPhoto', file)
+                        formik.setFieldValue('photoURL', file)
                       }}
                       onBlur={formik.handleBlur}
                     />
                   </div>
-
-                  {/* Has Subcategories Checkbox */}
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="hasSubcategories"
-                      checked={formik.values.hasSubcategories}
-                      onCheckedChange={(checked) =>
-                        formik.setFieldValue('hasSubcategories', !!checked)
-                      }
-                    />
-                    <Label htmlFor="hasSubcategories" className="select-none">
-                      Has Subcategories?
-                    </Label>
-                  </div>
-
-                  {/* Subcategories List */}
-                  {formik.values.hasSubcategories && (
-                    <FieldArray name="subcategories">
-                      {({ push, remove }) => (
-                        <div className="flex flex-col gap-3">
-                          {formik.values.subcategories.map((sub, index) => (
-                            <div
-                              key={sub.id}
-                              className="flex items-center gap-2 bg-gray-50 dark:bg-muted/40 px-2 py-2 border border-gray-200 dark:border-muted-foreground/20 rounded-md"
-                            >
-                              <div className="flex flex-col flex-1 gap-1">
-                                <Label className="block mb-1 text-muted-foreground text-xs">
-                                  Option Name
-                                </Label>
-                                <Input
-                                  name={`subcategories.${index}.name`}
-                                  placeholder="Option name"
-                                  value={sub.name}
-                                  onChange={(e) =>
-                                    formik.setFieldValue(
-                                      `subcategories.${index}.name`,
-                                      e.target.value,
-                                    )
-                                  }
-                                />
-                              </div>
-                              <div className="flex flex-col gap-1 w-24">
-                                <Label className="block mb-1 text-muted-foreground text-xs">
-                                  Price
-                                </Label>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="Price"
-                                  value={sub.price}
-                                  onChange={(e) =>
-                                    formik.setFieldValue(
-                                      `subcategories.${index}.price`,
-                                      Number(e.target.value),
-                                    )
-                                  }
-                                />
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => remove(index)}
-                              >
-                                <MinusIcon className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            className="flex items-center gap-2"
-                            onClick={() =>
-                              push({
-                                id: Math.random().toString(16).slice(2),
-                                name: '',
-                                price: 0,
-                              })
-                            }
-                          >
-                            <PlusIcon className="w-4 h-4" />
-                            Add Subcategory
-                          </Button>
-                        </div>
-                      )}
-                    </FieldArray>
-                  )}
                 </div>
               </ScrollArea>
 
@@ -760,9 +520,9 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
                 <Button
                   className="text-white"
                   type="submit"
-                  disabled={updateFoodItemsMutation.isPending}
+                  disabled={formik.isSubmitting}
                 >
-                  {updateFoodItemsMutation.isPending ? (
+                  {formik.isSubmitting ? (
                     <LoaderIcon className="animate-spin" color="white" />
                   ) : (
                     'Submit'
@@ -789,7 +549,7 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
 
   const deleteFoodItemMutation = useMutation({
     mutationFn: async () => {
-      await deleteFoodItem(food.foodId!)
+      await deleteFoodItem(food.foodId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['foods'] })
@@ -818,8 +578,8 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
         <DrawerHeader>
           <DrawerTitle>Delete Food Item</DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to delete <strong>{food.foodName}</strong>?
-            This action cannot be undone.
+            Are you sure you want to delete <strong>{food.name}</strong>? This
+            action cannot be undone.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -827,10 +587,10 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
           <div className="bg-card p-4 border rounded-lg">
             <div className="flex items-center gap-3">
               <div className="flex justify-center items-center bg-gray-100 rounded-lg w-12 h-12">
-                {typeof food.foodPhoto === 'string' && food.foodPhoto ? (
+                {typeof food.photoURL === 'string' && food.photoURL ? (
                   <img
-                    alt={food.foodName}
-                    src={food.foodPhoto}
+                    alt={food.name}
+                    src={food.photoURL}
                     className="rounded-lg w-12 h-12 object-cover"
                     loading="lazy"
                   />
@@ -839,15 +599,10 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
                 )}
               </div>
               <div>
-                <h4 className="font-medium">{food.foodName}</h4>
+                <h4 className="font-medium">{food.name}</h4>
                 <p className="text-muted-foreground text-sm">
-                  Rs. {food.foodPrice}
+                  Rs. {food.price}
                 </p>
-                {food.hasSubcategories && (
-                  <p className="text-muted-foreground text-xs">
-                    Has {food.subcategories?.length} subcategories
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -860,7 +615,10 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
           >
             {deleteFoodItemMutation.isPending ? (
               <>
-                <LoaderIcon className="mr-2 w-4 h-4 animate-spin" />
+                <LoaderIcon
+                  className="mr-2 w-4 h-4 animate-spin"
+                  color="white"
+                />
                 Deleting...
               </>
             ) : (
@@ -896,7 +654,7 @@ export function MenuManagement() {
   return (
     <div className="flex flex-col bg-background h-full overflow-y-auto">
       {/* Header */}
-      <div className="top-0 z-50 sticky bg-transparent backdrop-blur border-b">
+      <div className="top-0 z-50 sticky bg-transparent backdrop-blur">
         <div className="flex justify-between items-center p-4">
           <div>
             <Link
@@ -909,10 +667,24 @@ export function MenuManagement() {
               <ArrowLeftIcon className="w-5 h-5" />
               <span className="font-medium text-sm">Go To Take Orders</span>
             </Link>
+
             <h1 className="font-bold text-xl">Menu Management</h1>
             <p className="text-muted-foreground text-sm">
               Manage your restaurant menu items
             </p>
+          </div>
+          <div className="flex sm:flex-row flex-col items-center gap-2">
+            <Link
+              to="/home/inventoryManagement"
+              search={{ category: 'appetizers' }}
+              viewTransition={{ types: ['slide-right'] }}
+              className="inline-flex items-center gap-1 p-2 border rounded-lg text-muted-foreground hover:text-primary transition-colors"
+              title="Go to Inventory"
+            >
+              <PartyPopperIcon className="w-5 h-5" />
+              <span className="font-medium text-sm">Go To Inventory</span>
+            </Link>
+            <AddFoodDrawer />
           </div>
         </div>
 
@@ -936,45 +708,55 @@ export function MenuManagement() {
 
       {/* Menu Items List */}
       <div className="pb-32">
-        <div className="space-y-0">
-          {foods
-            .filter((food) => {
-              if (search.trim()) {
-                const searchLower = search.toLowerCase()
-                // Search in food name, category, and subcategory names
-                const inName = food.foodName.toLowerCase().includes(searchLower)
-                const inCategory = food.foodCategory
-                  .toLowerCase()
-                  .includes(searchLower)
-                const inSubcategory = (food.subcategories || []).some((sub) =>
-                  sub.name.toLowerCase().includes(searchLower),
-                )
-                return inName || inCategory || inSubcategory
-              } else {
-                // No search: filter by selected category only
-                return (
-                  selectedCategory === '' ||
-                  food.foodCategory === selectedCategory
-                )
-              }
-            })
-            .map((food) => (
-              <div key={food.foodId}>
-                <MenuItemCard food={food} />
-              </div>
+        <div className="space-y-0 px-4">
+          <AnimatePresence>
+            {Object.values(
+              foods
+                .filter((food) => {
+                  if (search.trim()) {
+                    const searchLower = search.toLowerCase()
+                    const inName = food.name.toLowerCase().includes(searchLower)
+                    const inCategory = food.mainCategory
+                      .toLowerCase()
+                      .includes(searchLower)
+                    return inName || inCategory
+                  } else {
+                    return (
+                      selectedCategory === '' ||
+                      food.mainCategory === selectedCategory
+                    )
+                  }
+                })
+                .reduce<Record<string, FoodItemProps[]>>((acc, food) => {
+                  const groupKey = food.type ?? food.name.toLowerCase()
+                  if (!acc[groupKey]) acc[groupKey] = []
+                  acc[groupKey].push(food)
+                  return acc
+                }, {}),
+            ).map((foodsOfType) => (
+              <motion.div
+                key={foodsOfType[0].type ?? foodsOfType[0].name}
+                layout
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+              >
+                <MenuItemCard foods={foodsOfType} />
+              </motion.div>
             ))}
+          </AnimatePresence>
         </div>
+
         {foods.filter((food) => {
           if (!search.trim()) return false // Only show empty state if search is active and no results
           const searchLower = search.toLowerCase()
-          const inName = food.foodName.toLowerCase().includes(searchLower)
-          const inCategory = food.foodCategory
+          const inName = food.name.toLowerCase().includes(searchLower)
+          const inCategory = food.mainCategory
             .toLowerCase()
             .includes(searchLower)
-          const inSubcategory = (food.subcategories || []).some((sub) =>
-            sub.name.toLowerCase().includes(searchLower),
-          )
-          return inName || inCategory || inSubcategory
+
+          return inName || inCategory
         }).length === 0 &&
           search.trim() !== '' && (
             <div className="flex flex-col justify-center items-center py-12 text-muted-foreground">
@@ -988,8 +770,6 @@ export function MenuManagement() {
             </div>
           )}
       </div>
-
-      <AddFoodDrawer />
     </div>
   )
 }

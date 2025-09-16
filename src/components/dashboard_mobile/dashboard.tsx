@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { subDays } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { getOrdersInRange } from '@/firebase/firestore'
+import { getOrdersInRange } from '@/firebase/takeOrder'
 import { getKitchenLedgerInRange } from '@/firebase/kitchenLedger'
 import { getBakeryLedgerInRange } from '@/firebase/bakeryLedger'
 

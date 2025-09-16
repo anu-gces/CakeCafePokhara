@@ -14,10 +14,10 @@ import { motion, AnimatePresence } from 'motion/react'
 import {
   dismissOrderNotification,
   listenToAllOrders,
-  listenToKanbanCardDocument,
   updateOrderStatus,
   type ProcessedOrder,
-} from '@/firebase/firestore'
+} from '@/firebase/takeOrder'
+import { listenToKanbanCardDocument } from '@/firebase/firestore'
 import { formatDistanceToNow } from 'date-fns'
 import {
   AlertCircle,
@@ -276,13 +276,7 @@ export function OrderNotification() {
               </div>
 
               <div className="mb-1 text-muted-foreground text-sm">
-                {items
-                  .map((item) =>
-                    item.selectedSubcategory
-                      ? `${item.foodName} (${item.selectedSubcategory.name}) ×${item.qty}`
-                      : `${item.foodName} ×${item.qty}`,
-                  )
-                  .join(', ')}
+                {items.map((item) => `${item.name} ×${item.qty}`).join(', ')}
               </div>
 
               {remarks && (
@@ -352,7 +346,7 @@ export function OrderNotification() {
                           dismissOrderNotification(docId, receiptId)
                         }
                       >
-                        Dismiss Notification
+                        Clear Notification
                       </Button>
                     )}
 
@@ -403,11 +397,106 @@ export function OrderNotification() {
           if (!cancelDrawer.docId || !cancelDrawer.receiptId) return
           setCancelLoading(true)
           try {
-            await updateOrderStatus(
-              cancelDrawer.docId,
-              'cancelled',
-              cancelDrawer.receiptId,
+            // Find the order object by receiptId
+            const order = orders?.find(
+              (o) => o.receiptId === cancelDrawer.receiptId,
             )
+            if (!order) throw new Error('Order not found')
+
+            const { runTransaction, doc } = await import('firebase/firestore')
+            const { db } = await import('@/firebase/firestore')
+            const { getWeeklyDocId } = await import(
+              '@/firebase/firestore.utils'
+            )
+
+            await runTransaction(db, async (transaction) => {
+              // --- READS FIRST ---
+              // Get inventory
+              const inventoryRef = doc(db, 'menu', 'allFoodItems')
+              const inventorySnap = await transaction.get(inventoryRef)
+              let foodItems = inventorySnap.exists()
+                ? inventorySnap.data().foodItems || []
+                : []
+
+              // Get order batch
+              const orderBatchRef = doc(
+                db,
+                'orderHistoryWeekly',
+                cancelDrawer.docId!,
+              )
+              const orderBatchSnap = await transaction.get(orderBatchRef)
+              let ordersArr = orderBatchSnap.exists()
+                ? orderBatchSnap.data().orders || []
+                : []
+
+              // Get inventory history batch
+              const inventoryHistoryDocId = getWeeklyDocId(new Date())
+              const inventoryHistoryBatchRef = doc(
+                db,
+                'inventoryHistoryWeekly',
+                inventoryHistoryDocId,
+              )
+              const inventoryHistorySnap = await transaction.get(
+                inventoryHistoryBatchRef,
+              )
+              let historyItems = inventoryHistorySnap.exists()
+                ? inventoryHistorySnap.data().items || []
+                : []
+
+              // --- PROCESS DATA ---
+              // Restore inventory for each item
+              for (const cartItem of order.items) {
+                const itemIndex = foodItems.findIndex(
+                  (item: any) => item.foodId === cartItem.foodId,
+                )
+                if (itemIndex === -1) continue
+
+                const oldItem = foodItems[itemIndex]
+                const newStock = (oldItem.currentStockCount || 0) + cartItem.qty
+
+                const updatedItem = {
+                  ...oldItem,
+                  lastStockCount: oldItem.currentStockCount,
+                  currentStockCount: newStock,
+                  reasonForStockEdit: 'cancelled',
+                  editedStockBy: order.processedBy,
+                  dateModified: new Date().toISOString(),
+                }
+
+                foodItems[itemIndex] = updatedItem
+
+                // Log inventory history
+                historyItems.push({
+                  ...updatedItem,
+                  historyId: crypto.randomUUID(),
+                })
+              }
+
+              // Update order status
+              ordersArr = ordersArr.map((o: any) =>
+                o.receiptId === cancelDrawer.receiptId
+                  ? {
+                      ...o,
+                      status: 'cancelled',
+                      updatedAt: new Date().toISOString(),
+                    }
+                  : o,
+              )
+
+              // --- WRITES AFTER ALL READS ---
+              transaction.set(inventoryRef, { foodItems }, { merge: true })
+              transaction.set(
+                orderBatchRef,
+                { orders: ordersArr },
+                { merge: true },
+              )
+              transaction.set(
+                inventoryHistoryBatchRef,
+                { items: historyItems },
+                { merge: true },
+              )
+            })
+
             setCancelDrawer({ open: false })
           } finally {
             setCancelLoading(false)

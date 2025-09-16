@@ -8,10 +8,11 @@ import {
   LoaderIcon,
 } from 'lucide-react'
 import {
-  deleteOrder,
+  permaDeleteOrder,
   editOrder,
   type ProcessedOrder,
-} from '@/firebase/firestore'
+} from '@/firebase/takeOrder'
+
 import { Input } from '../ui/input'
 import { Button } from '@/components/ui/button'
 import { MoreHorizontal, SquarePenIcon, Trash2Icon } from 'lucide-react'
@@ -171,22 +172,16 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   },
   // Subtotal and total are not editable, so remove from columns
   {
-    accessorKey: 'discountRate',
-    id: 'discountRate',
-    header: 'Discount Rate',
-    cell: ({ getValue }) => `${getValue<number>()}%`, // Format the value as a percentage
+    accessorKey: 'discountAmount',
+    id: 'discountAmount',
+    header: 'Discount Amount',
+    cell: ({ getValue }) => `Rs. ${(getValue<number>() || 0).toFixed(2)}`, // Format the value with "Rs." and two decimal places
   },
   {
-    accessorKey: 'taxRate',
-    id: 'taxRate',
-    header: 'Tax Rate',
-    cell: ({ getValue }) => `${getValue<number>()}%`, // Format the value as a percentage
-  },
-  {
-    accessorKey: 'manualRounding',
-    id: 'manualRounding',
-    header: 'Manual Rounding',
-    cell: ({ getValue }) => `Rs. ${getValue<number>().toFixed(2)}`, // Format the value with "Rs." and two decimal places
+    accessorKey: 'taxAmount',
+    id: 'taxAmount',
+    header: 'Tax Amount',
+    cell: ({ getValue }) => `Rs. ${(getValue<number>() || 0).toFixed(2)}`, // Format the value with "Rs." and two decimal places
   },
 
   {
@@ -345,8 +340,8 @@ const EditDrawer = ({
   const initialValues = {
     kotNumber: order.kotNumber || '',
     status: order.status || '',
-    discountRate: order.discountRate || 0,
-    taxRate: order.taxRate || 0,
+    discountAmount: order.discountAmount || 0,
+    taxAmount: order.taxAmount || 0,
     receiptDate: order.receiptDate
       ? typeof order.receiptDate === 'string'
         ? order.receiptDate
@@ -356,18 +351,17 @@ const EditDrawer = ({
     remarks: order.remarks || '',
     complementary: order.complementary || false,
     tableNumber: order.tableNumber || 0,
-    manualRounding: order.manualRounding || 0,
     paymentMethod: order.paymentMethod || 'cash',
   }
 
   // Yup validation schema
   const EditOrderSchema = Yup.object().shape({
     kotNumber: Yup.string().required('KOT Number is required'),
-    discountRate: Yup.number()
+    discountAmount: Yup.number()
       .min(0)
       .max(100)
-      .required('Discount Rate is required'),
-    taxRate: Yup.number().min(0).max(100).required('Tax Rate is required'),
+      .required('Discount Amount is required'),
+    taxAmount: Yup.number().min(0).max(100).required('Tax Amount is required'),
     receiptDate: Yup.string().required('Receipt Date is required'),
     creditor: Yup.string().nullable(),
     remarks: Yup.string(),
@@ -380,16 +374,6 @@ const EditDrawer = ({
   })
 
   const queryClient = useQueryClient()
-
-  // Local state for manual rounding input as string (like takeOrder.tsx)
-  const [roundingInput, setRoundingInput] = React.useState(
-    (order.manualRounding || 0).toString(),
-  )
-
-  // Keep rounding input in sync with initial values
-  React.useEffect(() => {
-    setRoundingInput((order.manualRounding || 0).toString())
-  }, [order.manualRounding])
 
   const editOrderMutation = useMutation({
     mutationFn: async ({
@@ -521,113 +505,45 @@ const EditDrawer = ({
                   <div>
                     <Label
                       className="mb-1 font-semibold text-xs"
-                      htmlFor="discountRate"
+                      htmlFor="discountAmount"
                     >
-                      Discount Rate (%)
+                      Discount Amount
                     </Label>
                     <Input
-                      id="discountRate"
-                      name="discountRate"
+                      id="discountAmount"
+                      name="discountAmount"
                       type="number"
-                      value={formik.values.discountRate}
+                      value={formik.values.discountAmount}
                       onChange={formik.handleChange}
                     />
-                    {formik.touched.discountRate &&
-                      formik.errors.discountRate && (
+                    {formik.touched.discountAmount &&
+                      formik.errors.discountAmount && (
                         <div className="text-red-500 text-xs">
-                          {formik.errors.discountRate}
+                          {formik.errors.discountAmount}
                         </div>
                       )}
                   </div>
                   <div>
                     <Label
                       className="mb-1 font-semibold text-xs"
-                      htmlFor="taxRate"
+                      htmlFor="taxAmount"
                     >
-                      Tax Rate (%)
+                      Tax Amount
                     </Label>
                     <Input
-                      id="taxRate"
-                      name="taxRate"
+                      id="taxAmount"
+                      name="taxAmount"
                       type="number"
-                      value={formik.values.taxRate}
+                      value={formik.values.taxAmount}
                       onChange={formik.handleChange}
                     />
-                    {formik.touched.taxRate && formik.errors.taxRate && (
+                    {formik.touched.taxAmount && formik.errors.taxAmount && (
                       <div className="text-red-500 text-xs">
-                        {formik.errors.taxRate}
+                        {formik.errors.taxAmount}
                       </div>
                     )}
                   </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="manualRounding"
-                    >
-                      Manual Rounding
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="bg-transparent w-8 h-8"
-                        onClick={() => {
-                          const newValue = Number(roundingInput) - 1
-                          setRoundingInput(newValue.toString())
-                          formik.setFieldValue('manualRounding', newValue)
-                        }}
-                      >
-                        <span className="text-lg">-</span>
-                      </Button>
-                      <Input
-                        id="manualRounding"
-                        name="manualRounding"
-                        type="text"
-                        value={roundingInput}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setRoundingInput(val)
-                          if (/^-?\d*$/.test(val) && val !== '-') {
-                            const num = Number(val)
-                            if (!isNaN(num)) {
-                              formik.setFieldValue('manualRounding', num)
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          // On blur, if input is not a valid number, reset to formik value
-                          if (
-                            roundingInput === '-' ||
-                            isNaN(Number(roundingInput))
-                          ) {
-                            setRoundingInput(
-                              formik.values.manualRounding.toString(),
-                            )
-                          } else {
-                            formik.setFieldValue(
-                              'manualRounding',
-                              Number(roundingInput),
-                            )
-                          }
-                        }}
-                        className="text-center"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="bg-transparent w-8 h-8"
-                        onClick={() => {
-                          const newValue = Number(roundingInput) + 1
-                          setRoundingInput(newValue.toString())
-                          formik.setFieldValue('manualRounding', newValue)
-                        }}
-                      >
-                        <span className="text-lg">+</span>
-                      </Button>
-                    </div>
-                  </div>
+
                   <div>
                     <Label
                       className="mb-1 font-semibold text-xs"
@@ -804,7 +720,7 @@ const DeleteDrawer = ({
       batchDocId: string
       receiptId: string
     }) => {
-      await deleteOrder(batchDocId, receiptId)
+      await permaDeleteOrder(batchDocId, receiptId)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
@@ -944,25 +860,10 @@ export function ReceiptDrawer({
                 <TableBody>
                   {data.items.map((item) => (
                     <TableRow key={item.foodId}>
-                      <TableCell>
-                        {item.foodName}
-                        {item.selectedSubcategory &&
-                          item.selectedSubcategory.name && (
-                            <span className="ml-1 text-muted-foreground text-xs">
-                              &mdash; {item.selectedSubcategory.name}
-                            </span>
-                          )}
-                      </TableCell>
+                      <TableCell>{item.name}</TableCell>
                       <TableCell className="text-center">{item.qty}</TableCell>
                       <TableCell className="text-right">
-                        Rs.
-                        {(
-                          item.qty *
-                          (item.selectedSubcategory &&
-                          typeof item.selectedSubcategory.price === 'number'
-                            ? item.selectedSubcategory.price
-                            : item.foodPrice)
-                        ).toFixed(2)}
+                        Rs. {(item.qty * item.price).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -971,88 +872,33 @@ export function ReceiptDrawer({
                     <TableCell colSpan={2} className="font-semibold text-right">
                       Sub Total
                     </TableCell>
+
                     <TableCell className="font-bold text-right">
                       Rs.
                       {data.items
-                        .reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        )
+                        .reduce((sum, item) => sum + item.qty * item.price, 0)
                         .toFixed(2)}
                     </TableCell>
                   </TableRow>
 
                   <TableRow>
                     <TableCell colSpan={2} className="text-right">
-                      Discount ({data.discountRate}%)
+                      Discount ({data.discountAmount})
                     </TableCell>
                     <TableCell className="text-right text-nowrap">
-                      - Rs.
-                      {(
-                        data.items.reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        ) *
-                        (data.discountRate / 100)
-                      ).toFixed(2)}
+                      - Rs. {Number(data.discountAmount).toFixed(2)}
                     </TableCell>
                   </TableRow>
 
                   <TableRow>
                     <TableCell colSpan={2} className="text-right">
-                      Tax ({data.taxRate}%)
+                      Tax ({data.taxAmount})
                     </TableCell>
                     <TableCell className="text-right text-nowrap">
-                      + Rs.
-                      {(
-                        (data.items.reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
-                          0,
-                        ) -
-                          data.items.reduce(
-                            (sum, item) =>
-                              sum +
-                              item.qty *
-                                (item.selectedSubcategory &&
-                                typeof item.selectedSubcategory.price ===
-                                  'number'
-                                  ? item.selectedSubcategory.price
-                                  : item.foodPrice),
-                            0,
-                          ) *
-                            (data.discountRate / 100)) *
-                        (data.taxRate / 100)
-                      ).toFixed(2)}
+                      - Rs. {Number(data.taxAmount).toFixed(2)}
                     </TableCell>
                   </TableRow>
 
-                  <TableRow>
-                    <TableCell colSpan={2} className="text-right">
-                      Manual Rounding
-                    </TableCell>
-                    <TableCell className="text-right text-nowrap">
-                      {data.manualRounding >= 0 ? '+ ' : '- '}Rs.{' '}
-                      {Math.abs(data.manualRounding).toFixed(2)}
-                    </TableCell>
-                  </TableRow>
                   <TableRow>
                     <TableCell colSpan={2} className="text-right">
                       Delivery Fee
@@ -1071,30 +917,13 @@ export function ReceiptDrawer({
                     <TableCell className="font-bold text-right">
                       Rs.
                       {(
-                        (data.items.reduce(
-                          (sum, item) =>
-                            sum +
-                            item.qty *
-                              (item.selectedSubcategory &&
-                              typeof item.selectedSubcategory.price === 'number'
-                                ? item.selectedSubcategory.price
-                                : item.foodPrice),
+                        data.items.reduce(
+                          (sum, item) => sum + item.qty * item.price,
                           0,
                         ) -
-                          data.items.reduce(
-                            (sum, item) =>
-                              sum +
-                              item.qty *
-                                (item.selectedSubcategory &&
-                                typeof item.selectedSubcategory.price ===
-                                  'number'
-                                  ? item.selectedSubcategory.price
-                                  : item.foodPrice),
-                            0,
-                          ) *
-                            (data.discountRate / 100)) *
-                          (1 + data.taxRate / 100) +
-                        (data.manualRounding || 0)
+                        Number(data.discountAmount || 0) +
+                        Number(data.taxAmount || 0) +
+                        Number(data.deliveryFee || 0)
                       ).toFixed(2)}
                     </TableCell>
                   </TableRow>

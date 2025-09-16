@@ -5,10 +5,8 @@ import { useLocation, useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import type { LucideIcon } from 'lucide-react'
 import * as React from 'react'
-import {
-  listenToAllOrders,
-  listenToKanbanCardDocument,
-} from '@/firebase/firestore'
+import { listenToKanbanCardDocument } from '@/firebase/firestore'
+import { listenToAllOrders } from '@/firebase/takeOrder'
 import { toast } from 'sonner'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 import { playNotificationsSound } from '@/assets/playSFX'

@@ -6,7 +6,7 @@ import { ArrowLeft, ReceiptIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { collection, getDocs } from 'firebase/firestore'
 import { db, getSingleUser } from '@/firebase/firestore'
-import type { ProcessedOrder } from '@/firebase/firestore'
+import type { ProcessedOrder } from '@/firebase/takeOrder'
 import { ReceiptDrawer } from '@/components/restaurant_mobile/billing'
 import { calculateOrderTotal } from '@/components/dashboard_mobile/dashboard.utils'
 

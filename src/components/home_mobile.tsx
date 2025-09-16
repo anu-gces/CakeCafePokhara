@@ -9,13 +9,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
-import {
-  BoxIcon,
-  FuelIcon,
-  MicrowaveIcon,
-  PartyPopperIcon,
-  RefreshCcwIcon,
-} from 'lucide-react'
+import { BoxIcon, FuelIcon, MicrowaveIcon, RefreshCcwIcon } from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
@@ -298,14 +292,34 @@ function HamburgerDrawer() {
 
           {(userAdditional?.role === 'admin' ||
             userAdditional?.role === 'owner') && (
-            <Link
-              to="/home/dashboard"
-              onClick={() => setOpen(false)}
-              className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-            >
-              <BarChart2Icon className="w-5 h-5" />
-              <span>Analytics</span>
-            </Link>
+            <>
+              <Link
+                to="/home/dashboard"
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <BarChart2Icon className="w-5 h-5" />
+                <span>Analytics</span>
+              </Link>
+              <Link
+                to="/home/inventoryManagement"
+                search={{ category: 'appetizers' }}
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <BoxIcon className="w-5 h-5" />
+                <span>Stock Inventory Management</span>
+              </Link>
+              <Link
+                to="/home/inventoryHistory"
+                search={{ category: 'appetizers' }}
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <HistoryIcon className="w-5 h-5" />
+                <span>Stock Inventory History</span>
+              </Link>
+            </>
           )}
 
           <Link
@@ -363,12 +377,12 @@ function HamburgerDrawer() {
               </Link>
             ))}
           <Link
-            to="/home/inventory"
+            to="/home/permanentInventory"
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
             <BoxIcon className="w-5 h-5" />
-            <span>Inventory</span>
+            <span>Permanent Inventory</span>
           </Link>
           <Link
             to="/home/equipment"
@@ -377,14 +391,6 @@ function HamburgerDrawer() {
           >
             <MicrowaveIcon className="w-5 h-5" />
             <span>Equipment</span>
-          </Link>
-          <Link
-            to="/home/accessories"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <PartyPopperIcon className="w-5 h-5" />
-            <span>Accessories</span>
           </Link>
         </div>
         <Separator />

@@ -5,7 +5,7 @@ import {
   calculateOrderTotal,
   calculateOrderSubtotal,
 } from '@/components/dashboard_mobile/dashboard.utils'
-import { getAllOrders, type ProcessedOrder } from '@/firebase/firestore'
+import { getAllOrders, type ProcessedOrder } from '@/firebase/takeOrder'
 import { useQuery } from '@tanstack/react-query'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { isSameDay } from 'date-fns'

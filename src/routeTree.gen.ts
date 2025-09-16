@@ -22,6 +22,8 @@ import { Route as HomeTakeOrderImport } from './routes/home/takeOrder'
 import { Route as HomeStockImport } from './routes/home/stock'
 import { Route as HomeNotificationsImport } from './routes/home/notifications'
 import { Route as HomeMenuManagementImport } from './routes/home/menuManagement'
+import { Route as HomeInventoryManagementImport } from './routes/home/inventoryManagement'
+import { Route as HomeInventoryHistoryImport } from './routes/home/inventoryHistory'
 import { Route as HomeEmployeeImport } from './routes/home/employee'
 import { Route as HomeDashboardImport } from './routes/home/dashboard'
 import { Route as HomeCreditorsImport } from './routes/home/creditors'
@@ -40,15 +42,16 @@ import { Route as HomeEmployeeEmployeeIdSalesImport } from './routes/home/employ
 
 const HomeUtilityLedgerLazyImport = createFileRoute('/home/utilityLedger')()
 const HomeSettingsLazyImport = createFileRoute('/home/settings')()
+const HomePermanentInventoryLazyImport = createFileRoute(
+  '/home/permanentInventory',
+)()
 const HomeKitchenLedgerLazyImport = createFileRoute('/home/kitchenLedger')()
-const HomeInventoryLazyImport = createFileRoute('/home/inventory')()
 const HomeHelpLazyImport = createFileRoute('/home/help')()
 const HomeEquipmentLazyImport = createFileRoute('/home/equipment')()
 const HomeCalendarLazyImport = createFileRoute('/home/calendar')()
 const HomeBillingLazyImport = createFileRoute('/home/billing')()
 const HomeBaristaLedgerLazyImport = createFileRoute('/home/baristaLedger')()
 const HomeBakeryLedgerLazyImport = createFileRoute('/home/bakeryLedger')()
-const HomeAccessoriesLazyImport = createFileRoute('/home/accessories')()
 
 // Create/Update Routes
 
@@ -92,20 +95,22 @@ const HomeSettingsLazyRoute = HomeSettingsLazyImport.update({
   getParentRoute: () => HomeRoute,
 } as any).lazy(() => import('./routes/home/settings.lazy').then((d) => d.Route))
 
+const HomePermanentInventoryLazyRoute = HomePermanentInventoryLazyImport.update(
+  {
+    id: '/permanentInventory',
+    path: '/permanentInventory',
+    getParentRoute: () => HomeRoute,
+  } as any,
+).lazy(() =>
+  import('./routes/home/permanentInventory.lazy').then((d) => d.Route),
+)
+
 const HomeKitchenLedgerLazyRoute = HomeKitchenLedgerLazyImport.update({
   id: '/kitchenLedger',
   path: '/kitchenLedger',
   getParentRoute: () => HomeRoute,
 } as any).lazy(() =>
   import('./routes/home/kitchenLedger.lazy').then((d) => d.Route),
-)
-
-const HomeInventoryLazyRoute = HomeInventoryLazyImport.update({
-  id: '/inventory',
-  path: '/inventory',
-  getParentRoute: () => HomeRoute,
-} as any).lazy(() =>
-  import('./routes/home/inventory.lazy').then((d) => d.Route),
 )
 
 const HomeHelpLazyRoute = HomeHelpLazyImport.update({
@@ -150,14 +155,6 @@ const HomeBakeryLedgerLazyRoute = HomeBakeryLedgerLazyImport.update({
   import('./routes/home/bakeryLedger.lazy').then((d) => d.Route),
 )
 
-const HomeAccessoriesLazyRoute = HomeAccessoriesLazyImport.update({
-  id: '/accessories',
-  path: '/accessories',
-  getParentRoute: () => HomeRoute,
-} as any).lazy(() =>
-  import('./routes/home/accessories.lazy').then((d) => d.Route),
-)
-
 const HomeVendorsRoute = HomeVendorsImport.update({
   id: '/vendors',
   path: '/vendors',
@@ -185,6 +182,18 @@ const HomeNotificationsRoute = HomeNotificationsImport.update({
 const HomeMenuManagementRoute = HomeMenuManagementImport.update({
   id: '/menuManagement',
   path: '/menuManagement',
+  getParentRoute: () => HomeRoute,
+} as any)
+
+const HomeInventoryManagementRoute = HomeInventoryManagementImport.update({
+  id: '/inventoryManagement',
+  path: '/inventoryManagement',
+  getParentRoute: () => HomeRoute,
+} as any)
+
+const HomeInventoryHistoryRoute = HomeInventoryHistoryImport.update({
+  id: '/inventoryHistory',
+  path: '/inventoryHistory',
   getParentRoute: () => HomeRoute,
 } as any)
 
@@ -328,6 +337,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeEmployeeImport
       parentRoute: typeof HomeImport
     }
+    '/home/inventoryHistory': {
+      id: '/home/inventoryHistory'
+      path: '/inventoryHistory'
+      fullPath: '/home/inventoryHistory'
+      preLoaderRoute: typeof HomeInventoryHistoryImport
+      parentRoute: typeof HomeImport
+    }
+    '/home/inventoryManagement': {
+      id: '/home/inventoryManagement'
+      path: '/inventoryManagement'
+      fullPath: '/home/inventoryManagement'
+      preLoaderRoute: typeof HomeInventoryManagementImport
+      parentRoute: typeof HomeImport
+    }
     '/home/menuManagement': {
       id: '/home/menuManagement'
       path: '/menuManagement'
@@ -361,13 +384,6 @@ declare module '@tanstack/react-router' {
       path: '/vendors'
       fullPath: '/home/vendors'
       preLoaderRoute: typeof HomeVendorsImport
-      parentRoute: typeof HomeImport
-    }
-    '/home/accessories': {
-      id: '/home/accessories'
-      path: '/accessories'
-      fullPath: '/home/accessories'
-      preLoaderRoute: typeof HomeAccessoriesLazyImport
       parentRoute: typeof HomeImport
     }
     '/home/bakeryLedger': {
@@ -412,18 +428,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeHelpLazyImport
       parentRoute: typeof HomeImport
     }
-    '/home/inventory': {
-      id: '/home/inventory'
-      path: '/inventory'
-      fullPath: '/home/inventory'
-      preLoaderRoute: typeof HomeInventoryLazyImport
-      parentRoute: typeof HomeImport
-    }
     '/home/kitchenLedger': {
       id: '/home/kitchenLedger'
       path: '/kitchenLedger'
       fullPath: '/home/kitchenLedger'
       preLoaderRoute: typeof HomeKitchenLedgerLazyImport
+      parentRoute: typeof HomeImport
+    }
+    '/home/permanentInventory': {
+      id: '/home/permanentInventory'
+      path: '/permanentInventory'
+      fullPath: '/home/permanentInventory'
+      preLoaderRoute: typeof HomePermanentInventoryLazyImport
       parentRoute: typeof HomeImport
     }
     '/home/settings': {
@@ -594,20 +610,21 @@ interface HomeRouteChildren {
   HomeCreditorsRoute: typeof HomeCreditorsRouteWithChildren
   HomeDashboardRoute: typeof HomeDashboardRoute
   HomeEmployeeRoute: typeof HomeEmployeeRouteWithChildren
+  HomeInventoryHistoryRoute: typeof HomeInventoryHistoryRoute
+  HomeInventoryManagementRoute: typeof HomeInventoryManagementRoute
   HomeMenuManagementRoute: typeof HomeMenuManagementRoute
   HomeNotificationsRoute: typeof HomeNotificationsRouteWithChildren
   HomeStockRoute: typeof HomeStockRoute
   HomeTakeOrderRoute: typeof HomeTakeOrderRoute
   HomeVendorsRoute: typeof HomeVendorsRouteWithChildren
-  HomeAccessoriesLazyRoute: typeof HomeAccessoriesLazyRoute
   HomeBakeryLedgerLazyRoute: typeof HomeBakeryLedgerLazyRoute
   HomeBaristaLedgerLazyRoute: typeof HomeBaristaLedgerLazyRoute
   HomeBillingLazyRoute: typeof HomeBillingLazyRoute
   HomeCalendarLazyRoute: typeof HomeCalendarLazyRoute
   HomeEquipmentLazyRoute: typeof HomeEquipmentLazyRoute
   HomeHelpLazyRoute: typeof HomeHelpLazyRoute
-  HomeInventoryLazyRoute: typeof HomeInventoryLazyRoute
   HomeKitchenLedgerLazyRoute: typeof HomeKitchenLedgerLazyRoute
+  HomePermanentInventoryLazyRoute: typeof HomePermanentInventoryLazyRoute
   HomeSettingsLazyRoute: typeof HomeSettingsLazyRoute
   HomeUtilityLedgerLazyRoute: typeof HomeUtilityLedgerLazyRoute
 }
@@ -616,20 +633,21 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeCreditorsRoute: HomeCreditorsRouteWithChildren,
   HomeDashboardRoute: HomeDashboardRoute,
   HomeEmployeeRoute: HomeEmployeeRouteWithChildren,
+  HomeInventoryHistoryRoute: HomeInventoryHistoryRoute,
+  HomeInventoryManagementRoute: HomeInventoryManagementRoute,
   HomeMenuManagementRoute: HomeMenuManagementRoute,
   HomeNotificationsRoute: HomeNotificationsRouteWithChildren,
   HomeStockRoute: HomeStockRoute,
   HomeTakeOrderRoute: HomeTakeOrderRoute,
   HomeVendorsRoute: HomeVendorsRouteWithChildren,
-  HomeAccessoriesLazyRoute: HomeAccessoriesLazyRoute,
   HomeBakeryLedgerLazyRoute: HomeBakeryLedgerLazyRoute,
   HomeBaristaLedgerLazyRoute: HomeBaristaLedgerLazyRoute,
   HomeBillingLazyRoute: HomeBillingLazyRoute,
   HomeCalendarLazyRoute: HomeCalendarLazyRoute,
   HomeEquipmentLazyRoute: HomeEquipmentLazyRoute,
   HomeHelpLazyRoute: HomeHelpLazyRoute,
-  HomeInventoryLazyRoute: HomeInventoryLazyRoute,
   HomeKitchenLedgerLazyRoute: HomeKitchenLedgerLazyRoute,
+  HomePermanentInventoryLazyRoute: HomePermanentInventoryLazyRoute,
   HomeSettingsLazyRoute: HomeSettingsLazyRoute,
   HomeUtilityLedgerLazyRoute: HomeUtilityLedgerLazyRoute,
 }
@@ -644,20 +662,21 @@ export interface FileRoutesByFullPath {
   '/home/creditors': typeof HomeCreditorsRouteWithChildren
   '/home/dashboard': typeof HomeDashboardRoute
   '/home/employee': typeof HomeEmployeeRouteWithChildren
+  '/home/inventoryHistory': typeof HomeInventoryHistoryRoute
+  '/home/inventoryManagement': typeof HomeInventoryManagementRoute
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/vendors': typeof HomeVendorsRouteWithChildren
-  '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
   '/home/equipment': typeof HomeEquipmentLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
-  '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
+  '/home/permanentInventory': typeof HomePermanentInventoryLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
   '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
@@ -680,20 +699,21 @@ export interface FileRoutesByTo {
   '/home/creditors': typeof HomeCreditorsRouteWithChildren
   '/home/dashboard': typeof HomeDashboardRoute
   '/home/employee': typeof HomeEmployeeRouteWithChildren
+  '/home/inventoryHistory': typeof HomeInventoryHistoryRoute
+  '/home/inventoryManagement': typeof HomeInventoryManagementRoute
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/vendors': typeof HomeVendorsRouteWithChildren
-  '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
   '/home/equipment': typeof HomeEquipmentLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
-  '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
+  '/home/permanentInventory': typeof HomePermanentInventoryLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
   '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
@@ -717,20 +737,21 @@ export interface FileRoutesById {
   '/home/creditors': typeof HomeCreditorsRouteWithChildren
   '/home/dashboard': typeof HomeDashboardRoute
   '/home/employee': typeof HomeEmployeeRouteWithChildren
+  '/home/inventoryHistory': typeof HomeInventoryHistoryRoute
+  '/home/inventoryManagement': typeof HomeInventoryManagementRoute
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/vendors': typeof HomeVendorsRouteWithChildren
-  '/home/accessories': typeof HomeAccessoriesLazyRoute
   '/home/bakeryLedger': typeof HomeBakeryLedgerLazyRoute
   '/home/baristaLedger': typeof HomeBaristaLedgerLazyRoute
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
   '/home/equipment': typeof HomeEquipmentLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
-  '/home/inventory': typeof HomeInventoryLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
+  '/home/permanentInventory': typeof HomePermanentInventoryLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
   '/home/utilityLedger': typeof HomeUtilityLedgerLazyRoute
   '/home/creditors/$nickname': typeof HomeCreditorsNicknameRoute
@@ -755,20 +776,21 @@ export interface FileRouteTypes {
     | '/home/creditors'
     | '/home/dashboard'
     | '/home/employee'
+    | '/home/inventoryHistory'
+    | '/home/inventoryManagement'
     | '/home/menuManagement'
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
     | '/home/vendors'
-    | '/home/accessories'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/billing'
     | '/home/calendar'
     | '/home/equipment'
     | '/home/help'
-    | '/home/inventory'
     | '/home/kitchenLedger'
+    | '/home/permanentInventory'
     | '/home/settings'
     | '/home/utilityLedger'
     | '/home/creditors/$nickname'
@@ -790,20 +812,21 @@ export interface FileRouteTypes {
     | '/home/creditors'
     | '/home/dashboard'
     | '/home/employee'
+    | '/home/inventoryHistory'
+    | '/home/inventoryManagement'
     | '/home/menuManagement'
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
     | '/home/vendors'
-    | '/home/accessories'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/billing'
     | '/home/calendar'
     | '/home/equipment'
     | '/home/help'
-    | '/home/inventory'
     | '/home/kitchenLedger'
+    | '/home/permanentInventory'
     | '/home/settings'
     | '/home/utilityLedger'
     | '/home/creditors/$nickname'
@@ -825,20 +848,21 @@ export interface FileRouteTypes {
     | '/home/creditors'
     | '/home/dashboard'
     | '/home/employee'
+    | '/home/inventoryHistory'
+    | '/home/inventoryManagement'
     | '/home/menuManagement'
     | '/home/notifications'
     | '/home/stock'
     | '/home/takeOrder'
     | '/home/vendors'
-    | '/home/accessories'
     | '/home/bakeryLedger'
     | '/home/baristaLedger'
     | '/home/billing'
     | '/home/calendar'
     | '/home/equipment'
     | '/home/help'
-    | '/home/inventory'
     | '/home/kitchenLedger'
+    | '/home/permanentInventory'
     | '/home/settings'
     | '/home/utilityLedger'
     | '/home/creditors/$nickname'
@@ -896,20 +920,21 @@ export const routeTree = rootRoute
         "/home/creditors",
         "/home/dashboard",
         "/home/employee",
+        "/home/inventoryHistory",
+        "/home/inventoryManagement",
         "/home/menuManagement",
         "/home/notifications",
         "/home/stock",
         "/home/takeOrder",
         "/home/vendors",
-        "/home/accessories",
         "/home/bakeryLedger",
         "/home/baristaLedger",
         "/home/billing",
         "/home/calendar",
         "/home/equipment",
         "/home/help",
-        "/home/inventory",
         "/home/kitchenLedger",
+        "/home/permanentInventory",
         "/home/settings",
         "/home/utilityLedger"
       ]
@@ -939,6 +964,14 @@ export const routeTree = rootRoute
         "/home/employee/$employeeId/sales"
       ]
     },
+    "/home/inventoryHistory": {
+      "filePath": "home/inventoryHistory.tsx",
+      "parent": "/home"
+    },
+    "/home/inventoryManagement": {
+      "filePath": "home/inventoryManagement.tsx",
+      "parent": "/home"
+    },
     "/home/menuManagement": {
       "filePath": "home/menuManagement.tsx",
       "parent": "/home"
@@ -966,10 +999,6 @@ export const routeTree = rootRoute
         "/home/vendors/$nickname"
       ]
     },
-    "/home/accessories": {
-      "filePath": "home/accessories.lazy.tsx",
-      "parent": "/home"
-    },
     "/home/bakeryLedger": {
       "filePath": "home/bakeryLedger.lazy.tsx",
       "parent": "/home"
@@ -994,12 +1023,12 @@ export const routeTree = rootRoute
       "filePath": "home/help.lazy.tsx",
       "parent": "/home"
     },
-    "/home/inventory": {
-      "filePath": "home/inventory.lazy.tsx",
-      "parent": "/home"
-    },
     "/home/kitchenLedger": {
       "filePath": "home/kitchenLedger.lazy.tsx",
+      "parent": "/home"
+    },
+    "/home/permanentInventory": {
+      "filePath": "home/permanentInventory.lazy.tsx",
       "parent": "/home"
     },
     "/home/settings": {

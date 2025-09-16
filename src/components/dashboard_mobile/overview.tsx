@@ -24,7 +24,7 @@ import {
   calculateTotalExpenditure,
 } from './dashboard.utils'
 
-import { type ProcessedOrder } from '@/firebase/firestore'
+import { type ProcessedOrder } from '@/firebase/takeOrder'
 import { type KitchenLedgerItem } from '@/firebase/kitchenLedger'
 import { type BakeryLedgerItem } from '@/firebase/bakeryLedger'
 
@@ -122,14 +122,14 @@ export function Overview({
   const topSellingItems = filteredOrders
     .flatMap((order) => order.items)
     .reduce((acc: Record<string, number>, item) => {
-      acc[item.foodName] = (acc[item.foodName] || 0) + item.qty
+      acc[item.name] = (acc[item.name] || 0) + item.qty
       return acc
     }, {})
 
   const sortedTopSellingItems = Object.entries(topSellingItems)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 2)
-    .map(([foodName]) => foodName)
+    .map(([name]) => name)
     .join(', ')
 
   const monthlyRevenue = Array.from({ length: 12 }, (_, index) => {

@@ -1,22 +1,4 @@
-import type { ProcessedOrder } from '@/firebase/firestore'
-
-function calculateTotal(
-  item: ProcessedOrder['items'][0],
-  discountRate: number,
-  taxRate: number,
-): number {
-  // Use subcategory price if available, otherwise fall back to finalPrice
-  const basePrice =
-    item.selectedSubcategory &&
-    typeof item.selectedSubcategory.price === 'number'
-      ? item.selectedSubcategory.price
-      : item.foodPrice
-
-  const baseTotal = basePrice * item.qty
-  const discounted = baseTotal * (1 - discountRate / 100)
-  const taxed = discounted * (1 + taxRate / 100)
-  return Math.round(taxed)
-}
+import type { ProcessedOrder } from '@/firebase/takeOrder'
 
 export function RecentSales({ income }: { income: ProcessedOrder[] }) {
   return (
@@ -33,13 +15,13 @@ export function RecentSales({ income }: { income: ProcessedOrder[] }) {
               className="flex justify-between items-center mt-1"
             >
               <div className="text-sm">
-                <span className="font-medium">{item.foodName}</span>{' '}
+                <span className="font-medium">{item.name}</span>{' '}
                 <span className="text-muted-foreground text-xs">
                   x{item.qty}
                 </span>
               </div>
               <div className="font-medium text-sm">
-                NPR {calculateTotal(item, sale.discountRate, sale.taxRate)}
+                NPR {(item.price * item.qty).toFixed(2)}
               </div>
             </div>
           ))}

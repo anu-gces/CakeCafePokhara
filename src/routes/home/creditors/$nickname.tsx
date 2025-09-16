@@ -1,37 +1,13 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ReceiptIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { AddToCart } from '../takeOrder'
-import {
-  getCreditorOrdersByNickname,
-  updateOrderStatus,
-} from '@/firebase/firestore'
+import { getCreditorOrdersByNickname } from '@/firebase/firestore'
+import { updateOrderStatus } from '@/firebase/takeOrder'
 import SplashScreen from '@/components/splashscreen'
 import { useQuery } from '@tanstack/react-query'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { motion } from 'motion/react'
-
-function getTotal(
-  items: AddToCart['items'],
-  discountRate: number,
-  taxRate: number,
-  manualRounding: number,
-) {
-  const subtotal = items.reduce(
-    (sum, item) =>
-      sum +
-      item.qty *
-        (item.selectedSubcategory &&
-        typeof item.selectedSubcategory.price === 'number'
-          ? item.selectedSubcategory.price
-          : item.foodPrice),
-    0,
-  )
-  const discount = subtotal * (discountRate / 100)
-  const taxed = (subtotal - discount) * (taxRate / 100)
-  return Math.round(subtotal - discount + taxed + manualRounding)
-}
 
 export const Route = createFileRoute('/home/creditors/$nickname')({
   component: RouteComponent,
@@ -106,17 +82,19 @@ function RouteComponent() {
               </div>
               <div className="font-bold text-primary text-lg">
                 Rs.{' '}
-                {orders.reduce(
-                  (sum, o) =>
-                    sum +
-                    getTotal(
-                      o.items,
-                      o.discountRate,
-                      o.taxRate,
-                      o.manualRounding,
-                    ),
-                  0,
-                )}
+                {orders
+                  .reduce((sum, order) => {
+                    const itemsTotal = order.items.reduce(
+                      (itemSum, item) =>
+                        itemSum + (item.price ?? 0) * (item.qty ?? 0),
+                      0,
+                    )
+                    const discount = order.discountAmount ?? 0
+                    const tax = order.taxAmount ?? 0
+                    const delivery = order.deliveryFee ?? 0
+                    return sum + itemsTotal - discount + tax + delivery
+                  }, 0)
+                  .toFixed(2)}
               </div>
             </div>
             <div className="mt-1 text-muted-foreground text-xs">
@@ -188,26 +166,14 @@ function RouteComponent() {
                   {order.items.map((item, idx) => (
                     <li key={idx} className="flex justify-between text-sm">
                       <span className="truncate">
-                        {item.foodName}
-                        {item.selectedSubcategory ? (
-                          <span className="ml-1 text-primary/80 text-xs">
-                            ({item.selectedSubcategory.name})
-                          </span>
-                        ) : null}
+                        {item.name}
                         <span className="text-muted-foreground">
                           {' '}
                           × {item.qty}
                         </span>
                       </span>
                       <span className="font-medium">
-                        Rs.{' '}
-                        {(
-                          item.qty *
-                          (item.selectedSubcategory &&
-                          typeof item.selectedSubcategory.price === 'number'
-                            ? item.selectedSubcategory.price
-                            : item.foodPrice)
-                        ).toFixed(2)}
+                        Rs. {(item.qty * (item.price ?? 0)).toFixed(2)}
                       </span>
                     </li>
                   ))}
@@ -215,21 +181,25 @@ function RouteComponent() {
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2 text-muted-foreground text-xs">
                   <span>
                     Discount:{' '}
-                    <span className="font-semibold">{order.discountRate}%</span>
+                    <span className="font-semibold">
+                      Rs. {order.discountAmount ?? 0}
+                    </span>
                   </span>
                   <span>
-                    Tax: <span className="font-semibold">{order.taxRate}%</span>
+                    Tax:{' '}
+                    <span className="font-semibold">
+                      Rs. {order.taxAmount ?? 0}
+                    </span>
+                  </span>
+                  <span>
+                    Delivery:{' '}
+                    <span className="font-semibold">
+                      Rs. {order.deliveryFee ?? 0}
+                    </span>
                   </span>
                   <span>
                     Table:{' '}
                     <span className="font-semibold">{order.tableNumber}</span>
-                  </span>
-                  <span>
-                    Rounding:{' '}
-                    <span className="font-semibold">
-                      {order.manualRounding >= 0 ? '+' : '-'} Rs.{' '}
-                      {Math.abs(order.manualRounding)}
-                    </span>
                   </span>
                   {order.complementary && (
                     <span className="font-semibold text-green-600 dark:text-green-400">
@@ -253,7 +223,6 @@ function RouteComponent() {
                       <Button
                         className="active:scale-95"
                         onClick={async () => {
-                          // You may want to show a loader/toast here
                           await updateOrderStatus(
                             order.docId,
                             'paid',
@@ -269,12 +238,16 @@ function RouteComponent() {
                     Total:{' '}
                     <span className="ml-1">
                       Rs.{' '}
-                      {getTotal(
-                        order.items,
-                        order.discountRate,
-                        order.taxRate,
-                        order.manualRounding,
-                      )}
+                      {(
+                        order.items.reduce(
+                          (itemSum, item) =>
+                            itemSum + (item.price ?? 0) * (item.qty ?? 0),
+                          0,
+                        ) -
+                        (order.discountAmount ?? 0) +
+                        (order.taxAmount ?? 0) +
+                        (order.deliveryFee ?? 0)
+                      ).toFixed(2)}
                     </span>
                   </span>
                 </div>

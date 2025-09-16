@@ -1,4 +1,4 @@
-import type { ProcessedOrder } from '@/firebase/firestore'
+import type { ProcessedOrder } from '@/firebase/takeOrder'
 import type { KitchenLedgerItem } from '@/firebase/kitchenLedger'
 import type { BakeryLedgerItem } from '@/firebase/bakeryLedger'
 
@@ -9,25 +9,17 @@ import type { BakeryLedgerItem } from '@/firebase/bakeryLedger'
  */
 export function calculateOrderTotal(order: {
   items: Array<{
-    foodPrice: number
+    price: number
     qty: number
-    selectedSubcategory?: { price: number } | null
   }>
-  discountRate: number
-  taxRate: number
-  manualRounding?: number
+  discountAmount: number
+  taxAmount: number
   deliveryFee?: number
 }): number {
   const subtotal = calculateOrderSubtotal(order.items)
-  const discount = calculateOrderDiscount(subtotal, order.discountRate)
-  const tax = calculateOrderTax(subtotal - discount, order.taxRate)
 
   const total =
-    subtotal -
-    discount +
-    tax +
-    (order.manualRounding || 0) +
-    (order.deliveryFee || 0)
+    subtotal - order.discountAmount + order.taxAmount + (order.deliveryFee || 0)
 
   // Round to 2 decimal places to avoid floating point issues
   return Math.round(total * 100) / 100
@@ -35,46 +27,16 @@ export function calculateOrderTotal(order: {
 
 /**
  * Calculates the subtotal for an order (before discounts, taxes, and fees)
- * @param items - Array of order items with price, quantity, and subcategory information
+ * @param items - Array of order items with price, quantity
  * @returns The subtotal amount as a number
  */
 export function calculateOrderSubtotal(
   items: Array<{
-    foodPrice: number
+    price: number
     qty: number
-    selectedSubcategory?: { price: number } | null
   }>,
 ): number {
-  return items.reduce((sum, item) => {
-    const price = item.selectedSubcategory?.price ?? item.foodPrice
-    return sum + price * item.qty
-  }, 0)
-}
-
-/**
- * Calculates the discount amount for an order
- * @param subtotal - The order subtotal amount
- * @param discountRate - The discount rate as a percentage (0-100)
- * @returns The discount amount as a number
- */
-export function calculateOrderDiscount(
-  subtotal: number,
-  discountRate: number,
-): number {
-  return subtotal * (discountRate / 100)
-}
-
-/**
- * Calculates the tax amount for an order
- * @param taxableAmount - The amount on which tax is calculated (usually subtotal - discount)
- * @param taxRate - The tax rate as a percentage (0-100)
- * @returns The tax amount as a number
- */
-export function calculateOrderTax(
-  taxableAmount: number,
-  taxRate: number,
-): number {
-  return taxableAmount * (taxRate / 100)
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0)
 }
 
 /**
