@@ -439,12 +439,13 @@ export function OrderNotification() {
               const inventoryHistorySnap = await transaction.get(
                 inventoryHistoryBatchRef,
               )
-              let historyItems = inventoryHistorySnap.exists()
+              let historyBatches = inventoryHistorySnap.exists()
                 ? inventoryHistorySnap.data().items || []
                 : []
 
               // --- PROCESS DATA ---
               // Restore inventory for each item
+              const batchHistoryItems = []
               for (const cartItem of order.items) {
                 const itemIndex = foodItems.findIndex(
                   (item: any) => item.foodId === cartItem.foodId,
@@ -465,10 +466,15 @@ export function OrderNotification() {
 
                 foodItems[itemIndex] = updatedItem
 
-                // Log inventory history
-                historyItems.push({
-                  ...updatedItem,
-                  historyId: crypto.randomUUID(),
+                // Log inventory history (Omit fields)
+                batchHistoryItems.push({
+                  foodId: updatedItem.foodId,
+                  name: updatedItem.name,
+                  currentStockCount: updatedItem.currentStockCount,
+                  lastStockCount: updatedItem.lastStockCount,
+                  reasonForStockEdit: updatedItem.reasonForStockEdit,
+                  dateModified: updatedItem.dateModified,
+                  editedStockBy: updatedItem.editedStockBy,
                 })
               }
 
@@ -490,9 +496,16 @@ export function OrderNotification() {
                 { orders: ordersArr },
                 { merge: true },
               )
+              // Write batch history as a single InventoryHistoryProps object
+              if (batchHistoryItems.length > 0) {
+                historyBatches.push({
+                  historyId: crypto.randomUUID(),
+                  foodItems: batchHistoryItems,
+                })
+              }
               transaction.set(
                 inventoryHistoryBatchRef,
-                { items: historyItems },
+                { items: historyBatches },
                 { merge: true },
               )
             })

@@ -23,7 +23,6 @@ import { getAllInventoryHistory } from '@/firebase/inventoryManagement'
 import { getAllUsers } from '@/firebase/firestore'
 import type { UserAdditional } from '@/firebase/firestore'
 import { template } from 'lodash'
-import type { FoodItemProps } from '@/firebase/menuManagement'
 
 // Helper function to get user display name
 function getUserDisplayName(user: UserAdditional): string {
@@ -36,7 +35,7 @@ function getUserDisplayName(user: UserAdditional): string {
   } else {
     return user.email.split('@')[0] // Fallback to email username
   }
-} // Function to get icon based on reason text
+}
 function getReasonIcon(reason: string) {
   const lowerReason = reason.toLowerCase()
 
@@ -131,66 +130,73 @@ function formatTimestamp(timestamp: string) {
   })
 }
 
-function HistoryEntryCard({
-  entry,
+// Card for a batch of inventory history items
+function HistoryBatchCard({
+  batch,
   users,
 }: {
-  entry: FoodItemProps
+  batch: import('@/firebase/inventoryManagement').InventoryHistoryProps
   users: UserAdditional[]
 }) {
-  // Get user display name
-  const user = users.find((u) => u.uid === entry.editedStockBy || '')
-  const userDisplayName = user
-    ? getUserDisplayName(user)
-    : entry.editedStockBy || 'Unknown'
-
-  const stockChange =
-    (entry.currentStockCount || 0) - (entry.lastStockCount || 0)
-
   return (
-    <div className="flex gap-3 bg-card p-4 border rounded-lg">
-      {/* Icon */}
-      <div
-        className={`flex items-center justify-center w-10 h-10 rounded-full ${getReasonColor(entry.reasonForStockEdit || 'unknown')}`}
-      >
-        {getReasonIcon(entry.reasonForStockEdit || 'unknown')}
+    <div className="space-y-4 bg-card p-4 border rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <HistoryIcon className="w-5 h-5 text-muted-foreground" />
+        <span className="font-semibold text-base">Batch Edit</span>
+        <Badge variant="secondary" className="text-xs">
+          <CalendarIcon className="mr-2 w-3 h-3" />
+          {formatTimestamp(
+            batch.foodItems[0]?.dateModified || new Date().toISOString(),
+          )}
+        </Badge>
       </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-2">
-          <h3 className="font-semibold text-sm truncate">{entry.name}</h3>
-          <Badge variant="secondary" className="text-xs">
-            {entry.reasonForStockEdit || 'unknown'}
-          </Badge>
-        </div>
-
-        {/* Simple stock change display */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-muted-foreground text-sm">
-            {entry.lastStockCount} → {entry.currentStockCount} pieces
-          </span>
-          <span
-            className={`text-sm font-semibold ${stockChange > 0 ? 'text-green-600' : 'text-red-600'}`}
-          >
-            ({stockChange > 0 ? '+' : ''}
-            {stockChange})
-          </span>
-        </div>
-
-        {/* User and timestamp */}
-        <div className="flex items-center gap-4 text-muted-foreground text-xs">
-          <div className="flex items-center gap-1">
-            <UserIcon className="w-3 h-3" />
-            <span>{userDisplayName}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <CalendarIcon className="w-3 h-3" />
-            <span>
-              {formatTimestamp(entry.dateModified || new Date().toISOString())}
-            </span>
-          </div>
-        </div>
+      <div className="space-y-2">
+        {batch.foodItems.map((entry) => {
+          const user = users.find((u) => u.uid === entry.editedStockBy)
+          const userDisplayName = user
+            ? getUserDisplayName(user)
+            : entry.editedStockBy || 'Unknown'
+          const stockChange =
+            (entry.currentStockCount || 0) - (entry.lastStockCount || 0)
+          return (
+            <div key={entry.foodId} className="flex gap-3">
+              <div
+                className={`flex items-center justify-center w-10 h-10 rounded-full ${getReasonColor(entry.reasonForStockEdit || 'unknown')}`}
+              >
+                {getReasonIcon(entry.reasonForStockEdit || 'unknown')}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-sm truncate">
+                    {entry.name}
+                  </h3>
+                  <span
+                    className={`px-2 py-0.5 rounded text-xs font-medium border border-muted-foreground/10 ${getReasonColor(entry.reasonForStockEdit || 'unknown')}`}
+                  >
+                    {entry.reasonForStockEdit || 'unknown'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-muted-foreground text-sm">
+                    {entry.lastStockCount} → {entry.currentStockCount} pieces
+                  </span>
+                  <span
+                    className={`text-sm font-semibold ${stockChange > 0 ? 'text-green-600' : 'text-red-600'}`}
+                  >
+                    ({stockChange > 0 ? '+' : ''}
+                    {stockChange})
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-muted-foreground text-xs">
+                  <div className="flex items-center gap-1">
+                    <UserIcon className="w-3 h-3" />
+                    <span>{userDisplayName}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -228,18 +234,21 @@ export function InventoryHistory() {
   const error = historyError || usersError
 
   // Filter history based on selected filter
-  const filteredHistory = inventoryHistory.filter((entry) => {
+  const filteredHistory = inventoryHistory.filter((batch) => {
     if (selectedFilter === 'all') return true
-    return entry.reasonForStockEdit === selectedFilter
+    // Show batch if any item in batch matches filter
+    return batch.foodItems.some(
+      (entry) => entry.reasonForStockEdit === selectedFilter,
+    )
   })
 
   if (error) {
     return (
-      <div className="bg-black">
-        <div className="top-0 z-10 sticky bg-black backdrop-blur">
+      <div className="">
+        <div className="top-0 z-10 backdrop-blur">
           <div className="flex items-center gap-3 p-4">
             <Button variant="ghost" size="sm" className="p-2">
-              bitch
+              <ArrowLeftIcon className="w-4 h-4" />
             </Button>
             <div className="flex items-center gap-2">
               <HistoryIcon className="w-5 h-5" />
@@ -247,7 +256,7 @@ export function InventoryHistory() {
             </div>
           </div>
         </div>
-        <div className="flex flex-col justify-center items-center py-12 text-muted-foreground">
+        <div className="flex flex-col justify-center items-center py-12">
           <AlertTriangleIcon className="opacity-50 mb-4 w-12 h-12" />
           <p className="text-sm">Failed to load inventory history</p>
           <p className="mt-1 text-xs">Please try again later</p>
@@ -338,10 +347,10 @@ export function InventoryHistory() {
           </div>
         ) : filteredHistory.length > 0 ? (
           <div className="space-y-3">
-            {filteredHistory.map((entry) => (
-              <HistoryEntryCard
-                key={entry.historyId}
-                entry={entry}
+            {filteredHistory.map((batch) => (
+              <HistoryBatchCard
+                key={batch.historyId}
+                batch={batch}
                 users={users}
               />
             ))}

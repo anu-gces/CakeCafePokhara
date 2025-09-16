@@ -47,6 +47,9 @@ const HomePermanentInventoryLazyImport = createFileRoute(
 )()
 const HomeKitchenLedgerLazyImport = createFileRoute('/home/kitchenLedger')()
 const HomeHelpLazyImport = createFileRoute('/home/help')()
+const HomeGeneralExpenseTrackerLazyImport = createFileRoute(
+  '/home/generalExpenseTracker',
+)()
 const HomeEquipmentLazyImport = createFileRoute('/home/equipment')()
 const HomeCalendarLazyImport = createFileRoute('/home/calendar')()
 const HomeBillingLazyImport = createFileRoute('/home/billing')()
@@ -118,6 +121,15 @@ const HomeHelpLazyRoute = HomeHelpLazyImport.update({
   path: '/help',
   getParentRoute: () => HomeRoute,
 } as any).lazy(() => import('./routes/home/help.lazy').then((d) => d.Route))
+
+const HomeGeneralExpenseTrackerLazyRoute =
+  HomeGeneralExpenseTrackerLazyImport.update({
+    id: '/generalExpenseTracker',
+    path: '/generalExpenseTracker',
+    getParentRoute: () => HomeRoute,
+  } as any).lazy(() =>
+    import('./routes/home/generalExpenseTracker.lazy').then((d) => d.Route),
+  )
 
 const HomeEquipmentLazyRoute = HomeEquipmentLazyImport.update({
   id: '/equipment',
@@ -421,6 +433,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeEquipmentLazyImport
       parentRoute: typeof HomeImport
     }
+    '/home/generalExpenseTracker': {
+      id: '/home/generalExpenseTracker'
+      path: '/generalExpenseTracker'
+      fullPath: '/home/generalExpenseTracker'
+      preLoaderRoute: typeof HomeGeneralExpenseTrackerLazyImport
+      parentRoute: typeof HomeImport
+    }
     '/home/help': {
       id: '/home/help'
       path: '/help'
@@ -622,6 +641,7 @@ interface HomeRouteChildren {
   HomeBillingLazyRoute: typeof HomeBillingLazyRoute
   HomeCalendarLazyRoute: typeof HomeCalendarLazyRoute
   HomeEquipmentLazyRoute: typeof HomeEquipmentLazyRoute
+  HomeGeneralExpenseTrackerLazyRoute: typeof HomeGeneralExpenseTrackerLazyRoute
   HomeHelpLazyRoute: typeof HomeHelpLazyRoute
   HomeKitchenLedgerLazyRoute: typeof HomeKitchenLedgerLazyRoute
   HomePermanentInventoryLazyRoute: typeof HomePermanentInventoryLazyRoute
@@ -645,6 +665,7 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeBillingLazyRoute: HomeBillingLazyRoute,
   HomeCalendarLazyRoute: HomeCalendarLazyRoute,
   HomeEquipmentLazyRoute: HomeEquipmentLazyRoute,
+  HomeGeneralExpenseTrackerLazyRoute: HomeGeneralExpenseTrackerLazyRoute,
   HomeHelpLazyRoute: HomeHelpLazyRoute,
   HomeKitchenLedgerLazyRoute: HomeKitchenLedgerLazyRoute,
   HomePermanentInventoryLazyRoute: HomePermanentInventoryLazyRoute,
@@ -674,6 +695,7 @@ export interface FileRoutesByFullPath {
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
   '/home/equipment': typeof HomeEquipmentLazyRoute
+  '/home/generalExpenseTracker': typeof HomeGeneralExpenseTrackerLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/permanentInventory': typeof HomePermanentInventoryLazyRoute
@@ -711,6 +733,7 @@ export interface FileRoutesByTo {
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
   '/home/equipment': typeof HomeEquipmentLazyRoute
+  '/home/generalExpenseTracker': typeof HomeGeneralExpenseTrackerLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/permanentInventory': typeof HomePermanentInventoryLazyRoute
@@ -749,6 +772,7 @@ export interface FileRoutesById {
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
   '/home/equipment': typeof HomeEquipmentLazyRoute
+  '/home/generalExpenseTracker': typeof HomeGeneralExpenseTrackerLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/kitchenLedger': typeof HomeKitchenLedgerLazyRoute
   '/home/permanentInventory': typeof HomePermanentInventoryLazyRoute
@@ -788,6 +812,7 @@ export interface FileRouteTypes {
     | '/home/billing'
     | '/home/calendar'
     | '/home/equipment'
+    | '/home/generalExpenseTracker'
     | '/home/help'
     | '/home/kitchenLedger'
     | '/home/permanentInventory'
@@ -824,6 +849,7 @@ export interface FileRouteTypes {
     | '/home/billing'
     | '/home/calendar'
     | '/home/equipment'
+    | '/home/generalExpenseTracker'
     | '/home/help'
     | '/home/kitchenLedger'
     | '/home/permanentInventory'
@@ -860,6 +886,7 @@ export interface FileRouteTypes {
     | '/home/billing'
     | '/home/calendar'
     | '/home/equipment'
+    | '/home/generalExpenseTracker'
     | '/home/help'
     | '/home/kitchenLedger'
     | '/home/permanentInventory'
@@ -932,6 +959,7 @@ export const routeTree = rootRoute
         "/home/billing",
         "/home/calendar",
         "/home/equipment",
+        "/home/generalExpenseTracker",
         "/home/help",
         "/home/kitchenLedger",
         "/home/permanentInventory",
@@ -1017,6 +1045,10 @@ export const routeTree = rootRoute
     },
     "/home/equipment": {
       "filePath": "home/equipment.lazy.tsx",
+      "parent": "/home"
+    },
+    "/home/generalExpenseTracker": {
+      "filePath": "home/generalExpenseTracker.lazy.tsx",
       "parent": "/home"
     },
     "/home/help": {

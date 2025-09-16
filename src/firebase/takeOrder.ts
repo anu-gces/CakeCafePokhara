@@ -127,12 +127,13 @@ export async function createOrderDocument(orderDetails: AddToCart) {
     }
 
     const inventoryHistorySnap = await transaction.get(inventoryHistoryBatchRef)
-    let historyItems: InventoryHistoryProps[] = []
+    let historyBatches: InventoryHistoryProps[] = []
     if (inventoryHistorySnap.exists()) {
-      historyItems = inventoryHistorySnap.data().items || []
+      historyBatches = inventoryHistorySnap.data().items || []
     }
 
     // --- PROCESS DATA ---
+    const batchHistoryItems = []
     for (const cartItem of orderDetails.items) {
       const itemIndex = foodItems.findIndex(
         (item) => item.foodId === cartItem.foodId,
@@ -153,10 +154,15 @@ export async function createOrderDocument(orderDetails: AddToCart) {
 
       foodItems[itemIndex] = updatedItem
 
-      // Log inventory history
-      historyItems.push({
-        ...updatedItem,
-        historyId: crypto.randomUUID(),
+      // Add to batch history array (Omit fields)
+      batchHistoryItems.push({
+        foodId: updatedItem.foodId,
+        name: updatedItem.name,
+        currentStockCount: updatedItem.currentStockCount,
+        lastStockCount: updatedItem.lastStockCount,
+        reasonForStockEdit: updatedItem.reasonForStockEdit,
+        dateModified: updatedItem.dateModified,
+        editedStockBy: updatedItem.editedStockBy,
       })
     }
 
@@ -165,9 +171,16 @@ export async function createOrderDocument(orderDetails: AddToCart) {
     // --- WRITES AFTER ALL READS ---
     transaction.set(orderBatchRef, { orders }, { merge: true })
     transaction.set(inventoryRef, { foodItems }, { merge: true })
+    // Save batch inventory history for audit
+    if (batchHistoryItems.length > 0) {
+      historyBatches.push({
+        historyId: crypto.randomUUID(),
+        foodItems: batchHistoryItems,
+      })
+    }
     transaction.set(
       inventoryHistoryBatchRef,
-      { items: historyItems },
+      { items: historyBatches },
       { merge: true },
     )
   })
