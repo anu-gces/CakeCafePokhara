@@ -120,9 +120,13 @@
     transition-property: background-color, color;
     transition-duration: 300ms, 30ms;
   }
+  html {
+    @apply overscroll-none;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: 'Manrope', sans-serif;
+    @apply overscroll-none;
   }
 }
 

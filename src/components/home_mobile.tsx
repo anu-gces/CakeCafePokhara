@@ -9,7 +9,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { motion, animate, useMotionValue, useTransform } from 'motion/react'
-import { BoxIcon, FuelIcon, MicrowaveIcon, RefreshCcwIcon } from 'lucide-react'
+import { BoxIcon, FuelIcon, MicrowaveIcon, RotateCwIcon } from 'lucide-react'
 
 import { useMutation } from '@tanstack/react-query'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
@@ -136,7 +136,7 @@ export function Home() {
       <NotificationPermissionDrawer />
       <div
         data-vaul-drawer-wrapper=""
-        className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip"
+        className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip overscroll-none"
       >
         <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -459,10 +459,18 @@ function NotificationPermissionDrawer() {
   )
 }
 
-function rubberBand(distance: number, max: number, resistance: number = 0.3) {
-  if (distance < max) return distance
-  return max + (distance - max) * resistance
+declare global {
+  interface Window {
+    __globalDragging: boolean
+  }
 }
+
+window.__globalDragging = false
+
+// function rubberBand(distance: number, max: number, resistance: number = 0.3) {
+//   if (distance < max) return distance
+//   return max + (distance - max) * resistance
+// }
 
 function PullToRefresh() {
   const y = useMotionValue(0)
@@ -504,7 +512,7 @@ function PullToRefresh() {
 
     function handleTouchMove(e: TouchEvent) {
       if (!isPulling.current) return
-      if (window.__kanbanDragging) return
+      if (window.__globalDragging) return
       if (
         startY.current !== null &&
         (scrollEl.current?.scrollTop === 0 ||
@@ -512,8 +520,10 @@ function PullToRefresh() {
       ) {
         const deltaY = e.touches[0].clientY - startY.current
         if (deltaY > 0) {
-          y.set(rubberBand(deltaY, 100, 0.3))
+          y.set(Math.min(deltaY, 100))
           e.preventDefault()
+        } else {
+          y.set(0) // Reset if user swipes up
         }
       }
     }
@@ -523,9 +533,12 @@ function PullToRefresh() {
       const shouldReload = y.get() >= 80
       animate(y, 0, {
         type: 'spring',
-        stiffness: 300,
-        damping: 30,
+        stiffness: 500,
+        damping: 40,
+        mass: 2,
         onComplete: () => {
+          //rotate360
+
           if (shouldReload) {
             window.location.reload()
           }
@@ -559,7 +572,7 @@ function PullToRefresh() {
           className="z-10 absolute inset-0 flex justify-center items-center"
           style={{ rotate }}
         >
-          <RefreshCcwIcon className="drop-shadow w-7 h-7 text-rose-500" />
+          <RotateCwIcon className="drop-shadow w-7 h-7 text-rose-500" />
         </motion.div>
       </div>
     </motion.div>

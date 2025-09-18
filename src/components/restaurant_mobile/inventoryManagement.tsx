@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import {
   Sheet,
   SheetClose,
@@ -146,9 +145,6 @@ const InventoryItemCard = memo(function InventoryItemCard({
                   <div
                     className={cn('rounded-full w-2 h-2', stockStatus.color)}
                   />
-                  <Badge className={cn('text-xs', stockStatus.color)}>
-                    {stockStatus.text}
-                  </Badge>
                 </div>
                 <div className="flex items-center gap-4 text-muted-foreground text-sm">
                   <span>Stock: {food.currentStockCount ?? 0}</span>

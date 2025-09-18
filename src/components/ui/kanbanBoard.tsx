@@ -49,13 +49,8 @@ import { Label } from './label'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
-declare global {
-  interface Window {
-    __kanbanDragging: boolean
-  }
-}
+window.__globalDragging = false
 
-window.__kanbanDragging = false
 type ColumnType = 'inStock' | 'runningLow' | 'outOfStock' | 'restocked'
 
 export type CardType = {
@@ -591,11 +586,11 @@ const KanbanCard = ({ card, handleCardUpdate, handleDragStart }: CardProps) => {
           setOpen(true)
         }}
         onDragStart={(e) => {
-          window.__kanbanDragging = true
+          window.__globalDragging = true
           handleDragStart(e, card)
         }}
         onDragEnd={() => {
-          window.__kanbanDragging = false
+          window.__globalDragging = false
         }}
         className="flex flex-row gap-2 bg-card shadow-sm p-2 border rounded-lg text-card-foreground cursor-grab active:cursor-grabbing"
       >

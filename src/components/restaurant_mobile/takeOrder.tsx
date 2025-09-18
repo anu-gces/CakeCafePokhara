@@ -1,8 +1,16 @@
+declare global {
+  interface Window {
+    __kanbanDragging: boolean
+  }
+}
+window.__kanbanDragging = false
+
 import { Link, useSearch } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { createPortal } from 'react-dom'
 import {
   Drawer,
   DrawerClose,
@@ -33,14 +41,14 @@ import {
   PartyPopperIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { createOrderDocument } from '@/firebase/takeOrder'
 import {
   getAllCreditors,
   getKitchenDepartmentFcmTokens,
   deleteUserFcmTokenByUid,
+  db,
 } from '@/firebase/firestore'
-import { getFoodItems } from '@/firebase/menuManagement'
 
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import DonutImage from '@/assets/donutImage'
@@ -62,6 +70,7 @@ import * as Yup from 'yup'
 import type { FoodItemProps } from '@/firebase/menuManagement'
 import { Switch } from '../ui/switch'
 import type { AddToCart } from '@/firebase/takeOrder'
+import { doc, onSnapshot } from 'firebase/firestore'
 
 // Menu Card Component
 function MenuCard({
@@ -162,7 +171,7 @@ function MenuCard({
 // Cart Preview Component
 
 function CartPreview({ cart }: { cart: AddToCart }) {
-  return (
+  return createPortal(
     <AnimatePresence>
       {cart.items.length > 0 && (
         <motion.div
@@ -171,14 +180,20 @@ function CartPreview({ cart }: { cart: AddToCart }) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ duration: 0.25 }}
-          className="right-4 bottom-16 left-4 z-40 fixed bg-transparent shadow-lg backdrop-blur-[0.5rem] p-4 border rounded-lg"
+          className="right-4 bottom-16 left-4 z-50 fixed bg-transparent shadow-lg backdrop-blur-md p-4 border rounded-lg overscroll-y-contain"
           drag="y"
-          dragConstraints={{ top: -400, bottom: 0 }}
+          dragConstraints={{ top: -500, bottom: 0 }}
           dragTransition={{
-            power: 0.2, // Lower = more resistance
-            timeConstant: 200, // Higher = more resistance
-            bounceStiffness: 600, // Higher = snappier return
-            bounceDamping: 30, // Higher = less bounce
+            power: 0.2,
+            timeConstant: 200,
+            bounceStiffness: 600,
+            bounceDamping: 30,
+          }}
+          onDragStart={() => {
+            window.__kanbanDragging = true
+          }}
+          onDragEnd={() => {
+            window.__kanbanDragging = false
           }}
         >
           <h3 className="mb-2 font-medium">Cart Preview</h3>
@@ -215,7 +230,8 @@ function CartPreview({ cart }: { cart: AddToCart }) {
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body, // Portal target - renders directly in document.body
   )
 }
 
@@ -290,7 +306,6 @@ function CartDrawer({
     queryKey: ['creditors'],
     queryFn: getAllCreditors,
   })
-  const queryClient = useQueryClient()
 
   // Validation state
   const [validationErrors, setValidationErrors] = useState<
@@ -360,7 +375,6 @@ function CartDrawer({
       } catch (err) {
         toast.error('Failed to send kitchen notification')
       }
-      await queryClient.invalidateQueries({ queryKey: ['foods'] })
       onClearCart()
     },
     onError: (error: any) => {
@@ -988,16 +1002,36 @@ const emptyCart: AddToCart = {
 
 // Main TakeOrder Component
 export function TakeOrder() {
-  const { data: foods = [], isLoading } = useQuery({
-    queryKey: ['foods'],
-    queryFn: async () => {
-      const data = await getFoodItems()
+  const [foods, setFoods] = useState<FoodItemProps[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-      return data
-    },
-    staleTime: 0,
-    refetchOnWindowFocus: false,
-  })
+  useEffect(() => {
+    const foodItemsRef = doc(db, 'menu', 'allFoodItems')
+
+    const unsubscribe = onSnapshot(
+      foodItemsRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data()
+          if (data && data.foodItems) {
+            console.log('Real-time food items update:', data.foodItems)
+            setFoods(data.foodItems as FoodItemProps[])
+          } else {
+            setFoods([])
+          }
+        } else {
+          setFoods([])
+        }
+        setIsLoading(false)
+      },
+      (error) => {
+        console.error('Error listening to food items:', error)
+        setIsLoading(false)
+      },
+    )
+
+    return () => unsubscribe()
+  }, [])
 
   const { userAdditional } = useFirebaseAuth()
   const [cart, setCart] = useState<AddToCart>(emptyCart)
