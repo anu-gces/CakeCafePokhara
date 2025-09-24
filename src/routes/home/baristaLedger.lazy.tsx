@@ -1,4 +1,5 @@
 import { DataTable } from '@/components/ui/dataTable'
+import { format } from 'date-fns'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import SplashScreen from '@/components/splashscreen'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -80,6 +81,15 @@ const columns: ColumnDef<BaristaLedgerEntry>[] = [
   {
     accessorKey: 'month',
     header: 'Month',
+    cell: ({ row }) => {
+      const val = row.original.month
+      if (!val) return '-'
+      try {
+        return format(new Date(val), 'PPP')
+      } catch {
+        return val
+      }
+    },
   },
   {
     accessorKey: 'trainingFee',
@@ -95,7 +105,15 @@ const columns: ColumnDef<BaristaLedgerEntry>[] = [
   {
     accessorKey: 'paymentDate',
     header: 'Payment Date',
-    cell: ({ row }) => row.original.paymentDate || '-',
+    cell: ({ row }) => {
+      const val = row.original.paymentDate
+      if (!val) return '-'
+      try {
+        return format(new Date(val), 'PPP')
+      } catch {
+        return val
+      }
+    },
   },
 
   {
@@ -215,7 +233,7 @@ export const Route = createLazyFileRoute('/home/baristaLedger')({
     // Use the user data in your component
     return (
       <div className="px-4">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 pt-2">
           <h1 className="font-bold text-primary text-2xl text-left">
             Barista Training Ledger
           </h1>
@@ -351,10 +369,7 @@ const AddNewEntryDrawer = () => {
                           values.month ? new Date(values.month) : undefined
                         }
                         onSelect={(date) =>
-                          setFieldValue(
-                            'month',
-                            date ? date.toISOString().slice(0, 10) : '',
-                          )
+                          setFieldValue('month', date ? date.toISOString() : '')
                         }
                       />
                       <ErrorMessage
@@ -417,7 +432,7 @@ const AddNewEntryDrawer = () => {
                         onSelect={(date) =>
                           setFieldValue(
                             'paymentDate',
-                            date ? date.toISOString().slice(0, 10) : '',
+                            date ? date.toISOString() : '',
                           )
                         }
                       />
@@ -577,10 +592,7 @@ const EditEntryDrawer = ({
                         values.month ? new Date(values.month) : undefined
                       }
                       onSelect={(date) =>
-                        setFieldValue(
-                          'month',
-                          date ? date.toISOString().slice(0, 10) : '',
-                        )
+                        setFieldValue('month', date ? date.toISOString() : '')
                       }
                     />
                     <ErrorMessage
@@ -646,7 +658,7 @@ const EditEntryDrawer = ({
                       onSelect={(date) =>
                         setFieldValue(
                           'paymentDate',
-                          date ? date.toISOString().slice(0, 10) : '',
+                          date ? date.toISOString() : '',
                         )
                       }
                     />

@@ -1,20 +1,19 @@
 import { memoize } from 'lodash'
 import { db } from './firestore'
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore'
+import { runTransaction } from 'firebase/firestore'
 import { getWeeklyDocId, getWeeklyDocIdsInRange } from './firestore.utils'
 export type KitchenLedgerItem = {
   id: string
   itemName: string
   paymentStatus: 'paid' | 'credited'
-  purchaseDate?: string // ISO date string, optional
   price: number
   notes?: string
   vendorId?: string
   addedBy: string
   addedAt: string // ISO date string
+  modifiedAt: string // ISO date string
 }
-
-// Get all kitchen ledger items (flattened from all weekly docs)
 export async function getAllKitchenLedgerItems(): Promise<KitchenLedgerItem[]> {
   const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
   let allItems: KitchenLedgerItem[] = []
@@ -68,16 +67,61 @@ export async function addKitchenLedgerItem(
 ) {
   const docId = getWeeklyDocId(new Date(newItem.addedAt))
   const batchRef = doc(collection(db, 'kitchenLedgerWeekly'), docId)
-  const batchSnap = await getDoc(batchRef)
-  let items: KitchenLedgerItem[] = []
-  if (batchSnap.exists()) {
-    items = batchSnap.data().items || []
-  }
-  // Generate a unique id for the item
   const id = crypto.randomUUID()
-  items.push({ ...newItem, id })
-  await setDoc(batchRef, { items }, { merge: true })
-  return { ...newItem, id }
+  const itemToAdd = { ...newItem, id }
+  await runTransaction(db, async (transaction) => {
+    // All reads first
+    const batchDoc = await transaction.get(batchRef)
+    const batchItems = batchDoc.exists() ? batchDoc.data().items || [] : []
+    let expenseAmount = 0
+    let expenseDate = null
+    if (newItem.paymentStatus === 'paid') {
+      expenseAmount = Number(newItem.price) || 0
+      expenseDate = newItem.addedAt.slice(0, 10)
+    }
+    // Read dailyBalances doc if needed
+    let dailyBalancesDocSnap = null
+    let dailyBalancesRef = null
+    if (expenseAmount > 0 && expenseDate) {
+      const year = new Date(expenseDate).getFullYear()
+      dailyBalancesRef = doc(db, 'dailyBalances', year.toString())
+      dailyBalancesDocSnap = await transaction.get(dailyBalancesRef)
+    }
+    // All writes after reads
+    const updatedItems = [...batchItems, itemToAdd]
+    transaction.set(batchRef, { items: updatedItems }, { merge: true })
+    if (
+      expenseAmount > 0 &&
+      expenseDate &&
+      dailyBalancesRef &&
+      dailyBalancesDocSnap
+    ) {
+      // Inline the logic from updateDailyBalanceTransaction, but only do writes
+      const data = dailyBalancesDocSnap.exists()
+        ? dailyBalancesDocSnap.data()
+        : null
+      const currentDay = data?.dailyAggregates?.[expenseDate]
+      const newTotalIncome = currentDay?.totalIncome || 0
+      const newTotalExpenses = (currentDay?.totalExpenses || 0) + expenseAmount
+      if (dailyBalancesDocSnap.exists()) {
+        transaction.update(dailyBalancesRef, {
+          [`dailyAggregates.${expenseDate}.totalIncome`]: newTotalIncome,
+          [`dailyAggregates.${expenseDate}.totalExpenses`]: newTotalExpenses,
+        })
+      } else {
+        const newBalance = {
+          dailyAggregates: {
+            [expenseDate]: {
+              totalIncome: newTotalIncome,
+              totalExpenses: newTotalExpenses,
+            },
+          },
+        }
+        transaction.set(dailyBalancesRef, newBalance)
+      }
+    }
+  })
+  return itemToAdd
 }
 
 // Delete a kitchen ledger item from the correct weekly batch
@@ -107,24 +151,74 @@ export async function updateKitchenLedgerItemPaymentStatus(
   itemId: string,
   paymentStatus: 'paid' | 'credited',
 ) {
-  const snapshot = await getDocs(collection(db, 'kitchenLedgerWeekly'))
+  const batchCollection = collection(db, 'kitchenLedgerWeekly')
+  const snapshot = await getDocs(batchCollection)
   let batchDocId: string | null = null
-  let items: KitchenLedgerItem[] = []
-  snapshot.forEach((doc) => {
-    const batchItems = doc.data().items || []
+  snapshot.forEach((docSnap) => {
+    const batchItems = docSnap.data().items || []
     if (batchItems.some((item: any) => item.id === itemId)) {
-      batchDocId = doc.id
-      items = batchItems
+      batchDocId = docSnap.id
     }
   })
   if (!batchDocId) throw new Error('Item not found in any batch')
-  const updatedItems = items.map((item: any) =>
-    item.id === itemId ? { ...item, paymentStatus } : item,
-  )
-  await setDoc(
-    doc(db, 'kitchenLedgerWeekly', batchDocId),
-    { items: updatedItems },
-    { merge: true },
-  )
+  const batchRef = doc(db, 'kitchenLedgerWeekly', batchDocId)
+  await runTransaction(db, async (transaction) => {
+    // All reads first
+    const batchDoc = await transaction.get(batchRef)
+    if (!batchDoc.exists()) throw new Error('Batch doc not found')
+    const batchItems = batchDoc.data().items || []
+    let expenseAmount = 0
+    let expenseDate = null
+    const updatedItems = batchItems.map((item: any) => {
+      if (item.id === itemId) {
+        if (item.paymentStatus === 'credited' && paymentStatus === 'paid') {
+          expenseAmount = Number(item.price) || 0
+          expenseDate = item.addedAt.slice(0, 10)
+        }
+        return { ...item, paymentStatus, modifiedAt: new Date().toISOString() }
+      }
+      return item
+    })
+    // Read dailyBalances doc if needed
+    let dailyBalancesDocSnap = null
+    let dailyBalancesRef = null
+    if (expenseAmount > 0 && expenseDate) {
+      const year = new Date(expenseDate).getFullYear()
+      dailyBalancesRef = doc(db, 'dailyBalances', year.toString())
+      dailyBalancesDocSnap = await transaction.get(dailyBalancesRef)
+    }
+    // All writes after reads
+    transaction.set(batchRef, { items: updatedItems }, { merge: true })
+    if (
+      expenseAmount > 0 &&
+      expenseDate &&
+      dailyBalancesRef &&
+      dailyBalancesDocSnap
+    ) {
+      // Inline the logic from updateDailyBalanceTransaction, but only do writes
+      const data = dailyBalancesDocSnap.exists()
+        ? dailyBalancesDocSnap.data()
+        : null
+      const currentDay = data?.dailyAggregates?.[expenseDate]
+      const newTotalIncome = currentDay?.totalIncome || 0
+      const newTotalExpenses = (currentDay?.totalExpenses || 0) + expenseAmount
+      if (dailyBalancesDocSnap.exists()) {
+        transaction.update(dailyBalancesRef, {
+          [`dailyAggregates.${expenseDate}.totalIncome`]: newTotalIncome,
+          [`dailyAggregates.${expenseDate}.totalExpenses`]: newTotalExpenses,
+        })
+      } else {
+        const newBalance = {
+          dailyAggregates: {
+            [expenseDate]: {
+              totalIncome: newTotalIncome,
+              totalExpenses: newTotalExpenses,
+            },
+          },
+        }
+        transaction.set(dailyBalancesRef, newBalance)
+      }
+    }
+  })
   return itemId
 }

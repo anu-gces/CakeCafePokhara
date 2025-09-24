@@ -326,13 +326,58 @@ export function OrderNotification() {
                       userAdditional?.role === 'owner') && (
                       <Button
                         className="active:scale-95"
-                        onClick={() =>
-                          updateOrderStatus(
-                            docId,
-                            creditor ? 'credited' : 'paid', // Use 'credited' if creditor exists
-                            receiptId,
-                          )
-                        }
+                        onClick={async () => {
+                          if (creditor) {
+                            // Just mark as credited, no daily balance update
+                            await updateOrderStatus(
+                              docId,
+                              'credited',
+                              receiptId,
+                            )
+                          } else {
+                            // Mark as paid AND update daily balance for cash orders
+                            await updateOrderStatus(docId, 'paid', receiptId)
+
+                            // Update daily balance only for non-complementary cash orders
+                            if (
+                              !order.complementary &&
+                              order.paymentMethod === 'cash'
+                            ) {
+                              const { runTransaction } = await import(
+                                'firebase/firestore'
+                              )
+                              const { db } = await import(
+                                '@/firebase/firestore'
+                              )
+                              const { updateDailyBalanceTransaction } =
+                                await import('@/firebase/dailyBalances')
+
+                              // Calculate order total
+                              const orderTotal =
+                                order.items.reduce((total, item) => {
+                                  return total + item.price * item.qty
+                                }, 0) -
+                                order.discountAmount +
+                                order.taxAmount +
+                                (order.deliveryFee || 0)
+
+                              // Update daily balance in a separate transaction
+                              await runTransaction(db, async (transaction) => {
+                                // Extract just the date part from receiptDate
+                                const dateOnly = new Date(order.receiptDate)
+                                  .toISOString()
+                                  .split('T')[0]
+
+                                await updateDailyBalanceTransaction(
+                                  transaction,
+                                  dateOnly, // Use dateOnly instead of order.receiptDate
+                                  orderTotal, // income
+                                  0, // expenses
+                                )
+                              })
+                            }
+                          }
+                        }}
                       >
                         {creditor ? 'Mark as Credited' : 'Mark as Paid'}
                       </Button>
@@ -405,9 +450,7 @@ export function OrderNotification() {
 
             const { runTransaction, doc } = await import('firebase/firestore')
             const { db } = await import('@/firebase/firestore')
-            const { getWeeklyDocId } = await import(
-              '@/firebase/firestore.utils'
-            )
+            const { getDailyDocId } = await import('@/firebase/firestore.utils')
 
             await runTransaction(db, async (transaction) => {
               // --- READS FIRST ---
@@ -421,7 +464,7 @@ export function OrderNotification() {
               // Get order batch
               const orderBatchRef = doc(
                 db,
-                'orderHistoryWeekly',
+                'orderHistoryDaily',
                 cancelDrawer.docId!,
               )
               const orderBatchSnap = await transaction.get(orderBatchRef)
@@ -430,10 +473,10 @@ export function OrderNotification() {
                 : []
 
               // Get inventory history batch
-              const inventoryHistoryDocId = getWeeklyDocId(new Date())
+              const inventoryHistoryDocId = getDailyDocId(new Date())
               const inventoryHistoryBatchRef = doc(
                 db,
-                'inventoryHistoryWeekly',
+                'inventoryHistoryDaily',
                 inventoryHistoryDocId,
               )
               const inventoryHistorySnap = await transaction.get(

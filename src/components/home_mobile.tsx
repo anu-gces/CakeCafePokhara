@@ -136,7 +136,7 @@ export function Home() {
       <NotificationPermissionDrawer />
       <div
         data-vaul-drawer-wrapper=""
-        className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip overscroll-none"
+        className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip"
       >
         <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export function Home() {
         </div>
         <div
           className={
-            'relative flex-grow overflow-x-hidden overflow-y-hidden [view-transition-name:main-content]  overscroll-contain'
+            'relative flex-grow overflow-x-hidden overflow-y-hidden [view-transition-name:main-content]  '
           }
         >
           <PullToRefresh />
@@ -357,7 +357,7 @@ function HamburgerDrawer() {
             <span>Bakery Ledger</span>
           </Link>
           <Link
-            to="/home/bakeryLedger"
+            to="/home/utilityLedger"
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
@@ -520,7 +520,7 @@ function PullToRefresh() {
       ) {
         const deltaY = e.touches[0].clientY - startY.current
         if (deltaY > 0) {
-          y.set(Math.min(deltaY, 100))
+          y.set(Math.min(deltaY, 200))
           e.preventDefault()
         } else {
           y.set(0) // Reset if user swipes up
@@ -530,15 +530,13 @@ function PullToRefresh() {
 
     function handleTouchEnd() {
       if (!isPulling.current) return
-      const shouldReload = y.get() >= 80
+      const shouldReload = y.get() >= 190
       animate(y, 0, {
         type: 'spring',
         stiffness: 500,
         damping: 40,
         mass: 2,
         onComplete: () => {
-          //rotate360
-
           if (shouldReload) {
             window.location.reload()
           }

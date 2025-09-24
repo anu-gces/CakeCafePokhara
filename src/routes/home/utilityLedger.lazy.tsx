@@ -23,7 +23,8 @@ import {
 import { CalendarDateRangePicker } from '@/components/ui/daterangepicker'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { Button } from '@/components/ui/button'
-import { LoaderIcon, ReceiptIcon, Trash2Icon } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { LoaderIcon, ReceiptIcon, Trash2Icon, Plus, Edit } from 'lucide-react'
 import { useState } from 'react'
 import * as Yup from 'yup'
 import { Label } from '@/components/ui/label'
@@ -40,7 +41,9 @@ import {
 } from '@/firebase/utilityLedger' // adjust path as needed
 import SplashScreen from '@/components/splashscreen'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { getAllVendors } from '@/firebase/vendors'
+import { getAllVendors, type Vendor } from '@/firebase/vendors'
+import type { UserAdditional } from '@/firebase/firestore'
+import type { User } from 'firebase/auth'
 
 type DateRange = { from: Date | undefined; to?: Date }
 
@@ -88,6 +91,7 @@ function RouteComponent() {
 
   // Filter state
   const [selectedVendor, setSelectedVendor] = useState<string>('ALL')
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false)
   // CalendarDateRangePicker expects { from: Date | undefined, to?: Date }
   // Set initial range to cover the full current day (00:00:00 to 23:59:59)
   const now = new Date()
@@ -114,27 +118,38 @@ function RouteComponent() {
     to: endOfToday,
   })
 
-  // Filter items by vendor and purchaseDate range (use purchaseDate if present, else fallback to addedAt)
+  // Filter items by vendor and date range (use addedAt for filtering)
   let filteredItems = items || []
+
+  // Apply vendor filter
   if (selectedVendor !== 'ALL') {
     filteredItems = filteredItems.filter(
       (item) => item.vendorId === selectedVendor,
     )
   }
-  if (dateRange.from && dateRange.to) {
-    // Use the provided from/to as is (should already be start/end of day)
-    const from = new Date(dateRange.from)
-    const to = new Date(dateRange.to)
-    filteredItems = filteredItems.filter((item) => {
-      const itemDate = new Date(item.purchaseDate || item.addedAt)
-      return itemDate >= from && itemDate <= to
-    })
-  } else if (dateRange.from) {
-    const from = new Date(dateRange.from)
-    filteredItems = filteredItems.filter((item) => {
-      const itemDate = new Date(item.purchaseDate || item.addedAt)
-      return itemDate >= from
-    })
+
+  // Apply unpaid filter - if active, ignore date filter and show all unpaid
+  if (showUnpaidOnly) {
+    filteredItems = filteredItems.filter(
+      (item) => item.paymentStatus === 'credited',
+    )
+  } else {
+    // Apply date filter only when not showing unpaid only
+    if (dateRange.from && dateRange.to) {
+      // Use the provided from/to as is (should already be start/end of day)
+      const from = new Date(dateRange.from)
+      const to = new Date(dateRange.to)
+      filteredItems = filteredItems.filter((item) => {
+        const itemDate = new Date(item.addedAt)
+        return itemDate >= from && itemDate <= to
+      })
+    } else if (dateRange.from) {
+      const from = new Date(dateRange.from)
+      filteredItems = filteredItems.filter((item) => {
+        const itemDate = new Date(item.addedAt)
+        return itemDate >= from
+      })
+    }
   }
 
   // Calculate totals for accounting (filtered)
@@ -171,6 +186,17 @@ function RouteComponent() {
               <h1 className="font-bold text-primary text-2xl">
                 Utility Ledger
               </h1>
+              {/* Unpaid Filter Switch */}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="unpaid-filter"
+                  checked={showUnpaidOnly}
+                  onCheckedChange={setShowUnpaidOnly}
+                />
+                <Label htmlFor="unpaid-filter" className="font-medium text-sm">
+                  Show Unpaid Only
+                </Label>
+              </div>
               {/* Vendor Filter */}
               <Select value={selectedVendor} onValueChange={setSelectedVendor}>
                 <SelectTrigger className="w-36" id="vendorFilter">
@@ -185,7 +211,7 @@ function RouteComponent() {
                   ))}
                 </SelectContent>
               </Select>
-              {/* Date Range Picker */}
+              {/* Date Range Picker - disabled when showing unpaid only */}
               <CalendarDateRangePicker
                 value={dateRange}
                 onChange={(range) =>
@@ -194,7 +220,7 @@ function RouteComponent() {
                     to: range?.to ?? undefined,
                   })
                 }
-                className="w-64"
+                className={`w-64 ${showUnpaidOnly ? 'opacity-50 pointer-events-none' : ''}`}
               />
             </div>
             {userAdditional?.role !== 'employee' && <LedgerDrawer />}
@@ -303,47 +329,95 @@ function RouteComponent() {
                                   ? 'Paid'
                                   : 'Credited'}
                               </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {(() => {
-                                  const dt = new Date(
-                                    item.purchaseDate || item.addedAt,
-                                  )
-                                  return (
-                                    dt.toLocaleDateString() +
-                                    ' ' +
-                                    dt.toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })
-                                  )
-                                })()}
+                              {/* Added Date */}
+                              <Badge
+                                variant="outline"
+                                className="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 text-xs"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Added:{' '}
+                                {new Date(
+                                  item.addedAt,
+                                ).toLocaleDateString()}{' '}
+                                {new Date(item.addedAt).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="flex items-center gap-1 bg-orange-50 dark:bg-orange-900/20 text-xs"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Modified:{' '}
+                                {new Date(
+                                  item.modifiedAt,
+                                ).toLocaleDateString()}{' '}
+                                {new Date(item.modifiedAt).toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  },
+                                )}
                               </Badge>
                               {item.paymentStatus === 'credited' && (
-                                <Button
-                                  size="sm"
-                                  className="px-3 py-1 h-7 text-xs"
-                                  onClick={() =>
-                                    updatePaymentStatusMutation.mutate({
-                                      itemId: item.id,
-                                      paymentStatus: 'paid',
-                                    })
-                                  }
-                                  disabled={
-                                    updatePaymentStatusMutation.isPending
-                                  }
-                                >
-                                  {updatePaymentStatusMutation.isPending ? (
-                                    <>
-                                      <LoaderIcon
-                                        color="white"
-                                        className="mr-1 w-3 h-3 animate-spin"
-                                      />
-                                      Paying...
-                                    </>
-                                  ) : (
-                                    'Mark Paid'
-                                  )}
-                                </Button>
+                                <Drawer>
+                                  <DrawerTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      className="px-3 py-1 h-7 text-xs"
+                                      disabled={
+                                        updatePaymentStatusMutation.isPending
+                                      }
+                                    >
+                                      {updatePaymentStatusMutation.isPending ? (
+                                        <>
+                                          <LoaderIcon
+                                            color="white"
+                                            className="mr-1 w-3 h-3 animate-spin"
+                                          />
+                                          Paying...
+                                        </>
+                                      ) : (
+                                        'Mark Paid'
+                                      )}
+                                    </Button>
+                                  </DrawerTrigger>
+                                  <DrawerContent>
+                                    <DrawerHeader>
+                                      <DrawerTitle>Confirm Payment</DrawerTitle>
+                                      <DrawerDescription>
+                                        Marking as paid updates status and daily
+                                        balances. This is irreversible &{' '}
+                                        <span className="font-bold text-red-500">
+                                          Deleting{' '}
+                                        </span>
+                                        won't adjust balances. Confirm?
+                                      </DrawerDescription>
+                                    </DrawerHeader>
+                                    <DrawerFooter>
+                                      <Button
+                                        onClick={() =>
+                                          updatePaymentStatusMutation.mutate({
+                                            itemId: item.id,
+                                            paymentStatus: 'paid',
+                                          })
+                                        }
+                                        disabled={
+                                          updatePaymentStatusMutation.isPending
+                                        }
+                                      >
+                                        Confirm
+                                      </Button>
+                                      <DrawerClose asChild>
+                                        <Button variant="outline">
+                                          Cancel
+                                        </Button>
+                                      </DrawerClose>
+                                    </DrawerFooter>
+                                  </DrawerContent>
+                                </Drawer>
                               )}
                             </div>
                           </div>
@@ -425,7 +499,8 @@ const DeleteItemDrawer = ({ id }: { id: string }) => {
         <DrawerHeader>
           <DrawerTitle>Delete Item Ledger</DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to delete this Item from the Ledger?
+            Are you sure you want to delete this Item from the Ledger? This will
+            only clear History but won't affect daily balances.
           </DrawerDescription>
         </DrawerHeader>
         <DrawerFooter>
@@ -464,7 +539,7 @@ const LedgerSchema = Yup.object().shape({
   paymentStatus: Yup.string()
     .oneOf(['paid', 'credited'])
     .required('Payment status is required'),
-  purchaseDate: Yup.string(),
+  addedAt: Yup.string(),
   notes: Yup.string(),
 })
 
@@ -516,7 +591,6 @@ function LedgerDrawer() {
           vendors={vendors}
           userAdditional={userAdditional}
           user={user}
-          setOpen={setOpen}
         />
       </DrawerContent>
     </Drawer>
@@ -529,14 +603,19 @@ function LedgerForm({
   vendors,
   userAdditional,
   user,
-  setOpen,
-}: any) {
+}: {
+  addItemMutation: any
+  isVendorsLoading: boolean
+  vendors: (Vendor & { id: string })[] | undefined
+  userAdditional: UserAdditional | null
+  user: User | null
+}) {
   const [form, setForm] = useState({
     itemName: '',
     vendorId: '',
     price: '',
     paymentStatus: 'paid',
-    purchaseDate: new Date().toISOString(),
+    addedAt: new Date().toISOString(),
     notes: '',
   })
   const [errors, setErrors] = useState<any>({})
@@ -557,25 +636,24 @@ function LedgerForm({
         vendorId: form.vendorId || null,
         price: Number(form.price),
         paymentStatus: form.paymentStatus,
-        purchaseDate: form.purchaseDate,
         notes: form.notes,
         addedBy:
           userAdditional?.firstName ||
           user?.displayName ||
           user?.email ||
           'Unknown',
-        addedAt: new Date().toISOString(),
+        addedAt: form.addedAt || new Date().toISOString(),
+        modifiedAt: form.addedAt || new Date().toISOString(),
       })
       setForm({
         itemName: '',
         vendorId: '',
         price: '',
         paymentStatus: 'paid',
-        purchaseDate: new Date().toISOString(),
+        addedAt: new Date().toISOString(),
         notes: '',
       })
       setErrors({})
-      setOpen(false)
     } catch (err: any) {
       if (err.inner) {
         const errObj: any = {}
@@ -642,17 +720,15 @@ function LedgerForm({
           )}
         </div>
         <div className="space-y-2 px-4 py-2">
-          <Label htmlFor="purchaseDate">Purchase Date</Label>
+          <Label htmlFor="addedAt">Added Date & Time</Label>
           <DatePickerWithPresets
-            selected={
-              form.purchaseDate ? new Date(form.purchaseDate) : undefined
-            }
+            selected={form.addedAt ? new Date(form.addedAt) : undefined}
             onSelect={(date: Date | undefined) =>
-              handleChange('purchaseDate', date ? date.toISOString() : '')
+              handleChange('addedAt', date ? date.toISOString() : '')
             }
           />
-          {errors.purchaseDate && (
-            <div className="text-red-500 text-xs">{errors.purchaseDate}</div>
+          {errors.addedAt && (
+            <div className="text-red-500 text-xs">{errors.addedAt}</div>
           )}
         </div>
         <div className="space-y-2 px-4 py-2">

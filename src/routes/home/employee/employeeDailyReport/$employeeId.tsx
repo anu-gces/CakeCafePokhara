@@ -43,7 +43,7 @@ function RouteComponent() {
       const processedByName = employee.firstName || employee.email || 'unknown'
 
       // Fetch from weekly order history collections
-      const ordersRef = collection(db, 'orderHistoryWeekly')
+      const ordersRef = collection(db, 'orderHistoryDaily')
       const querySnapshot = await getDocs(ordersRef)
       let allOrders: ProcessedOrder[] = []
 

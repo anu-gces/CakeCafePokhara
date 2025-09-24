@@ -393,9 +393,9 @@ export async function getAllCreditors(): Promise<
 }
 
 export async function getCreditorOrdersByNickname(nickname: string) {
-  const weeklySnapshots = await getDocs(collection(db, 'orderHistoryWeekly'))
+  const dailySnapshots = await getDocs(collection(db, 'orderHistoryDaily'))
   let allOrders: (ProcessedOrder & { docId: string })[] = []
-  weeklySnapshots.forEach((doc) => {
+  dailySnapshots.forEach((doc) => {
     const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
     // Attach docId to each order
     const batchOrdersWithDocId = batchOrders.map((order) => ({

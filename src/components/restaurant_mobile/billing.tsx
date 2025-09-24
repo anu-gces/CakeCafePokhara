@@ -56,7 +56,7 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table'
-import { getWeeklyDocId } from '@/firebase/firestore.utils'
+import { getDailyDocId } from '@/firebase/firestore.utils'
 
 export const columns: ColumnDef<ProcessedOrder>[] = [
   {
@@ -423,7 +423,7 @@ const EditDrawer = ({
               }
 
               editOrderMutation.mutate({
-                batchDocId: getWeeklyDocId(new Date(order.receiptDate)),
+                batchDocId: getDailyDocId(new Date(order.receiptDate)),
                 updatedOrder,
               })
             } catch (err) {
@@ -764,7 +764,7 @@ const DeleteDrawer = ({
               if (!order) return
               setLocalLoading(true)
               await deleteOrderMutation.mutateAsync({
-                batchDocId: getWeeklyDocId(new Date(order.receiptDate)),
+                batchDocId: getDailyDocId(new Date(order.receiptDate)),
                 receiptId: order.receiptId,
               })
             }}

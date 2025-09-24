@@ -1,6 +1,6 @@
 import { db } from './firestore'
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore'
-import { getWeeklyDocId } from './firestore.utils'
+import { getDailyDocId } from './firestore.utils'
 import type { FoodItemProps } from '@/firebase/menuManagement'
 
 // Edit inventory item
@@ -71,10 +71,10 @@ export async function saveInventoryHistory(
   if (!changed) return
 
   // Use the first item's dateModified or now for batch doc id
-  const docId = getWeeklyDocId(
+  const docId = getDailyDocId(
     new Date(historyEntry.foodItems[0]?.dateModified || Date.now()),
   )
-  const batchRef = doc(collection(db, 'inventoryHistoryWeekly'), docId)
+  const batchRef = doc(collection(db, 'inventoryHistoryDaily'), docId)
   const batchSnap = await getDoc(batchRef)
   let items: InventoryHistoryProps[] = []
   if (batchSnap.exists()) {
@@ -84,13 +84,11 @@ export async function saveInventoryHistory(
   await setDoc(batchRef, { items }, { merge: true })
 }
 
-// Get inventory history for display (from weekly batches)
+// Get inventory history for display (from daily batches)
 export async function getAllInventoryHistory(): Promise<
   InventoryHistoryProps[]
 > {
-  const historySnapshot = await getDocs(
-    collection(db, 'inventoryHistoryWeekly'),
-  )
+  const historySnapshot = await getDocs(collection(db, 'inventoryHistoryDaily'))
   let allHistory: InventoryHistoryProps[] = []
 
   historySnapshot.forEach((doc) => {

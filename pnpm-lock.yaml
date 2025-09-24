@@ -125,6 +125,9 @@ dependencies:
   react-pull-to-refresh:
     specifier: ^2.0.1
     version: 2.0.1(react@19.1.0)
+  react-pull-to-refreshify:
+    specifier: ^0.1.0
+    version: 0.1.0
   recharts:
     specifier: ^2.15.3
     version: 2.15.3(react-dom@19.1.0)(react@19.1.0)
@@ -6730,6 +6733,10 @@ packages:
       react: 19.1.0
     dev: false
 
+  /react-pull-to-refreshify@0.1.0:
+    resolution: {integrity: sha512-qBhJrKjy/T5OtVnMeidhJ4NlptYXzWhdowHP5t0oCYRxJYPVKnjurxqq1vUOeFRjz/8uSdT/m7y5m34J37+WPw==}
+    dev: false
+
   /react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
@@ -7193,6 +7200,7 @@ packages:
   /source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
     dependencies:
       whatwg-url: 7.1.0
     dev: false

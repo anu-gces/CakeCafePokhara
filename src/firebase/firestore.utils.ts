@@ -16,6 +16,10 @@ export function getWeeklyDocId(date: Date = new Date()): string {
   return `${format(date, 'yyyy-MM')}-Week${String(week).padStart(2, '0')}`
 }
 
+export function getDailyDocId(date: Date = new Date()): string {
+  return `${format(date, 'yyyy-MM-dd')}`
+}
+
 export function getWeeklyDocIdsInRange(from: string, to: string): string[] {
   const days = eachDayOfInterval({
     start: parseISO(from),
@@ -24,4 +28,13 @@ export function getWeeklyDocIdsInRange(from: string, to: string): string[] {
 
   const uniqueWeekIds = new Set(days.map(getWeeklyDocId))
   return Array.from(uniqueWeekIds)
+}
+
+export function getDailyDocIdsInRange(from: string, to: string): string[] {
+  const days = eachDayOfInterval({
+    start: parseISO(from),
+    end: parseISO(to),
+  })
+
+  return days.map(getDailyDocId)
 }

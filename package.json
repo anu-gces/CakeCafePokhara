@@ -53,6 +53,7 @@
     "react-firebase-hooks": "^5.1.1",
     "react-number-format": "^5.4.4",
     "react-pull-to-refresh": "^2.0.1",
+    "react-pull-to-refreshify": "^0.1.0",
     "recharts": "^2.15.3",
     "sonner": "^2.0.4",
     "tailwind-merge": "^3.0.2",

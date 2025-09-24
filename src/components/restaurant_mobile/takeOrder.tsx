@@ -1,12 +1,5 @@
-declare global {
-  interface Window {
-    __kanbanDragging: boolean
-  }
-}
-window.__kanbanDragging = false
-
 import { Link, useSearch } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -40,6 +33,8 @@ import {
   SquarePenIcon,
   PartyPopperIcon,
   Trash2Icon,
+  ChevronsUpIcon,
+  ChevronsDownIcon,
 } from 'lucide-react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createOrderDocument } from '@/firebase/takeOrder'
@@ -64,6 +59,7 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 import * as Yup from 'yup'
@@ -171,64 +167,151 @@ function MenuCard({
 // Cart Preview Component
 
 function CartPreview({ cart }: { cart: AddToCart }) {
+  const [isAtTop, setIsAtTop] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const moveToTop = () => {
+    setIsAtTop(true)
+  }
+
+  const moveToBottom = () => {
+    setIsAtTop(false)
+  }
+
+  const getCardOffset = () => {
+    if (!cardRef.current) return 200 // fallback
+    const cardHeight = cardRef.current.offsetHeight
+    return cardHeight + 100 // card height + some padding
+  }
+
   return createPortal(
     <AnimatePresence>
       {cart.items.length > 0 && (
-        <motion.div
-          key="cart-preview"
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 40 }}
-          transition={{ duration: 0.25 }}
-          className="right-4 bottom-16 left-4 z-50 fixed bg-transparent shadow-lg backdrop-blur-md p-4 border rounded-lg overscroll-y-contain"
-          drag="y"
-          dragConstraints={{ top: -500, bottom: 0 }}
-          dragTransition={{
-            power: 0.2,
-            timeConstant: 200,
-            bounceStiffness: 600,
-            bounceDamping: 30,
-          }}
-          onDragStart={() => {
-            window.__kanbanDragging = true
-          }}
-          onDragEnd={() => {
-            window.__kanbanDragging = false
-          }}
-        >
-          <h3 className="mb-2 font-medium">Cart Preview</h3>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {cart.items.map((item, index) => (
-              <div key={item.foodId} className="flex justify-between text-sm">
-                <span>
-                  <span>
-                    {index + 1}
-                    {') '}
-                  </span>
-                  {item.qty}x {item.name}
-                  <span className="text-muted-foreground">
-                    {item.type && `(${item.type})`}
-                  </span>
-                </span>
-                <span>Rs. {(item.price * item.qty).toFixed(2)}</span>
+        <>
+          <motion.div
+            key="cart-preview"
+            ref={cardRef}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{
+              opacity: 1,
+              y: isAtTop ? -(window.innerHeight - getCardOffset()) : 0,
+            }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{
+              type: 'spring',
+              stiffness: 200, // higher = snappier
+              damping: 15, // lower = more bouncy
+              mass: 1, // lower = faster
+            }}
+            className="right-4 bottom-16 left-4 z-50 fixed bg-background/50 shadow-lg backdrop-blur-md p-4 border rounded-xl"
+            onTouchStart={() => {
+              // Prevent pull-to-refresh when touching cart preview
+              window.__globalDragging = true
+            }}
+            onTouchEnd={() => {
+              // Re-enable pull-to-refresh when touch ends
+              window.__globalDragging = false
+            }}
+            onTouchCancel={() => {
+              // Re-enable pull-to-refresh if touch is cancelled
+              window.__globalDragging = false
+            }}
+          >
+            {/* Header with centered arrows */}
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium">Cart Preview</h3>
+
+              {/* Centered Arrow Buttons */}
+              <div className="flex flex-1 justify-center items-center">
+                <AnimatePresence mode="wait">
+                  {!isAtTop ? (
+                    <motion.button
+                      key="up-arrow"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={moveToTop}
+                      className="flex justify-center items-center hover:bg-accent p-1.5 rounded-full transition-colors"
+                    >
+                      <motion.div
+                        animate={{ y: [0, -1, 0] }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        <ChevronsUpIcon className="w-4 h-4 text-primary" />
+                      </motion.div>
+                    </motion.button>
+                  ) : (
+                    <motion.button
+                      key="down-arrow"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={moveToBottom}
+                      className="flex justify-center items-center hover:bg-accent p-1.5 rounded-full transition-colors"
+                    >
+                      <motion.div
+                        animate={{ y: [0, 1, 0] }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: 'easeInOut',
+                        }}
+                      >
+                        <ChevronsDownIcon className="w-4 h-4 text-primary" />
+                      </motion.div>
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
-            ))}
-          </div>
-          <div className="mt-2 pt-2 border-t">
-            <div className="flex justify-between font-medium">
-              <span>
-                Total: {cart.items.reduce((sum, item) => sum + item.qty, 0)}{' '}
-                items
-              </span>
-              <span>
-                Rs.{' '}
-                {cart.items
-                  .reduce((sum, item) => sum + item.price * item.qty, 0)
-                  .toFixed(2)}
-              </span>
+
+              {/* Right spacer for balance */}
+              <div className="w-[72px]"></div>
             </div>
-          </div>
-        </motion.div>
+            <ScrollArea
+              type="always"
+              className="px-4 py-2 border rounded-md max-h-32 overflow-auto"
+            >
+              <div className="space-y-1">
+                {cart.items.map((item, index) => (
+                  <div
+                    key={item.foodId}
+                    className="flex justify-between text-sm"
+                  >
+                    <span>
+                      {index + 1}) {item.qty}x {item.name}{' '}
+                      {item.type && (
+                        <span className="text-muted-foreground">
+                          ({item.type})
+                        </span>
+                      )}
+                    </span>
+                    <span>Rs. {(item.price * item.qty).toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+            <div className="mt-2 pt-2 border-t">
+              <div className="flex justify-between font-medium">
+                <span>
+                  Total: {cart.items.reduce((sum, item) => sum + item.qty, 0)}{' '}
+                  items
+                </span>
+                <span>
+                  Rs.{' '}
+                  {cart.items
+                    .reduce((sum, item) => sum + item.price * item.qty, 0)
+                    .toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>,
     document.body, // Portal target - renders directly in document.body

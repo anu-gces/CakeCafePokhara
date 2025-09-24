@@ -3,8 +3,8 @@ import { type FoodItemProps } from './menuManagement'
 import { auth } from './firebase'
 import {
   generateReceiptId,
-  getWeeklyDocId,
-  getWeeklyDocIdsInRange,
+  getDailyDocId,
+  getDailyDocIdsInRange,
 } from './firestore.utils'
 import {
   collection,
@@ -66,7 +66,7 @@ export type AddToCart = {
 
 //   // Use weekly batching
 //   const docId = getWeeklyDocId(new Date(orderDetails.receiptDate))
-//   const batchRef = doc(collection(db, 'orderHistoryWeekly'), docId)
+//   const batchRef = doc(collection(db, 'orderHistoryDaily'), docId)
 
 //   // Get current batch
 //   await runTransaction(db, async (transaction) => {
@@ -103,12 +103,12 @@ export async function createOrderDocument(orderDetails: AddToCart) {
   }
 
   // References
-  const orderDocId = getWeeklyDocId(new Date(orderDetails.receiptDate))
-  const orderBatchRef = doc(collection(db, 'orderHistoryWeekly'), orderDocId)
+  const orderDocId = getDailyDocId(new Date(orderDetails.receiptDate))
+  const orderBatchRef = doc(collection(db, 'orderHistoryDaily'), orderDocId)
   const inventoryRef = doc(db, 'menu', 'allFoodItems')
-  const inventoryHistoryDocId = getWeeklyDocId(new Date())
+  const inventoryHistoryDocId = getDailyDocId(new Date())
   const inventoryHistoryBatchRef = doc(
-    collection(db, 'inventoryHistoryWeekly'),
+    collection(db, 'inventoryHistoryDaily'),
     inventoryHistoryDocId,
   )
 
@@ -193,7 +193,7 @@ export interface ProcessedOrder extends AddToCart {
 }
 
 export async function getAllOrders(): Promise<ProcessedOrder[]> {
-  const ordersRef = collection(db, 'orderHistoryWeekly')
+  const ordersRef = collection(db, 'orderHistoryDaily')
   const querySnapshot = await getDocs(ordersRef)
   let allOrders: ProcessedOrder[] = []
   querySnapshot.forEach((doc) => {
@@ -212,7 +212,7 @@ export async function editOrder(
   originalBatchDocId: string,
   updatedOrder: ProcessedOrder,
 ) {
-  const originalBatchRef = doc(db, 'orderHistoryWeekly', originalBatchDocId)
+  const originalBatchRef = doc(db, 'orderHistoryDaily', originalBatchDocId)
   const originalBatchSnap = await getDoc(originalBatchRef)
   if (!originalBatchSnap.exists()) throw new Error('Original batch not found')
 
@@ -226,8 +226,8 @@ export async function editOrder(
   const oldDate = new Date(oldOrder.receiptDate)
   const newDate = new Date(updatedOrder.receiptDate)
 
-  const oldDocId = getWeeklyDocId(oldDate)
-  const newDocId = getWeeklyDocId(newDate)
+  const oldDocId = getDailyDocId(oldDate)
+  const newDocId = getDailyDocId(newDate)
 
   updatedOrder.updatedAt = new Date().toISOString()
 
@@ -247,7 +247,7 @@ export async function editOrder(
     )
 
     // Add to new batch
-    const newBatchRef = doc(db, 'orderHistoryWeekly', newDocId)
+    const newBatchRef = doc(db, 'orderHistoryDaily', newDocId)
     const newBatchSnap = await getDoc(newBatchRef)
     let newOrders: ProcessedOrder[] = []
 
@@ -261,7 +261,7 @@ export async function editOrder(
 }
 
 export async function permaDeleteOrder(batchDocId: string, receiptId: string) {
-  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchRef = doc(db, 'orderHistoryDaily', batchDocId)
   const batchSnap = await getDoc(batchRef)
   if (!batchSnap.exists()) throw new Error('Batch document not found')
 
@@ -289,7 +289,7 @@ export async function getLastNOrders(n: number): Promise<ProcessedOrder[]> {
 export function listenToAllOrders(
   callback: (orders: (ProcessedOrder & { docId: string })[]) => void,
 ) {
-  const ordersRef = collection(db, 'orderHistoryWeekly')
+  const ordersRef = collection(db, 'orderHistoryDaily')
 
   const unsubscribe = onSnapshot(
     ordersRef,
@@ -331,7 +331,7 @@ export async function updateOrderStatus(
   status: string,
   receiptId: string,
 ) {
-  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchRef = doc(db, 'orderHistoryDaily', batchDocId)
   const batchSnap = await getDoc(batchRef)
   if (!batchSnap.exists()) throw new Error('Batch document not found')
 
@@ -350,7 +350,7 @@ export async function dismissOrderNotification(
   batchDocId: string,
   receiptId: string,
 ) {
-  const batchRef = doc(db, 'orderHistoryWeekly', batchDocId)
+  const batchRef = doc(db, 'orderHistoryDaily', batchDocId)
   const batchSnap = await getDoc(batchRef)
   if (!batchSnap.exists()) throw new Error('Batch document not found')
 
@@ -365,8 +365,8 @@ export async function dismissOrderNotification(
   await setDoc(batchRef, { orders }, { merge: true })
 }
 
-const memoizedFetchOrderWeeklyDoc = memoize(async (weekId: string) => {
-  const snap = await getDoc(doc(db, 'orderHistoryWeekly', weekId))
+const memoizedFetchOrderDailyDoc = memoize(async (dayId: string) => {
+  const snap = await getDoc(doc(db, 'orderHistoryDaily', dayId))
   return snap.data()
 })
 
@@ -374,16 +374,15 @@ export async function getOrdersInRange(
   from: string,
   to: string,
 ): Promise<ProcessedOrder[]> {
-  const weekIds = getWeeklyDocIdsInRange(from, to)
+  const dailyIds = getDailyDocIdsInRange(from, to)
 
   const docs = await Promise.all(
-    weekIds.map((weekId) => memoizedFetchOrderWeeklyDoc(weekId)),
+    dailyIds.map((dailyId) => memoizedFetchOrderDailyDoc(dailyId)),
   )
 
   const allOrders: ProcessedOrder[] = docs.flatMap(
     (doc) => (doc?.orders || []) as ProcessedOrder[],
   )
-
   return allOrders
     .filter((order) => {
       const orderDate = new Date(order.receiptDate)

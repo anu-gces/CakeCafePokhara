@@ -11,6 +11,8 @@ import { format } from 'date-fns'
 import { getOrdersInRange } from '@/firebase/takeOrder'
 import { getKitchenLedgerInRange } from '@/firebase/kitchenLedger'
 import { getBakeryLedgerInRange } from '@/firebase/bakeryLedger'
+import { getSeedBalance, getAllBalanceData } from '@/firebase/dailyBalances'
+import SeedOpeningConfig from './seedOpeningConfig'
 
 export default function Dashboard() {
   const [date, setDate] = useState<DateRange | undefined>({
@@ -46,6 +48,20 @@ export default function Dashboard() {
     gcTime: Number.POSITIVE_INFINITY,
   })
 
+  // Query for daily balance data - fetch ALL years (simple approach)
+  const balanceDataQuery = useQuery({
+    queryKey: ['allDailyBalances'],
+    queryFn: getAllBalanceData,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  })
+
+  // Query for seed balance
+  const seedBalanceQuery = useQuery({
+    queryKey: ['seedBalance'],
+    queryFn: getSeedBalance,
+  })
+
   return (
     <>
       <div className="md:flex flex-col px-2 h-full overflow-y-auto">
@@ -54,25 +70,23 @@ export default function Dashboard() {
             defaultValue="overview"
             className="flex flex-col space-y-4 h-full"
           >
-            <div className="flex sm:flex-row flex-col sm:justify-between sm:items-center gap-2">
-              <TabsList className="flex-wrap">
-                <TabsTrigger value="overview">
+            <div className="flex flex-col gap-4">
+              <TabsList className="flex-wrap w-full">
+                <TabsTrigger value="overview" className="flex-1 min-w-0">
                   <LayoutDashboardIcon className="mr-2 w-4 h-4" /> Overview
                 </TabsTrigger>
-                <TabsTrigger value="analytics">
+                <TabsTrigger value="analytics" className="flex-1 min-w-0">
                   <BarChartIcon className="mr-2 w-4 h-4" /> Analytics
                 </TabsTrigger>
+                <TabsTrigger
+                  value="seedOpeningConfig"
+                  className="flex-1 min-w-0"
+                >
+                  <BarChartIcon className="mr-2 w-4 h-4" /> Configure
+                </TabsTrigger>
               </TabsList>
-              <div className="flex flex-nowrap items-center gap-2 min-w-0">
-                <div className="flex-shrink">
-                  <CalendarDateRangePicker value={date} onChange={setDate} />
-                </div>
-                {/* <Button className="flex-shrink gap-2">
-                  <Download color="#ffffff" size={16} /> Download
-                </Button>
-                <Button className="flex-shrink gap-2" size="icon">
-                  <Share color="#ffffff" size={16} />
-                </Button> */}
+              <div className="flex justify-center sm:justify-end">
+                <CalendarDateRangePicker value={date} onChange={setDate} />
               </div>
             </div>
             <TabsContent value="overview" className="space-y-4 h-full">
@@ -91,7 +105,15 @@ export default function Dashboard() {
                   rawOrders={incomeQuery.data || []}
                   kitchenLedger={kitchenLedgerQuery.data || []}
                   bakeryLedger={bakeryLedgerQuery.data || []}
+                  balanceData={balanceDataQuery.data}
+                  seedBalance={seedBalanceQuery.data}
+                  dateRange={{ from, to }}
                 />
+              </div>
+            </TabsContent>
+            <TabsContent value="seedOpeningConfig" className="space-y-4 h-full">
+              <div className="flex flex-col gap-4 h-full">
+                <SeedOpeningConfig />
               </div>
             </TabsContent>
           </Tabs>

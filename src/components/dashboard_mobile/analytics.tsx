@@ -30,7 +30,12 @@ import {
   mapToRevenueData,
 } from './analytics.utils'
 import AnimatedCounter from '../ui/animatedCounter'
-import { CreditCardIcon, TrendingUpIcon } from 'lucide-react'
+import {
+  CreditCardIcon,
+  TrendingUpIcon,
+  CalendarIcon,
+  WalletIcon,
+} from 'lucide-react'
 import {
   calculateTotalRevenue,
   calculateOrderTotal,
@@ -39,6 +44,7 @@ import {
 import type { ProcessedOrder } from '@/firebase/takeOrder'
 import { type KitchenLedgerItem } from '@/firebase/kitchenLedger'
 import { type BakeryLedgerItem } from '@/firebase/bakeryLedger'
+import { type DailyBalance, type SeedBalance } from '@/firebase/dailyBalances'
 
 export interface RevenueData {
   timestamp: string
@@ -254,14 +260,107 @@ export function Analytics({
   rawOrders,
   kitchenLedger,
   bakeryLedger,
+  balanceData,
+  seedBalance,
+  dateRange,
 }: {
   rawOrders: ProcessedOrder[]
   kitchenLedger: KitchenLedgerItem[]
   bakeryLedger: BakeryLedgerItem[]
+  balanceData: Record<string, DailyBalance> | undefined
+  seedBalance: SeedBalance | null | undefined
+  dateRange: { from: string; to: string }
 }) {
   const income = rawOrders.filter(
     (order) => !order.complementary && order.status === 'paid',
   )
+
+  // Calculate opening and closing balance for the date range
+  const calculateOpeningBalance = () => {
+    if (!balanceData || !seedBalance) return 0
+
+    const fromDate = dateRange.from
+    const seedDate = seedBalance.date
+    let runningBalance = seedBalance.amount
+
+    // Get all daily aggregates from all years and filter by date
+    const allDailyAggregates: Array<
+      [string, { totalIncome: number; totalExpenses: number }]
+    > = []
+
+    Object.values(balanceData).forEach((yearData) => {
+      Object.entries(yearData.dailyAggregates).forEach(([date, aggregate]) => {
+        allDailyAggregates.push([date, aggregate])
+      })
+    })
+
+    // CRITICAL: Only include transactions AFTER seed date and BEFORE range start
+    allDailyAggregates
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .filter(([date]) => date > seedDate && date < fromDate)
+      .forEach(([, aggregate]) => {
+        runningBalance += aggregate.totalIncome - aggregate.totalExpenses
+      })
+
+    return runningBalance
+  }
+
+  const calculateClosingBalance = () => {
+    if (!balanceData || !seedBalance) return 0
+
+    const toDate = dateRange.to
+    const seedDate = seedBalance.date
+    let runningBalance = seedBalance.amount
+
+    // Get all daily aggregates from all years and filter by date
+    const allDailyAggregates: Array<
+      [string, { totalIncome: number; totalExpenses: number }]
+    > = []
+
+    Object.values(balanceData).forEach((yearData) => {
+      Object.entries(yearData.dailyAggregates).forEach(([date, aggregate]) => {
+        allDailyAggregates.push([date, aggregate])
+      })
+    })
+
+    // CRITICAL: Only include transactions AFTER seed date and UP TO range end
+    allDailyAggregates
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .filter(([date]) => date > seedDate && date <= toDate)
+      .forEach(([, aggregate]) => {
+        runningBalance += aggregate.totalIncome - aggregate.totalExpenses
+      })
+
+    return runningBalance
+  }
+
+  const openingBalance = calculateOpeningBalance()
+  const closingBalance = calculateClosingBalance()
+
+  // Format the date range for display
+  const formatDateRange = () => {
+    if (dateRange.from === dateRange.to) {
+      return new Date(dateRange.from).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    }
+
+    const fromFormatted = new Date(dateRange.from).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    })
+    const toFormatted = new Date(dateRange.to).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+
+    return `${fromFormatted} - ${toFormatted}`
+  }
+
+  const dateRangeText = formatDateRange()
 
   const revenueData = mapToRevenueData({ income, kitchenLedger, bakeryLedger })
 
@@ -284,7 +383,7 @@ export function Analytics({
 
   return (
     <>
-      <div className="gap-4 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
+      <div className="gap-4 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Card className="w-full">
           <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">Total Income</CardTitle>
@@ -359,6 +458,40 @@ export function Analytics({
             <div className="font-bold text-2xl">
               {grossProfitMargin.toFixed(2)}%
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="w-full">
+          <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Opening Balance
+            </CardTitle>
+            <WalletIcon stroke="blue" className="w-4 h-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              Rs. <AnimatedCounter from={0} to={openingBalance} />
+            </div>
+            <p className="mt-1 text-muted-foreground text-xs">
+              {dateRangeText}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="w-full">
+          <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Closing Balance
+            </CardTitle>
+            <CalendarIcon stroke="purple" className="w-4 h-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              Rs. <AnimatedCounter from={0} to={closingBalance} />
+            </div>
+            <p className="mt-1 text-muted-foreground text-xs">
+              {dateRangeText}
+            </p>
           </CardContent>
         </Card>
       </div>
