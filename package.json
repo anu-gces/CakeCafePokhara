@@ -39,6 +39,7 @@
     "@tanstack/router-plugin": "^1.114.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "convex": "^1.35.1",
     "date-fns": "^4.1.0",
     "fast-memoize": "^2.5.2",
     "firebase": "^11.8.1",
