@@ -25,7 +25,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -34,7 +33,7 @@ import {
   SearchIcon,
   SlidersHorizontal,
 } from 'lucide-react'
-import { Label } from './label'
+import { cn } from '@/lib/utils'
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -50,6 +49,10 @@ export function DataTable<TData, TValue>({
   visibleColumns = [],
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    [],
+  )
+
   const initialVisibility = React.useMemo(() => {
     const allColumnIds = columns
       .map((col) => {
@@ -62,20 +65,17 @@ export function DataTable<TData, TValue>({
     return Object.fromEntries(
       allColumnIds.map((id) => [
         id,
-        visibleColumns.length === 0 || visibleColumns.includes(id as string),
+        visibleColumns.length === 0 || visibleColumns.includes(id),
       ]),
     )
   }, [columns, visibleColumns])
 
   const [columnVisibility, setColumnVisibility] =
     React.useState(initialVisibility)
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
-  )
+
   const table = useReactTable({
     data,
     columns,
-
     columnResizeMode: 'onChange',
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
@@ -84,124 +84,129 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-    },
+    state: { sorting, columnFilters, columnVisibility },
     initialState: {
-      pagination: {
-        pageIndex: 0,
-        pageSize: 9,
-      },
+      pagination: { pageIndex: 0, pageSize: 9 },
     },
   })
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center py-2 w-full transition-all duration-1000">
-        <div className="relative">
-          <Label className="block relative max-w-sm cursor-pointer">
-            <SearchIcon className="top-1/2 left-3 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
-            <Input
-              placeholder={`Filter ${filterColumnId}...`}
-              value={
-                (table.getColumn(filterColumnId)?.getFilterValue() as string) ??
-                ''
-              }
-              onChange={(event) =>
-                table
-                  .getColumn(filterColumnId)
-                  ?.setFilterValue(event.target.value)
-              }
-              className="pl-10 border border-input rounded-md w-8 focus:w-full h-9 text-sm transition-all duration-500 ease-in-out"
-            />
-          </Label>
+    <div className="flex flex-col gap-3 h-full">
+      {/* Toolbar */}
+      <div className="flex justify-between items-center gap-3">
+        <div className="relative max-w-xs">
+          <SearchIcon className="top-1/2 left-3 absolute w-3.5 h-3.5 text-muted-foreground -translate-y-1/2" />
+          <Input
+            placeholder={`Filter ${filterColumnId}...`}
+            value={
+              (table.getColumn(filterColumnId)?.getFilterValue() as string) ??
+              ''
+            }
+            onChange={(e) =>
+              table.getColumn(filterColumnId)?.setFilterValue(e.target.value)
+            }
+            className="pl-8 h-8 text-sm"
+          />
         </div>
-        <div className="flex justify-center items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft />
-          </Button>
-          <span className="text-nowrap">
-            Page {table.getState().pagination.pageIndex + 1} of{' '}
-            {table.getPageCount()}
-          </span>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronRight />
-          </Button>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild className="">
-            <Button variant="outline" size="icon" className="gap-2 ml-4">
-              <SlidersHorizontal className="size-5" />
-              <span className="hidden">Columns</span>
+        <div className="flex items-center gap-2">
+          {/* Pagination */}
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="icon"
+              className="w-7 h-7"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table.getAllLeafColumns().map((column) => {
-              if (column.getCanHide()) {
+            <span className="text-muted-foreground text-xs whitespace-nowrap">
+              {table.getState().pagination.pageIndex + 1} /{' '}
+              {table.getPageCount()}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="w-7 h-7"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+
+          {/* Column visibility */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-8 text-xs"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Columns
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table.getAllLeafColumns().map((column) => {
+                if (!column.getCanHide()) return null
                 return (
                   <DropdownMenuCheckboxItem
                     key={column.id}
-                    className="capitalize"
+                    className="text-sm capitalize"
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) => column.toggleVisibility(value)}
                   >
-                    {
-                      // Try to use meta.label, otherwise fallback to:
-                      // string version of columnDef.header if it's a string
-                      typeof column.columnDef.header === 'string'
-                        ? column.columnDef.header
-                        : (column.columnDef.meta?.label ?? column.id)
-                    }
+                    {typeof column.columnDef.header === 'string'
+                      ? column.columnDef.header
+                      : (column.columnDef.meta?.label ?? column.id)}
                   </DropdownMenuCheckboxItem>
                 )
-              }
-              return null
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-      <div className="h-full">
-        <Table className="border rounded-md">
+
+      {/* Table */}
+      <div className="border border-border rounded-xl overflow-hidden">
+        <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  )
-                })}
+              <TableRow
+                key={headerGroup.id}
+                className="bg-muted/50 hover:bg-muted/50"
+              >
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="h-9 font-medium text-[11px] text-muted-foreground uppercase tracking-wider"
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row, i) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
+                  className={cn(
+                    'border-border text-sm',
+                    i % 2 === 1 && 'bg-muted/20',
+                  )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="py-2.5">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
@@ -214,7 +219,7 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-24 text-muted-foreground text-sm text-center"
                 >
                   No results.
                 </TableCell>
@@ -222,6 +227,21 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Footer count */}
+      <div className="text-muted-foreground text-xs">
+        Showing{' '}
+        {table.getState().pagination.pageIndex *
+          table.getState().pagination.pageSize +
+          1}
+        –
+        {Math.min(
+          (table.getState().pagination.pageIndex + 1) *
+            table.getState().pagination.pageSize,
+          table.getFilteredRowModel().rows.length,
+        )}{' '}
+        of {table.getFilteredRowModel().rows.length} rows
       </div>
     </div>
   )

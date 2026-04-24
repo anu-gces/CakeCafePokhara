@@ -41,10 +41,10 @@ import {
   calculateOrderTotal,
   calculateTotalExpenditure,
 } from './dashboard.utils'
-import type { ProcessedOrder } from '@/firebase/takeOrder'
-import { type KitchenLedgerItem } from '@/firebase/kitchenLedger'
-import { type BakeryLedgerItem } from '@/firebase/bakeryLedger'
-import { type DailyBalance, type SeedBalance } from '@/firebase/dailyBalances'
+
+import type { FetchedOrder } from '../restaurant_mobile/types'
+import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
+import type { SeedBalance } from './seedOpeningConfig'
 
 export interface RevenueData {
   timestamp: string
@@ -179,7 +179,7 @@ const COLORS = [
   '#F59E0B', // Orange for eSewa (matches eSewa brand better)
 ]
 // Pie chart component
-function AnalyticsPieChart({ income }: { income: ProcessedOrder[] }) {
+function AnalyticsPieChart({ income }: { income: FetchedOrder[] }) {
   // Aggregate income by payment method
   const paymentMethodMap = income.reduce(
     (acc, order) => {
@@ -256,82 +256,103 @@ function AnalyticsPieChart({ income }: { income: ProcessedOrder[] }) {
   )
 }
 
+type AllLedger = {
+  orders: FetchedOrder[]
+  expenseLedger: ExpenseLedger[]
+}
+
 export function Analytics({
-  rawOrders,
-  kitchenLedger,
-  bakeryLedger,
-  balanceData,
+  rawOrders: income,
+  expenseLedger,
+  allLedger,
   seedBalance,
   dateRange,
 }: {
-  rawOrders: ProcessedOrder[]
-  kitchenLedger: KitchenLedgerItem[]
-  bakeryLedger: BakeryLedgerItem[]
-  balanceData: Record<string, DailyBalance> | undefined
-  seedBalance: SeedBalance | null | undefined
+  rawOrders: FetchedOrder[]
+  expenseLedger: ExpenseLedger[]
+  allLedger: AllLedger | undefined
+  seedBalance: SeedBalance | undefined
   dateRange: { from: string; to: string }
 }) {
-  const income = rawOrders.filter(
-    (order) => !order.complementary && order.status === 'paid',
-  )
-
   // Calculate opening and closing balance for the date range
   const calculateOpeningBalance = () => {
-    if (!balanceData || !seedBalance) return 0
+    if (!allLedger || !seedBalance) return 0
 
-    const fromDate = dateRange.from
-    const seedDate = seedBalance.date
-    let runningBalance = seedBalance.amount
+    const fromDate = new Date(dateRange.from)
+    const seedDate = new Date(seedBalance.seedDate)
 
-    // Get all daily aggregates from all years and filter by date
-    const allDailyAggregates: Array<
-      [string, { totalIncome: number; totalExpenses: number }]
-    > = []
+    let runningBalance = seedBalance.seedAmount
 
-    Object.values(balanceData).forEach((yearData) => {
-      Object.entries(yearData.dailyAggregates).forEach(([date, aggregate]) => {
-        allDailyAggregates.push([date, aggregate])
-      })
-    })
+    const orders = allLedger.orders.filter(
+      (o) =>
+        new Date(o.receiptDate) > seedDate &&
+        new Date(o.receiptDate) < fromDate,
+    )
 
-    // CRITICAL: Only include transactions AFTER seed date and BEFORE range start
-    allDailyAggregates
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .filter(([date]) => date > seedDate && date < fromDate)
-      .forEach(([, aggregate]) => {
-        runningBalance += aggregate.totalIncome - aggregate.totalExpenses
-      })
+    const expenses = allLedger.expenseLedger.filter(
+      (e) => new Date(e.date) > seedDate && new Date(e.date) < fromDate,
+    )
 
-    return runningBalance
+    const income = calculateTotalRevenue(orders as FetchedOrder[])
+    const expenditure = calculateTotalExpenditure(expenses as ExpenseLedger[])
+    console.group('--- Debug: Opening Balance Calculation ---')
+    console.log('Seed Amount:', runningBalance)
+    console.log(
+      `Orders found before ${dateRange.from}:`,
+      orders.length,
+      `(Sum: Rs. ${income})`,
+    )
+    console.log(
+      `Expenses found before ${dateRange.from}:`,
+      expenses.length,
+      `(Sum: Rs. ${expenditure})`,
+    )
+    console.log(
+      'Resulting Opening Balance:',
+      runningBalance + income - expenditure,
+    )
+    console.groupEnd()
+    return runningBalance + income - expenditure
   }
 
   const calculateClosingBalance = () => {
-    if (!balanceData || !seedBalance) return 0
+    if (!allLedger || !seedBalance) return 0
 
-    const toDate = dateRange.to
-    const seedDate = seedBalance.date
-    let runningBalance = seedBalance.amount
+    const toDate = new Date(dateRange.to)
+    const seedDate = new Date(seedBalance.seedDate)
 
-    // Get all daily aggregates from all years and filter by date
-    const allDailyAggregates: Array<
-      [string, { totalIncome: number; totalExpenses: number }]
-    > = []
+    let runningBalance = seedBalance.seedAmount
 
-    Object.values(balanceData).forEach((yearData) => {
-      Object.entries(yearData.dailyAggregates).forEach(([date, aggregate]) => {
-        allDailyAggregates.push([date, aggregate])
-      })
-    })
+    const orders = allLedger.orders.filter(
+      (o) =>
+        new Date(o.receiptDate) > seedDate && new Date(o.receiptDate) <= toDate,
+    )
 
-    // CRITICAL: Only include transactions AFTER seed date and UP TO range end
-    allDailyAggregates
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .filter(([date]) => date > seedDate && date <= toDate)
-      .forEach(([, aggregate]) => {
-        runningBalance += aggregate.totalIncome - aggregate.totalExpenses
-      })
+    const expenses = allLedger.expenseLedger.filter(
+      (e) => new Date(e.date) > seedDate && new Date(e.date) <= toDate,
+    )
 
-    return runningBalance
+    const income = calculateTotalRevenue(orders as FetchedOrder[])
+    const expenditure = calculateTotalExpenditure(expenses as ExpenseLedger[])
+    console.group('--- Debug: Closing Balance Calculation ---')
+    console.log('Seed Amount:', runningBalance)
+    console.log(
+      `Total Orders since seed until ${dateRange.to}:`,
+      orders.length,
+      `(Sum: Rs. ${income})`,
+    )
+    console.log(
+      `Total Expenses since seed until ${dateRange.to}:`,
+      expenses.length,
+      `(Sum: Rs. ${expenditure})`,
+    )
+    console.log(
+      'Resulting Closing Balance:',
+      runningBalance + income - expenditure,
+    )
+    console.groupEnd()
+
+    return runningBalance + income - expenditure
   }
 
   const openingBalance = calculateOpeningBalance()
@@ -362,7 +383,7 @@ export function Analytics({
 
   const dateRangeText = formatDateRange()
 
-  const revenueData = mapToRevenueData({ income, kitchenLedger, bakeryLedger })
+  const revenueData = mapToRevenueData({ income, expenseLedger })
 
   const data = groupRevenueData(revenueData)
 
@@ -370,10 +391,7 @@ export function Analytics({
   const totalIncomeFromOrders = calculateTotalRevenue(income)
 
   const totalIncome = totalIncomeFromOrders
-  const totalExpenditure = calculateTotalExpenditure(
-    kitchenLedger,
-    bakeryLedger,
-  )
+  const totalExpenditure = calculateTotalExpenditure(expenseLedger)
   const totalOrders = income.length
   //make avgchecksie upto 2 digits after decimal
   const avgCheckSize = totalOrders > 0 ? totalIncome / totalOrders : 0

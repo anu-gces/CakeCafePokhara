@@ -1,14 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/home/dashboard')({
-  beforeLoad: ({ context: { authentication } }) => {
+  beforeLoad: ({ context: { pb } }) => {
     // Wait for authentication to be ready if needed
-    const userAdditional = authentication.userAdditional
-    if (
-      userAdditional &&
-      userAdditional.role !== 'admin' &&
-      userAdditional.role !== 'owner'
-    ) {
+    const user = pb.authStore.record
+    if (user && user.role !== 'admin' && user.role !== 'owner') {
       throw redirect({
         to: '/home/takeOrder',
         search: { category: 'appetizers' },

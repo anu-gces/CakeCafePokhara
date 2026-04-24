@@ -33,17 +33,9 @@ import {
   SquarePenIcon,
   PartyPopperIcon,
   Trash2Icon,
-  ChevronsUpIcon,
-  ChevronsDownIcon,
+  MoveIcon,
 } from 'lucide-react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { createOrderDocument } from '@/firebase/takeOrder'
-import {
-  getAllCreditors,
-  getKitchenDepartmentFcmTokens,
-  deleteUserFcmTokenByUid,
-  db,
-} from '@/firebase/firestore'
 
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import DonutImage from '@/assets/donutImage'
@@ -61,28 +53,34 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
-import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 import * as Yup from 'yup'
-import type { FoodItemProps } from '@/firebase/menuManagement'
 import { Switch } from '../ui/switch'
-import type { AddToCart } from '@/firebase/takeOrder'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
+import { pb } from '@/lib/pocketbase'
+import type { MenuItemProps } from '@/lib/pocketbase/menuManagement'
+import type {
+  CartItem,
+  AddToCart,
+  ProcessedCartItem,
+  ProcessedOrder,
+} from './types'
 
 // Menu Card Component
 function MenuCard({
-  foods,
+  menuItems,
   addToCart,
   handleAddToCart,
 }: {
-  foods: FoodItemProps[]
+  menuItems: MenuItemProps[]
   addToCart: AddToCart
-  handleAddToCart: (food: FoodItemProps) => void
+  handleAddToCart: (food: MenuItemProps) => void
 }) {
   // All foods have the same type, so use the first item's type or name as the heading
-  const type = foods[0]?.type?.toUpperCase() || foods[0]?.name.toUpperCase()
+  const type =
+    menuItems[0]?.type?.toUpperCase() || menuItems[0]?.name.toUpperCase()
 
-  const getRemainingStock = (foodId: string, currentStock?: number) => {
-    const cartItem = addToCart.items.find((item) => item.foodId === foodId)
+  const getRemainingStock = (id: string, currentStock?: number) => {
+    const cartItem = addToCart.items.find((item) => item.menuItemId === id)
     const qtyInCart = cartItem?.qty ?? 0 // 0 if not in cart
     return (currentStock ?? 0) - qtyInCart
   }
@@ -91,28 +89,28 @@ function MenuCard({
     <div className="mb-8 p-4 border rounded-xl">
       <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
       <div className="flex flex-col gap-2">
-        {foods.map((food) => {
+        {menuItems.map((menuItem) => {
           const isDisabled =
-            getRemainingStock(food.foodId, food.currentStockCount) <= 0
+            getRemainingStock(menuItem.id, menuItem.currentStockCount) <= 0
           return (
             <div
-              key={food.foodId}
+              key={menuItem.id}
               className={cn(
                 'flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors',
                 isDisabled && 'opacity-50 cursor-not-allowed ',
               )}
               onClick={() => {
-                if (!isDisabled) handleAddToCart(food)
+                if (!isDisabled) handleAddToCart(menuItem)
               }}
               role="button"
               aria-disabled={isDisabled}
               tabIndex={isDisabled ? -1 : 0}
             >
               <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
-                {food.photoURL ? (
+                {menuItem.photoURL ? (
                   <img
-                    alt={food.name}
-                    src={food.photoURL}
+                    alt={menuItem.name}
+                    src={pb.files.getURL(menuItem, menuItem.photoURL)}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
@@ -121,26 +119,26 @@ function MenuCard({
                 )}
               </div>
               <div className="flex-1">
-                <h3 className="font-medium">{food.name}</h3>
+                <h3 className="font-medium">{menuItem.name}</h3>
                 <p className="text-muted-foreground text-sm">
-                  Rs. {food.price}
+                  Rs. {menuItem.price}
                 </p>
-                {food.currentStockCount ? (
+                {menuItem.currentStockCount ? (
                   <span
                     className={cn(
                       'inline-block mt-1 px-2 py-0.5 rounded-full font-medium text-xs',
-                      food.currentStockCount === 0
+                      menuItem.currentStockCount === 0
                         ? 'bg-red-100 text-red-700'
-                        : food.currentStockCount < 10
+                        : menuItem.currentStockCount < 10
                           ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-green-100 text-green-700',
                     )}
                   >
-                    {food.currentStockCount === 0
+                    {menuItem.currentStockCount === 0
                       ? 'Out of Stock'
-                      : food.currentStockCount < 10
-                        ? `Low Stock (${getRemainingStock(food.foodId, food.currentStockCount)})`
-                        : `In Stock (${getRemainingStock(food.foodId, food.currentStockCount)})`}
+                      : menuItem.currentStockCount < 10
+                        ? `Low Stock (${getRemainingStock(menuItem.id, menuItem.currentStockCount)})`
+                        : `In Stock (${getRemainingStock(menuItem.id, menuItem.currentStockCount)})`}
                   </span>
                 ) : (
                   <span
@@ -167,22 +165,7 @@ function MenuCard({
 // Cart Preview Component
 
 function CartPreview({ cart }: { cart: AddToCart }) {
-  const [isAtTop, setIsAtTop] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
-
-  const moveToTop = () => {
-    setIsAtTop(true)
-  }
-
-  const moveToBottom = () => {
-    setIsAtTop(false)
-  }
-
-  const getCardOffset = () => {
-    if (!cardRef.current) return 200 // fallback
-    const cardHeight = cardRef.current.offsetHeight
-    return cardHeight + 100 // card height + some padding
-  }
 
   return createPortal(
     <AnimatePresence>
@@ -192,9 +175,12 @@ function CartPreview({ cart }: { cart: AddToCart }) {
             key="cart-preview"
             ref={cardRef}
             initial={{ opacity: 0, y: 40 }}
+            drag="y"
+            dragConstraints={{ top: -500, bottom: 0 }} // adjust as needed
+            dragElastic={0.2}
             animate={{
               opacity: 1,
-              y: isAtTop ? -(window.innerHeight - getCardOffset()) : 0,
+              y: 0,
             }}
             exit={{ opacity: 0, y: 40 }}
             transition={{
@@ -203,73 +189,12 @@ function CartPreview({ cart }: { cart: AddToCart }) {
               damping: 15, // lower = more bouncy
               mass: 1, // lower = faster
             }}
-            className="right-4 bottom-16 left-4 z-50 fixed bg-background/50 shadow-lg backdrop-blur-md p-4 border rounded-xl"
-            onTouchStart={() => {
-              // Prevent pull-to-refresh when touching cart preview
-              window.__globalDragging = true
-            }}
-            onTouchEnd={() => {
-              // Re-enable pull-to-refresh when touch ends
-              window.__globalDragging = false
-            }}
-            onTouchCancel={() => {
-              // Re-enable pull-to-refresh if touch is cancelled
-              window.__globalDragging = false
-            }}
+            className="right-4 bottom-16 left-4 z-50 fixed bg-background/50 shadow-lg backdrop-blur-md p-4 border rounded-xl cursor-grab active:cursor-grabbing"
           >
             {/* Header with centered arrows */}
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium">Cart Preview</h3>
-
-              {/* Centered Arrow Buttons */}
-              <div className="flex flex-1 justify-center items-center">
-                <AnimatePresence mode="wait">
-                  {!isAtTop ? (
-                    <motion.button
-                      key="up-arrow"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={moveToTop}
-                      className="flex justify-center items-center hover:bg-accent p-1.5 rounded-full transition-colors"
-                    >
-                      <motion.div
-                        animate={{ y: [0, -1, 0] }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: 'easeInOut',
-                        }}
-                      >
-                        <ChevronsUpIcon className="w-4 h-4 text-primary" />
-                      </motion.div>
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      key="down-arrow"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={moveToBottom}
-                      className="flex justify-center items-center hover:bg-accent p-1.5 rounded-full transition-colors"
-                    >
-                      <motion.div
-                        animate={{ y: [0, 1, 0] }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: 'easeInOut',
-                        }}
-                      >
-                        <ChevronsDownIcon className="w-4 h-4 text-primary" />
-                      </motion.div>
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </div>
-
+              <MoveIcon className="w-4 h-4 text-muted-foreground cursor-grab" />
               {/* Right spacer for balance */}
               <div className="w-[72px]"></div>
             </div>
@@ -280,11 +205,12 @@ function CartPreview({ cart }: { cart: AddToCart }) {
               <div className="space-y-1">
                 {cart.items.map((item, index) => (
                   <div
-                    key={item.foodId}
+                    key={item.menuItemId}
                     className="flex justify-between text-sm"
                   >
                     <span>
-                      {index + 1}) {item.qty}x {item.name}{' '}
+                      {/* this dot is for 1. 2. 3. etc */}
+                      {index + 1}. {item.qty}x {item.name}
                       {item.type && (
                         <span className="text-muted-foreground">
                           ({item.type})
@@ -347,8 +273,8 @@ function CartDrawer({
   setIsComplementary,
   remarks,
   setRemarks,
-  selectedCreditor,
-  setSelectedCreditor,
+  selectedPayLaterCustomerId,
+  setSelectedPayLaterCustomerId,
   selectedPaymentMethod,
   setSelectedPaymentMethod,
   step,
@@ -376,8 +302,8 @@ function CartDrawer({
   setIsComplementary: (v: boolean) => void
   remarks: string
   setRemarks: (v: string) => void
-  selectedCreditor: string
-  setSelectedCreditor: (v: string) => void
+  selectedPayLaterCustomerId: string
+  setSelectedPayLaterCustomerId: (v: string) => void
   selectedPaymentMethod: 'cash' | 'esewa' | 'bank'
   setSelectedPaymentMethod: (v: 'cash' | 'esewa' | 'bank') => void
   step: boolean
@@ -385,9 +311,12 @@ function CartDrawer({
   receiptDate: Date | undefined
   setReceiptDate: (d: Date | undefined) => void
 }) {
-  const { data: creditors = [] } = useQuery({
-    queryKey: ['creditors'],
-    queryFn: getAllCreditors,
+  const { user } = usePocketbaseAuth()
+  const { data: payLaterCustomers = [] } = useQuery({
+    queryKey: ['payLaterCustomers'],
+    queryFn: async () => {
+      return await pb.collection('payLaterCustomers').getFullList()
+    },
   })
 
   // Validation state
@@ -423,18 +352,60 @@ function CartDrawer({
   }, [kotNumber])
 
   const enterOrderMutation = useMutation({
-    mutationFn: createOrderDocument,
+    mutationFn: async (addToCart: AddToCart) => {
+      const processedOrder: ProcessedOrder = {
+        kotNumber: addToCart.kotNumber,
+
+        items: addToCart.items.map(
+          (item): ProcessedCartItem => ({
+            menuItemId: item.menuItemId,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+          }),
+        ),
+
+        tableNumber: addToCart.tableNumber,
+        discountAmount: addToCart.discountAmount,
+        taxAmount: addToCart.taxAmount,
+        complementary: addToCart.complementary,
+        remarks: addToCart.remarks,
+        receiptDate: addToCart.receiptDate,
+        paymentMethod: addToCart.paymentMethod,
+        deliveryFee: addToCart.deliveryFee,
+        payLaterCustomerId: addToCart.payLaterCustomerId ?? null,
+        status: addToCart.status,
+        dismissed: addToCart.dismissed ?? false,
+        createdBy: user.id,
+      }
+      return await pb.collection('orders').create(processedOrder)
+    },
     onSuccess: async (_, addToCart) => {
       toast.success('Order placed successfully!')
-      // Optionally reset cart/order state here
       setStep(false)
       // If you have a Drawer open state, close it here (setOpen(false))
 
       // --- Send FCM notification to kitchen department ---
       try {
-        const tokensWithUid = await getKitchenDepartmentFcmTokens()
-        const tokensOnly = tokensWithUid.map((t) => t.token)
-        if (tokensWithUid.length > 0) {
+        // get all kitchen department users
+        const kitchenUsers = await pb.collection('users').getFullList({
+          filter: 'department = "kitchen"',
+          fields: 'id',
+          requestKey: null,
+        })
+
+        if (kitchenUsers.length === 0) {
+          toast.info('No kitchen staff to notify')
+        } else {
+          const userIds = kitchenUsers
+            .map((u) => `userId = "${u.id}"`)
+            .join(' || ')
+          const tokenRecords = await pb.collection('fcm_tokens').getFullList({
+            filter: userIds,
+            requestKey: null,
+          })
+          const tokensOnly = tokenRecords.map((t) => t.token)
+
           const response = await fetch('https://great-zebra-28.deno.dev', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -445,15 +416,13 @@ function CartDrawer({
             }),
           })
           const { invalidTokens } = await response.json()
-          const invalidUidTokenPairs = tokensWithUid.filter((t) =>
-            invalidTokens.includes(t.token),
-          )
-          for (const { uid, token } of invalidUidTokenPairs) {
-            await deleteUserFcmTokenByUid(uid, token)
+
+          for (const record of tokenRecords) {
+            if (invalidTokens.includes(record.token)) {
+              await pb.collection('fcm_tokens').delete(record.id)
+            }
           }
           toast.success('Kitchen notification sent successfully!')
-        } else {
-          toast.info('No kitchen staff to notify')
         }
       } catch (err) {
         toast.error('Failed to send kitchen notification')
@@ -490,7 +459,7 @@ function CartDrawer({
         ? receiptDate.toISOString()
         : new Date().toISOString(),
       paymentMethod: selectedPaymentMethod,
-      creditor: selectedCreditor || null,
+      payLaterCustomerId: selectedPayLaterCustomerId || null,
       status: 'pending' as const,
       dismissed: false, // Set dismissed to false by default for notification purposes
     }
@@ -598,10 +567,17 @@ function CartDrawer({
                         className="bg-card shadow-xs p-4 border border-border rounded-xl"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex flex-shrink-0 justify-center items-center bg-gray-100 rounded w-10 h-10 overflow-hidden">
+                          <div className="flex flex-shrink-0 justify-center items-center rounded w-10 h-10 overflow-hidden">
                             {item.photoURL ? (
                               <img
-                                src={item.photoURL}
+                                // why this part not have image? url shows empty
+                                src={pb.files.getURL(
+                                  {
+                                    id: item.menuItemId, // The record ID
+                                    collectionName: 'menuItems', // Hardcoded string
+                                  },
+                                  item.photoURL,
+                                )}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                               />
@@ -844,19 +820,19 @@ function CartDrawer({
                     </div>
                     <div className="space-y-2">
                       <Label className="font-medium text-foreground text-sm">
-                        Creditor (Optional)
+                        Pay Later Customer (Optional)
                       </Label>
                       <Select
-                        value={selectedCreditor}
-                        onValueChange={setSelectedCreditor}
+                        value={selectedPayLaterCustomerId}
+                        onValueChange={setSelectedPayLaterCustomerId}
                       >
                         <SelectTrigger className="bg-background border-border">
-                          <SelectValue placeholder="Choose a creditor" />
+                          <SelectValue placeholder="Choose a Pay Later Customer" />
                         </SelectTrigger>
                         <SelectContent>
-                          {creditors.map((c) => (
-                            <SelectItem key={c.nickname} value={c.nickname}>
-                              {c.nickname} ({c.firstName} {c.lastName})
+                          {payLaterCustomers.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -938,7 +914,7 @@ function CartDrawer({
                           + Rs. {deliveryFee.toFixed(2)}
                         </span>
                       </div>
-                      <div className="mt-3 pt-2 border-t border-border">
+                      <div className="mt-3 pt-2 border-border border-t">
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-lg">Total</span>
                           <span className="font-bold text-primary text-xl">
@@ -1079,44 +1055,58 @@ const emptyCart: AddToCart = {
   receiptDate: new Date().toISOString(),
   paymentMethod: 'cash',
   deliveryFee: 0,
-  creditor: null,
+  payLaterCustomerId: null,
   status: 'pending',
 }
 
 // Main TakeOrder Component
 export function TakeOrder() {
-  const [foods, setFoods] = useState<FoodItemProps[]>([])
+  const [menuItems, setMenuItems] = useState<MenuItemProps[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const foodItemsRef = doc(db, 'menu', 'allFoodItems')
+    // 1. Initial Fetch
+    const fetchInitialData = async () => {
+      try {
+        const records = await pb
+          .collection('menuItems')
+          .getFullList<MenuItemProps>({
+            sort: '-created',
+          })
+        setMenuItems(records)
+      } catch (err) {
+        console.error('Initial fetch failed:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-    const unsubscribe = onSnapshot(
-      foodItemsRef,
-      (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data()
-          if (data && data.foodItems) {
-            console.log('Real-time food items update:', data.foodItems)
-            setFoods(data.foodItems as FoodItemProps[])
-          } else {
-            setFoods([])
-          }
-        } else {
-          setFoods([])
+    fetchInitialData()
+
+    // 2. Real-time Subscription
+    pb.collection('menuItems').subscribe<MenuItemProps>('*', (e) => {
+      setMenuItems((current) => {
+        if (e.action === 'create') {
+          return [e.record, ...current]
         }
-        setIsLoading(false)
-      },
-      (error) => {
-        console.error('Error listening to food items:', error)
-        setIsLoading(false)
-      },
-    )
+        if (e.action === 'update') {
+          return current.map((item) =>
+            item.id === e.record.id ? e.record : item,
+          )
+        }
+        if (e.action === 'delete') {
+          return current.filter((item) => item.id !== e.record.id)
+        }
+        return current
+      })
+    })
 
-    return () => unsubscribe()
+    return () => {
+      pb.collection('menuItems').unsubscribe('*')
+    }
   }, [])
 
-  const { userAdditional } = useFirebaseAuth()
+  const { user } = usePocketbaseAuth()
   const [cart, setCart] = useState<AddToCart>(emptyCart)
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
   const { category: selectedCategory } = useSearch({ from: '/home/takeOrder' })
@@ -1131,7 +1121,8 @@ export function TakeOrder() {
   const [deliveryFee, setDeliveryFee] = useState<number>(0)
   const [isComplementary, setIsComplementary] = useState(false)
   const [remarks, setRemarks] = useState('')
-  const [selectedCreditor, setSelectedCreditor] = useState<string>('')
+  const [selectedPayLaterCustomerId, setSelectedPayLaterCustomerId] =
+    useState<string>('')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
     'cash' | 'esewa' | 'bank'
   >('cash')
@@ -1141,28 +1132,33 @@ export function TakeOrder() {
 
   const totalItems = cart.items.reduce((sum, item) => sum + item.qty, 0)
 
-  const handleAddToCart = (food: FoodItemProps) => {
+  const handleAddToCart = (menuItem: MenuItemProps) => {
     setCart((prev) => {
-      // Check if the item already exists in the cart
       const existingIndex = prev.items.findIndex(
-        (item) => item.foodId === food.foodId,
+        (item) => item.menuItemId === menuItem.id,
       )
+
+      const cartItem: CartItem = {
+        menuItemId: menuItem.id,
+        name: menuItem.name,
+        price: menuItem.price,
+        qty: 1,
+        type: menuItem.type,
+        mainCategory: menuItem.mainCategory,
+        photoURL: menuItem.photoURL,
+        currentStockCount: menuItem.currentStockCount,
+      }
 
       let newItems
       if (existingIndex !== -1) {
-        // If exists, increment qty
         newItems = prev.items.map((item, idx) =>
           idx === existingIndex ? { ...item, qty: item.qty + 1 } : item,
         )
       } else {
-        // If not, add new item with qty 1
-        newItems = [...prev.items, { ...food, qty: 1 }]
+        newItems = [...prev.items, cartItem]
       }
 
-      return {
-        ...prev,
-        items: newItems,
-      }
+      return { ...prev, items: newItems }
     })
   }
 
@@ -1203,7 +1199,7 @@ export function TakeOrder() {
     setDeliveryFee(0)
     setIsComplementary(false)
     setRemarks('')
-    setSelectedCreditor('')
+    setSelectedPayLaterCustomerId('')
     setSelectedPaymentMethod('cash')
     setStep(false) // Reset stepper
     setCartDrawerOpen(false)
@@ -1220,8 +1216,7 @@ export function TakeOrder() {
       <div className="top-0 z-50 sticky bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur">
         <div className="flex justify-between items-center p-4">
           <div>
-            {(userAdditional?.role === 'admin' ||
-              userAdditional?.role === 'owner') && (
+            {(user.role === 'manager' || user.role === 'owner') && (
               <Link
                 to="/home/menuManagement"
                 search={{ category: 'appetizers' }}
@@ -1297,31 +1292,33 @@ export function TakeOrder() {
         <div className="space-y-0 px-4">
           <AnimatePresence>
             {Object.values(
-              foods
-                .filter((food) => {
+              menuItems
+                .filter((menuItem) => {
                   if (search.trim()) {
                     const searchLower = search.toLowerCase()
-                    const inName = food.name.toLowerCase().includes(searchLower)
-                    const inCategory = food.mainCategory
+                    const inName = menuItem.name
+                      .toLowerCase()
+                      .includes(searchLower)
+                    const inCategory = menuItem.mainCategory
                       .toLowerCase()
                       .includes(searchLower)
                     return inName || inCategory
                   } else {
                     return (
                       selectedCategory === '' ||
-                      food.mainCategory === selectedCategory
+                      menuItem.mainCategory === selectedCategory
                     )
                   }
                 })
-                .reduce<Record<string, FoodItemProps[]>>((acc, food) => {
-                  const groupKey = food.type ?? food.name.toLowerCase()
+                .reduce<Record<string, MenuItemProps[]>>((acc, menuItem) => {
+                  const groupKey = menuItem.type ?? menuItem.name.toLowerCase()
                   if (!acc[groupKey]) acc[groupKey] = []
-                  acc[groupKey].push(food)
+                  acc[groupKey].push(menuItem)
                   return acc
                 }, {}),
-            ).map((foodsOfType) => (
+            ).map((menuItemsOfType) => (
               <motion.div
-                key={foodsOfType[0].type ?? foodsOfType[0].name}
+                key={menuItemsOfType[0].type ?? menuItemsOfType[0].name}
                 layout
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1331,18 +1328,18 @@ export function TakeOrder() {
                 <MenuCard
                   addToCart={cart}
                   handleAddToCart={handleAddToCart}
-                  foods={foodsOfType}
+                  menuItems={menuItemsOfType}
                 />
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
 
-        {foods.filter((food) => {
+        {menuItems.filter((menuItem) => {
           if (!search.trim()) return false // Only show empty state if search is active and no results
           const searchLower = search.toLowerCase()
-          const inName = food.name.toLowerCase().includes(searchLower)
-          const inCategory = food.mainCategory
+          const inName = menuItem.name.toLowerCase().includes(searchLower)
+          const inCategory = menuItem.mainCategory
             .toLowerCase()
             .includes(searchLower)
 
@@ -1386,8 +1383,8 @@ export function TakeOrder() {
         setIsComplementary={setIsComplementary}
         remarks={remarks}
         setRemarks={setRemarks}
-        selectedCreditor={selectedCreditor}
-        setSelectedCreditor={setSelectedCreditor}
+        selectedPayLaterCustomerId={selectedPayLaterCustomerId}
+        setSelectedPayLaterCustomerId={setSelectedPayLaterCustomerId}
         selectedPaymentMethod={selectedPaymentMethod}
         setSelectedPaymentMethod={setSelectedPaymentMethod}
         step={step}

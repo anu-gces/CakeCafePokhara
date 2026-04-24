@@ -17,3 +17,6 @@ Thumbs.db
 # VSCode settings
 .vscode/
 .history/
+
+goPlayground
+pocketbase

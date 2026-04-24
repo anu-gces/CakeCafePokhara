@@ -5,14 +5,13 @@ import { BarChartIcon, LayoutDashboardIcon } from 'lucide-react'
 import { Analytics } from './analytics'
 import type { DateRange } from 'react-day-picker'
 import { useState } from 'react'
-import { subDays } from 'date-fns'
+import { endOfDay, startOfDay, subDays } from 'date-fns'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { getOrdersInRange } from '@/firebase/takeOrder'
-import { getKitchenLedgerInRange } from '@/firebase/kitchenLedger'
-import { getBakeryLedgerInRange } from '@/firebase/bakeryLedger'
-import { getSeedBalance, getAllBalanceData } from '@/firebase/dailyBalances'
-import SeedOpeningConfig from './seedOpeningConfig'
+import SeedOpeningConfig, { type SeedBalance } from './seedOpeningConfig'
+import { pb } from '@/lib/pocketbase'
+import { type FetchedOrder } from '../restaurant_mobile/types'
+import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
 
 export default function Dashboard() {
   const [date, setDate] = useState<DateRange | undefined>({
@@ -24,42 +23,96 @@ export default function Dashboard() {
   const from = date?.from ? format(date.from, 'yyyy-MM-dd') : ''
   const to = date?.to ? format(date.to, 'yyyy-MM-dd') : ''
 
-  const incomeQuery = useQuery({
-    queryKey: ['orderHistoryDashboard', from, to],
-    queryFn: () => getOrdersInRange(from, to),
+  const incomeQuery = useQuery<FetchedOrder[]>({
+    queryKey: ['orderHistoryDashboard', date],
+    queryFn: async () => {
+      if (!date?.from || !date?.to) return []
+
+      // 1. Local start/end (same as your working version)
+      const localStart = startOfDay(date.from)
+      const localEnd = endOfDay(date.to)
+
+      // 2. Convert to ISO + replace T (your proven format)
+      const startStr = localStart.toISOString().replace('T', ' ')
+      const endStr = localEnd.toISOString().replace('T', ' ')
+
+      return await pb.collection('orders').getFullList({
+        filter: `created >= "${startStr}" && created <= "${endStr}" && complementary = false && status = "paid"`,
+        sort: '-created',
+        expand: 'createdBy',
+        // expand: 'customerId, createdBy' // optional if you need it
+      })
+    },
 
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
   })
 
-  const kitchenLedgerQuery = useQuery({
-    queryKey: ['kitchenLedgerDashboard', from, to],
-    queryFn: () => getKitchenLedgerInRange(from, to),
+  const expenseQuery = useQuery<ExpenseLedger[]>({
+    queryKey: ['expenseHistoryDashboard', date],
+    queryFn: async () => {
+      if (!date?.from || !date?.to) return []
 
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
-  })
+      // 1. Local start/end (same as your working version)
+      const localStart = startOfDay(date.from)
+      const localEnd = endOfDay(date.to)
 
-  const bakeryLedgerQuery = useQuery({
-    queryKey: ['bakeryLedgerDashboard', from, to],
-    queryFn: () => getBakeryLedgerInRange(from, to),
+      // 2. Convert to ISO + replace T (your proven format)
+      const startStr = localStart.toISOString().replace('T', ' ')
+      const endStr = localEnd.toISOString().replace('T', ' ')
+
+      return await pb.collection('expenseLedger').getFullList({
+        filter: `created >= "${startStr}" && created <= "${endStr}" && status = "paid"`,
+        sort: '-created',
+        expand: 'createdBy',
+        // expand: 'customerId, createdBy' // optional if you need it
+      })
+    },
 
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
   })
 
   // Query for daily balance data - fetch ALL years (simple approach)
-  const balanceDataQuery = useQuery({
-    queryKey: ['allDailyBalances'],
-    queryFn: getAllBalanceData,
+  const allLedgerQuery = useQuery<{
+    orders: FetchedOrder[]
+    expenseLedger: ExpenseLedger[]
+  }>({
+    queryKey: ['allLedger'],
+    queryFn: async () => {
+      const [orders, expenseLedger] = await Promise.all([
+        pb.collection('orders').getFullList<FetchedOrder>({
+          sort: '-created',
+          filter: `complementary = false && status = "paid"`,
+        }),
+        pb.collection('expenseLedger').getFullList<ExpenseLedger>({
+          sort: '-created',
+          filter: `status = "paid"`,
+        }),
+      ])
+
+      return {
+        orders,
+        expenseLedger,
+      }
+    },
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
   })
 
   // Query for seed balance
-  const seedBalanceQuery = useQuery({
+  const seedBalanceQuery = useQuery<SeedBalance | undefined>({
     queryKey: ['seedBalance'],
-    queryFn: getSeedBalance,
+    queryFn: async () => {
+      try {
+        return await pb.collection('seedConfig').getFirstListItem('')
+      } catch (e) {
+        return undefined
+      }
+    },
+
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
   })
 
   return (
@@ -93,8 +146,7 @@ export default function Dashboard() {
               <div className="flex flex-col gap-4 h-full">
                 <Overview
                   rawOrders={incomeQuery.data || []}
-                  kitchenLedger={kitchenLedgerQuery.data || []}
-                  bakeryLedger={bakeryLedgerQuery.data || []}
+                  expenseLedger={expenseQuery.data || []}
                 />
               </div>
             </TabsContent>
@@ -103,9 +155,8 @@ export default function Dashboard() {
               <div className="flex flex-col gap-4 h-full">
                 <Analytics
                   rawOrders={incomeQuery.data || []}
-                  kitchenLedger={kitchenLedgerQuery.data || []}
-                  bakeryLedger={bakeryLedgerQuery.data || []}
-                  balanceData={balanceDataQuery.data}
+                  expenseLedger={expenseQuery.data || []}
+                  allLedger={allLedgerQuery.data}
                   seedBalance={seedBalanceQuery.data}
                   dateRange={{ from, to }}
                 />

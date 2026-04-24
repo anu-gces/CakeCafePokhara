@@ -1,35 +1,36 @@
 import { Error404 } from '@/components/error404'
 import { Home } from '@/components/home_mobile'
+import { parsePbError } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/home')({
   component: Home,
-  beforeLoad: async ({ context: { authentication } }) => {
-    const user = authentication.getCurrentUser()
+  beforeLoad: ({ context: { pb } }) => {
+    const user = pb.authStore.record ?? null
 
-    if (!user) {
-      throw redirect({
-        to: '/',
-      })
-    }
-
-    // Check if the user's profile is complete using the async method
-    const profileIsComplete = await authentication.isUserProfileComplete()
-
-    if (!profileIsComplete) {
-      throw redirect({
-        to: '/profileComplete',
-      })
+    if (!pb.authStore.isValid || !user) {
+      throw redirect({ to: '/' })
     }
   },
   notFoundComponent: Error404,
-  errorComponent: (error: any) => (
-    <div className="top-1/2 left-1/2 absolute -translate-x-1/2 -translate-y-1/2 transform">
-      <h1 className="font-bold text-2xl">Error</h1>
-      <p className="text-red-500">
-        An error occurred while loading the home page.
-      </p>
-      <p className="text-red-500">{error.message}</p>
-    </div>
-  ),
+  errorComponent: ({ error }) => {
+    const navigate = useNavigate()
+    const message = parsePbError(error)
+    return (
+      <div className="flex flex-col justify-center items-center gap-4 min-h-screen">
+        <h1 className="font-bold text-2xl">Something went wrong</h1>
+        <p className="max-w-sm text-muted-foreground text-sm text-center">
+          {message}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate({ to: '..' })}>
+            Go back
+          </Button>
+          <Button onClick={() => window.location.reload()}>Retry</Button>
+        </div>
+      </div>
+    )
+  },
 })

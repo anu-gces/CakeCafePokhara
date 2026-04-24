@@ -5,11 +5,10 @@ import { useLocation, useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import type { LucideIcon } from 'lucide-react'
 import * as React from 'react'
-import { listenToKanbanCardDocument } from '@/firebase/firestore'
-import { listenToAllOrders } from '@/firebase/takeOrder'
 import { toast } from 'sonner'
-import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 import { playNotificationsSound } from '@/assets/playSFX'
+import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
+import { pb } from '@/lib/pocketbase'
 
 interface Tab {
   title: string
@@ -63,7 +62,7 @@ export function ExpandableTabs({
 }: ExpandableTabsProps) {
   const [selected, setSelected] = React.useState<number | null>(null)
   const [notificationCount, setNotificationCount] = React.useState(0)
-  const { userAdditional } = useFirebaseAuth()
+  const { user } = usePocketbaseAuth()
 
   const navigate = useNavigate({ from: '/home' })
   const currentLocation = useLocation()
@@ -89,110 +88,57 @@ export function ExpandableTabs({
     }
   }, [tabs, currentLocation])
 
-  // React.useEffect(() => {
-  //   const unsub = listenToKanbanCardDocument((items) => {
-  //     // Filter items for runningLow and outOfStock columns
-  //     const count = items.filter((item) => item.column === "runningLow" || item.column === "outOfStock").length;
-
-  //     setNotificationCount(count); // Update the notification count
-  //   });
-
-  //   return () => unsub(); // Cleanup on unmount
-  // }, []);
-
   React.useEffect(() => {
-    const unsub = listenToKanbanCardDocument((items) => {
-      // Filter items for runningLow and outOfStock columns
+    if (!user) return
 
-      // Check for the latest updatedAt timestamp
-      const now = new Date().getTime()
+    const handleEvent = (event: any) => {
+      const order = event.record
+      if (!order) return
 
-      items.forEach((item) => {
-        if (item.column !== 'runningLow' && item.column !== 'outOfStock') return
+      // 🔢 Notification count logic
+      pb.collection('orders')
+        .getFullList()
+        .then((orders) => {
+          const count = orders.filter(
+            (o: any) =>
+              o.status !== 'paid' && o.status !== 'credited' && !o.dismissed,
+          ).length
 
-        const updatedAt = new Date(item.updatedAt).getTime()
-        if (
-          now - updatedAt <= THRESHOLD_MS &&
-          userAdditional?.uid !== item.lastModifiedUid // skip if you created it
-        ) {
-          toast(
-            <div className="flex justify-between items-center gap-3">
-              <div className="flex items-center gap-3">
-                <span
-                  className={`flex-shrink-0 w-2 h-2 rounded-full ${
-                    item.column === 'outOfStock'
-                      ? 'bg-red-500'
-                      : 'bg-yellow-400'
-                  }`}
-                />
-                <div>
-                  <p className="font-semibold text-base">{item.title}</p>
-                  <p className="text-muted-foreground text-sm">
-                    Marked <span className="font-medium">{item.column}</span> by{' '}
-                    <span className="font-medium">{item.displayName}</span>
-                  </p>
-                </div>
-              </div>
-              <span className="text-muted-foreground text-xs whitespace-nowrap">
-                Just now
-              </span>
-            </div>,
-          )
-        }
-      })
-    })
+          setNotificationCount(count)
+        })
 
-    return () => unsub()
-  }, [])
-
-  React.useEffect(() => {
-    const unsub = listenToAllOrders((orders) => {
-      // Example: count all orders that are not paid or dismissed
-      const count = orders.filter(
-        (order) =>
-          order.status !== 'paid' &&
-          order.status !== 'credited' &&
-          !order.dismissed,
-      ).length
-      setNotificationCount(count)
-    })
-    return () => unsub()
-  }, [])
-
-  React.useEffect(() => {
-    const unsub = listenToAllOrders((orders) => {
+      // 🔔 Toast + sound logic
       const now = Date.now()
-      let shouldPlaySound = false
+      const receiptTime = new Date(order.updatedAt).getTime()
 
-      orders.forEach((order) => {
-        // Only notify for new orders within the last 5 seconds, not created by self
+      const isRecent = now - receiptTime <= THRESHOLD_MS
+      const isNotSelf = user?.firstName !== order.processedBy
 
-        const receiptTime = new Date(order.updatedAt).getTime()
-        if (
-          now - receiptTime <= THRESHOLD_MS &&
-          userAdditional?.firstName !== order.processedBy // skip if you created it
-        ) {
-          toast(
-            <div className="flex items-center gap-3">
-              <span className="inline-block bg-red-500 rounded-full w-2 h-2" />
-              <div>
-                <p className="font-semibold text-base">New Order</p>
-                <p className="text-muted-foreground text-sm">
-                  Table <span className="font-medium">{order.tableNumber}</span>{' '}
-                  — Placed just now
-                </p>
-              </div>
-            </div>,
-          )
-          shouldPlaySound = true
-        }
-      })
-      if (shouldPlaySound) {
+      if (isRecent && isNotSelf) {
+        toast(
+          <div className="flex items-center gap-3">
+            <span className="inline-block bg-red-500 rounded-full w-2 h-2" />
+            <div>
+              <p className="font-semibold text-base">New Order</p>
+              <p className="text-muted-foreground text-sm">
+                Table <span className="font-medium">{order.tableNumber}</span> —
+                Placed just now
+              </p>
+            </div>
+          </div>,
+        )
+
         playNotificationsSound()
       }
-    })
-    return () => unsub()
-  }, [userAdditional])
+    }
+
+    // 📡 PocketBase realtime subscription
+    pb.collection('orders').subscribe('*', handleEvent)
+
+    return () => {
+      pb.collection('orders').unsubscribe('*')
+    }
+  }, [user])
 
   const Separator = () => (
     <div className="mx-1 bg-border w-[1.2px] h-[24px]" aria-hidden="true" />

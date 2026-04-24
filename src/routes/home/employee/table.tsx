@@ -16,11 +16,11 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 // ];
 
 export const Route = createFileRoute('/home/employee/table')({
-  beforeLoad: ({ context: { authentication } }) => {
-    const { userAdditional } = authentication
+  beforeLoad: ({ context: { pb } }) => {
+    const user = pb.authStore.record
 
     // Check if the user's role is owner or admin
-    if (userAdditional?.role !== 'owner' && userAdditional?.role !== 'admin') {
+    if (user?.role !== 'owner' && user?.role !== 'admin') {
       // If the user is not an owner or admin, navigate to the home page
       throw redirect({
         to: '/home/takeOrder',

@@ -21,7 +21,7 @@ import {
 import { app, auth } from './firebase'
 import { getWeeklyDocId } from './firestore.utils'
 import type { CardType as KanbanCardType } from '@/components/ui/kanbanBoard'
-import type { PermanentInventoryItem } from '@/routes/home/permanentInventory.lazy'
+import type { PermanentInventoryItem } from '@/routes/home/assets/$department'
 import type { EquipmentItem } from '@/routes/home/equipment.lazy'
 
 import type { ProcessedOrder } from './takeOrder'

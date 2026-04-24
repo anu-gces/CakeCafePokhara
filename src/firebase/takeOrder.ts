@@ -32,7 +32,7 @@ export type AddToCart = {
   receiptDate: string // Optional manual date field
   paymentMethod: 'cash' | 'esewa' | 'bank' // Optional payment method field
   deliveryFee?: number // Optional delivery fee field
-  creditor?: string | null // Optional creditor field
+  payLaterCustomer?: string | null // Optional pay later customer field
   status:
     | 'pending'
     | 'ready_to_serve'
@@ -43,46 +43,6 @@ export type AddToCart = {
     | 'refunded'
   dismissed?: boolean // for notifications
 }
-
-// export async function createOrderDocument(orderDetails: AddToCart) {
-//   const user = auth.currentUser
-//   const userDoc = await getCurrentUserDocumentDetails()
-
-//   if (!user) throw new Error('No authenticated user found')
-
-//   const processedBy =
-//     userDoc?.firstName || user.displayName || user.email || 'unknown'
-//   const receiptId = generateReceiptId()
-
-//   const receiptDate = orderDetails.receiptDate
-
-//   const orderData = {
-//     ...orderDetails,
-//     processedBy,
-//     receiptId,
-//     receiptDate,
-//     updatedAt: receiptDate,
-//   }
-
-//   // Use weekly batching
-//   const docId = getWeeklyDocId(new Date(orderDetails.receiptDate))
-//   const batchRef = doc(collection(db, 'orderHistoryDaily'), docId)
-
-//   // Get current batch
-//   await runTransaction(db, async (transaction) => {
-//     const batchSnap = await transaction.get(batchRef)
-//     let orders: AddToCart[] = []
-//     if (batchSnap.exists()) {
-//       orders = batchSnap.data().orders || []
-//     }
-
-//     // Add new order
-//     orders.push(orderData)
-
-//     // Save back to Firestore
-//     transaction.set(batchRef, { orders }, { merge: true })
-//   })
-// }
 
 export async function createOrderDocument(orderDetails: AddToCart) {
   const user = auth.currentUser

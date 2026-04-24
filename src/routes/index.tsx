@@ -4,23 +4,15 @@ import { LandingPage } from '@/components/landingPage'
 export const Route = createFileRoute('/')({
   component: LandingPage,
 
-  beforeLoad: ({ context: { authentication } }) => {
+  beforeLoad: ({ context: { pb } }) => {
     // Wait for the user to be loaded if needed
-    if (!authentication.getCurrentUser()) {
+    if (!pb.authStore.isValid) {
       return null
     }
 
-    const userAdditional = authentication.userAdditional
-
-    if (userAdditional?.isProfileComplete) {
-      throw redirect({
-        to: '/home/takeOrder',
-        search: { category: 'appetizers' },
-      })
-    } else {
-      throw redirect({
-        to: '/profileComplete',
-      })
-    }
+    throw redirect({
+      to: '/home/takeOrder',
+      search: { category: 'appetizers' },
+    })
   },
 })

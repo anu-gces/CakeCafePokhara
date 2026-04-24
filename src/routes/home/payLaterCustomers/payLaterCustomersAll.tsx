@@ -24,101 +24,100 @@ import {
 import { type PanInfo, useMotionValue, motion } from 'motion/react'
 import { handleSwipeSnap } from '@/lib/swipeGestures'
 import { toast } from 'sonner'
-
-import { playSuccessSound, playErrorSound } from '@/assets/playSFX'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  addCreditorToFirestore,
-  getAllCreditors,
-  updateCreditor,
-  deleteCreditor,
-} from '@/firebase/firestore'
-import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
+import { pb } from '@/lib/pocketbase'
+import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 
-export const Route = createFileRoute('/home/creditors/creditorsAll')({
+export const Route = createFileRoute(
+  '/home/payLaterCustomers/payLaterCustomersAll',
+)({
   component: RouteComponent,
 })
 
-type Creditor = {
-  nickname: string
-  firstName: string
-  lastName: string
+type PayLaterCustomers = {
+  id: string
+  name: string
   remarks?: string
 }
 
+async function getAllPayLaterCustomers(): Promise<PayLaterCustomers[]> {
+  return await pb
+    .collection('payLaterCustomers')
+    .getFullList({ sort: '-created' })
+}
+
+async function createPayLaterCustomer(
+  data: Omit<PayLaterCustomers, 'id'>,
+): Promise<PayLaterCustomers> {
+  return await pb.collection('payLaterCustomers').create(data)
+}
+
+async function updatePayLaterCustomer(
+  customer: PayLaterCustomers,
+): Promise<PayLaterCustomers> {
+  return await pb.collection('payLaterCustomers').update(customer.id, customer)
+}
+
+async function deletePayLaterCustomer(
+  customer: PayLaterCustomers,
+): Promise<void> {
+  await pb.collection('payLaterCustomers').delete(customer.id)
+}
+
 function RouteComponent() {
-  // const [creditors, setCreditors] = useState<Creditor[]>(fakeCreditors)
-  const [nickname, setNickname] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
+  const [name, setName] = useState('')
   const [remarks, setRemarks] = useState('')
 
-  const { userAdditional } = useFirebaseAuth()
-  const isEmployee = userAdditional?.role === 'employee'
+  const { user } = usePocketbaseAuth()
+  const isEmployee = user.role === 'employee'
 
-  const navigate = useNavigate({ from: '/home/creditors' })
+  const navigate = useNavigate({ from: '/home/payLaterCustomers' })
   const queryClient = useQueryClient()
 
-  const { data: creditors = [] } = useQuery<(Creditor & { id: string })[]>({
-    queryKey: ['creditors'],
-    queryFn: getAllCreditors,
+  const { data: payLaterCustomers = [] } = useQuery<PayLaterCustomers[]>({
+    queryKey: ['payLaterCustomers'],
+    queryFn: getAllPayLaterCustomers,
   })
 
-  // Mutation for adding a creditor
-  const addCreditorMutation = useMutation({
-    mutationFn: addCreditorToFirestore,
+  const addPayLaterCustomersMutation = useMutation({
+    mutationFn: createPayLaterCustomer,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['creditors'] })
+      queryClient.invalidateQueries({ queryKey: ['payLaterCustomers'] })
     },
   })
 
-  const handleAddCreditor = () => {
-    if (!nickname || !firstName || !lastName) {
-      playErrorSound()
-      toast.warning('Nickname, First name, and Last name are required.')
-
+  const handleAddPayLaterCustomers = () => {
+    if (!name) {
+      toast.warning('Name is required.')
       return
     }
 
-    const isDuplicate = creditors.some((c) => c.nickname === nickname)
-    if (isDuplicate) {
-      playErrorSound()
-      toast.warning('Nickname must be unique.')
-      return
-    }
-
-    const newCreditor: Creditor = {
-      nickname,
-      firstName,
-      lastName,
-      remarks,
-    }
-
-    addCreditorMutation.mutate(newCreditor, {
-      onSuccess: () => {
-        setNickname('')
-        setFirstName('')
-        setLastName('')
-        setRemarks('')
-        playSuccessSound()
-        toast.success('Creditor added successfully!', {
-          description: `${newCreditor.nickname} (${newCreditor.firstName} ${newCreditor.lastName})`,
-        })
+    addPayLaterCustomersMutation.mutate(
+      { name, remarks },
+      {
+        onSuccess: () => {
+          setName('')
+          setRemarks('')
+          toast.success('Customer added successfully!', {
+            description: name,
+          })
+        },
+        onError: () => {
+          toast.error('Failed to add customer.')
+        },
       },
-      onError: () => {
-        playErrorSound()
-        toast.error('Failed to add creditor to Firestore.')
-      },
-    })
+    )
   }
 
   return (
     <div className="space-y-6 pt-6">
       <div className="flex justify-between items-center">
         <div className="flex flex-col items-start mb-2 ml-6">
-          <h1 className="font-semibold text-3xl tracking-tight">Creditors</h1>
+          <h1 className="font-semibold text-3xl tracking-tight">
+            Pay Later Customers
+          </h1>
           <div className="mt-2 rounded text-muted-foreground text-sm">
-            Tip: Swipe a creditor card to reveal edit and delete options.
+            Tip: Swipe card for edit/delete. Tap to view profile.
           </div>
         </div>
         {!isEmployee && (
@@ -126,28 +125,18 @@ function RouteComponent() {
             <DrawerTrigger asChild>
               <Button className="flex gap-2 mr-6">
                 <Plus size={18} color="white" />
-                Add Creditor
+                Add Customer
               </Button>
             </DrawerTrigger>
             <DrawerContent className="space-y-4 p-6">
               <DrawerHeader>
-                <h2 className="font-medium text-xl">New Creditor</h2>
+                <h2 className="font-medium text-xl">New Customer</h2>
               </DrawerHeader>
               <div className="space-y-2">
                 <Input
-                  placeholder="Nickname (unique)"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                />
-                <Input
-                  placeholder="First Name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-                <Input
-                  placeholder="Last Name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                 />
                 <Input
                   placeholder="Remarks (optional)"
@@ -158,10 +147,10 @@ function RouteComponent() {
               <DrawerFooter>
                 <Button
                   className="flex items-center gap-2 w-full"
-                  onClick={handleAddCreditor}
-                  disabled={addCreditorMutation.isPending}
+                  onClick={handleAddPayLaterCustomers}
+                  disabled={addPayLaterCustomersMutation.isPending}
                 >
-                  {addCreditorMutation.isPending && (
+                  {addPayLaterCustomersMutation.isPending && (
                     <LoaderIcon className="w-4 h-4 animate-spin" />
                   )}
                   Save
@@ -178,10 +167,10 @@ function RouteComponent() {
       </div>
 
       <div>
-        {creditors.map((creditor) => (
-          <CreditorCard
-            key={creditor.nickname}
-            creditor={creditor}
+        {payLaterCustomers.map((payLaterCustomer) => (
+          <PayLaterCustomersCard
+            key={payLaterCustomer.id}
+            payLaterCustomer={payLaterCustomer}
             navigate={navigate}
           />
         ))}
@@ -190,15 +179,15 @@ function RouteComponent() {
   )
 }
 
-function CreditorCard({
-  creditor,
+function PayLaterCustomersCard({
+  payLaterCustomer,
   navigate,
 }: {
-  creditor: Creditor & { id: string }
+  payLaterCustomer: PayLaterCustomers
   navigate: ReturnType<typeof useNavigate>
 }) {
-  const { userAdditional } = useFirebaseAuth()
-  const isEmployee = userAdditional?.role === 'employee'
+  const { user } = usePocketbaseAuth()
+  const isEmployee = user.role === 'employee'
   const x = useMotionValue(0)
   const snapState = useRef<'center' | 'left' | 'right'>('center')
 
@@ -214,20 +203,20 @@ function CreditorCard({
         <>
           <div className="top-0 left-0 z-0 absolute flex items-center h-full">
             <div className="flex justify-center items-center border w-full h-full">
-              <EditDrawer creditor={creditor} />
-              <DeleteDrawer creditor={creditor} />
+              <EditDrawer payLaterCustomer={payLaterCustomer} />
+              <DeleteDrawer payLaterCustomer={payLaterCustomer} />
             </div>
           </div>
           <div className="top-0 right-0 z-0 absolute flex items-center h-full">
             <div className="flex justify-center items-center border w-full h-full">
-              <EditDrawer creditor={creditor} />
-              <DeleteDrawer creditor={creditor} />
+              <EditDrawer payLaterCustomer={payLaterCustomer} />
+              <DeleteDrawer payLaterCustomer={payLaterCustomer} />
             </div>
           </div>
         </>
       )}
       <motion.div
-        key={creditor.nickname}
+        key={payLaterCustomer.id}
         className="z-10 relative gap-0 grid grid-cols-1"
         drag={isEmployee ? false : 'x'}
         dragDirectionLock
@@ -240,7 +229,7 @@ function CreditorCard({
         <Card
           onClick={() =>
             navigate({
-              to: `/home/creditors/${creditor.nickname}`,
+              to: `/home/payLaterCustomers/${payLaterCustomer.id}`,
               viewTransition: { types: ['slide-left'] },
             })
           }
@@ -250,15 +239,12 @@ function CreditorCard({
             <User2 className="w-10 h-10 text-primary" />
           </div>
           <CardContent className="flex flex-col flex-1 justify-center px-0 py-3 min-w-0">
-            <div className="font-semibold text-base truncate">
-              {creditor.nickname}
-            </div>
             <div className="text-muted-foreground text-sm truncate">
-              {creditor.firstName} {creditor.lastName}
+              {payLaterCustomer.name}
             </div>
-            {creditor.remarks && (
+            {payLaterCustomer.remarks && (
               <div className="text-muted-foreground text-xs truncate italic">
-                {creditor.remarks}
+                {payLaterCustomer.remarks}
               </div>
             )}
           </CardContent>
@@ -271,56 +257,34 @@ function CreditorCard({
   )
 }
 
-function EditDrawer({ creditor }: { creditor: Creditor & { id: string } }) {
+function EditDrawer({
+  payLaterCustomer,
+}: {
+  payLaterCustomer: PayLaterCustomers
+}) {
   const [open, setOpen] = useState(false)
-  const [nickname, setNickname] = useState(creditor.nickname)
-  const [firstName, setFirstName] = useState(creditor.firstName)
-  const [lastName, setLastName] = useState(creditor.lastName)
-  const [remarks, setRemarks] = useState(creditor.remarks || '')
+  const [name, setName] = useState(payLaterCustomer.name)
+  const [remarks, setRemarks] = useState(payLaterCustomer.remarks ?? '')
   const queryClient = useQueryClient()
 
-  // Get all creditors for nickname collision check
-  const { data: creditors = [] } = useQuery<(Creditor & { id: string })[]>({
-    queryKey: ['creditors'],
-    queryFn: getAllCreditors,
-  })
-
   const updateMutation = useMutation({
-    mutationFn: (updatedCreditor: Creditor) =>
-      updateCreditor(creditor.id, updatedCreditor),
+    mutationFn: updatePayLaterCustomer,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['creditors'] })
+      queryClient.invalidateQueries({ queryKey: ['payLaterCustomers'] })
       setOpen(false)
-      playSuccessSound()
-      toast.success('Creditor updated!')
+      toast.success('Customer updated!')
     },
     onError: () => {
-      playErrorSound()
-      toast.error('Failed to update creditor.')
+      toast.error('Failed to update customer.')
     },
   })
 
   const handleSave = () => {
-    // Check for nickname collision (ignore current creditor)
-    const isDuplicate = creditors.some(
-      (c) => c.nickname === nickname && c.id !== creditor.id,
-    )
-    if (!nickname || !firstName || !lastName) {
-      playErrorSound()
-      toast.warning('Nickname, First name, and Last name are required.')
+    if (!name) {
+      toast.warning('Name is required.')
       return
     }
-    if (isDuplicate) {
-      playErrorSound()
-      toast.warning('Nickname must be unique.')
-      return
-    }
-    updateMutation.mutate({
-      nickname,
-      firstName,
-      lastName,
-      remarks,
-    })
+    updateMutation.mutate({ id: payLaterCustomer.id, name, remarks })
   }
 
   return (
@@ -337,25 +301,13 @@ function EditDrawer({ creditor }: { creditor: Creditor & { id: string } }) {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Edit Creditor</DrawerTitle>
+          <DrawerTitle>Edit Customer</DrawerTitle>
         </DrawerHeader>
         <div className="space-y-2 px-6">
           <Input
-            placeholder="Nickname (unique)"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            disabled={updateMutation.isPending}
-          />
-          <Input
-            placeholder="First Name"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            disabled={updateMutation.isPending}
-          />
-          <Input
-            placeholder="Last Name"
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             disabled={updateMutation.isPending}
           />
           <Input
@@ -392,27 +344,26 @@ function EditDrawer({ creditor }: { creditor: Creditor & { id: string } }) {
   )
 }
 
-function DeleteDrawer({ creditor }: { creditor: Creditor & { id: string } }) {
+function DeleteDrawer({
+  payLaterCustomer,
+}: {
+  payLaterCustomer: PayLaterCustomers
+}) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteCreditor(creditor.id),
+    mutationFn: deletePayLaterCustomer,
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['creditors'] })
+      queryClient.invalidateQueries({ queryKey: ['payLaterCustomers'] })
       setOpen(false)
-      playSuccessSound()
-      toast.success('Creditor deleted!')
+      toast.success('Customer deleted!')
     },
     onError: () => {
-      playErrorSound()
-      toast.error('Failed to delete creditor.')
+      toast.error('Failed to delete customer.')
     },
   })
-
-  const handleDelete = () => {
-    deleteMutation.mutate()
-  }
 
   return (
     <Drawer
@@ -428,16 +379,16 @@ function DeleteDrawer({ creditor }: { creditor: Creditor & { id: string } }) {
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Delete Creditor</DrawerTitle>
+          <DrawerTitle>Delete Customer</DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to delete this creditor?
+            Are you sure you want to delete this customer?
           </DrawerDescription>
         </DrawerHeader>
         <DrawerFooter>
           <Button
             className="flex items-center gap-2 text-white"
             type="button"
-            onClick={handleDelete}
+            onClick={() => deleteMutation.mutate(payLaterCustomer)}
             disabled={deleteMutation.isPending}
           >
             {deleteMutation.isPending && (

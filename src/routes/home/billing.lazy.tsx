@@ -1,15 +1,16 @@
-import { DataTable } from '@/components/ui/dataTable_billing'
+import { DataTable } from '@/components/ui/dataTable'
 import { createLazyFileRoute } from '@tanstack/react-router'
 import { columns } from '@/components/restaurant_mobile/billing'
 import {
   calculateOrderTotal,
   calculateOrderSubtotal,
 } from '@/components/dashboard_mobile/dashboard.utils'
-import { getAllOrders, type ProcessedOrder } from '@/firebase/takeOrder'
 import { useQuery } from '@tanstack/react-query'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { isSameDay } from 'date-fns'
 import React from 'react'
+import type { FetchedOrder } from '@/components/restaurant_mobile/types'
+import { pb } from '@/lib/pocketbase'
 
 export const Route = createLazyFileRoute('/home/billing')({
   component: () => {
@@ -17,9 +18,14 @@ export const Route = createLazyFileRoute('/home/billing')({
       new Date(),
     )
 
-    const { data: rawOrders = [] } = useQuery<ProcessedOrder[]>({
+    const { data: rawOrders = [] } = useQuery<FetchedOrder[]>({
       queryKey: ['getAllOrders'],
-      queryFn: getAllOrders,
+      queryFn: async () => {
+        return pb.collection('orders').getFullList<FetchedOrder>({
+          sort: '-receiptDate',
+          expand: 'createdBy, payLaterCustomerId',
+        })
+      },
       placeholderData: [],
       staleTime: Number.POSITIVE_INFINITY,
       gcTime: Number.POSITIVE_INFINITY,
@@ -50,14 +56,6 @@ export const Route = createLazyFileRoute('/home/billing')({
         totalAmount,
       }
     })
-
-    // const multipliedOrders = Array.from({ length: 100 }, (_, multiplier) =>
-    //   orders.map((order) => ({
-    //     ...order,
-    //     receiptId: `${order.receiptId}-${multiplier}`, // Unique receipt ID
-    //     kotNumber: `${order.kotNumber}-${multiplier}`, // Unique KOT number
-    //   })),
-    // ).flat()
 
     return (
       <div className="flex flex-col px-4 h-full">

@@ -48,36 +48,25 @@ import {
   ArrowLeftIcon,
   PartyPopperIcon,
 } from 'lucide-react'
-import {
-  getFoodItems,
-  enterFoodItem,
-  editFoodItem,
-  deleteFoodItem,
-  type FoodItemProps,
-} from '@/firebase/menuManagement'
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DonutImage from '@/assets/donutImage'
 import { Formik, Form } from 'formik'
 import * as Yup from 'yup'
 import SplashScreen from '@/components/splashscreen'
-import { uploadMenuItemImage } from '@/firebase/firebase_storage'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import { useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
-
-// Food categories configuration
-export const categories = [
-  { id: 'main_courses', name: 'Main Courses' },
-  { id: 'appetizers', name: 'Appetizers' },
-  { id: 'bakery', name: 'Bakery' },
-  { id: 'desserts', name: 'Desserts' },
-  { id: 'beverages', name: 'Beverages' },
-  { id: 'hard_drinks', name: 'Hard Drinks' },
-  { id: 'specials', name: 'Specials' },
-  { id: 'others', name: 'Others' },
-]
+import { pb } from '@/lib/pocketbase'
+import {
+  menuItemsQuery,
+  MAIN_CATEGORIES,
+  type MenuItemProps,
+  type MainCategory,
+} from '@/lib/pocketbase/menuManagement'
+import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 
 function CategoryTabs() {
   return (
@@ -104,27 +93,28 @@ function CategoryTabs() {
 
 // Menu Item Card Component
 const MenuItemCard = memo(function MenuItemCard({
-  foods,
+  menuItems,
 }: {
-  foods: FoodItemProps[]
+  menuItems: MenuItemProps[]
 }) {
   // All foods have the same type, so use the first item's type or name as the heading
-  const type = foods[0]?.type?.toUpperCase() || foods[0]?.name.toUpperCase()
+  const type =
+    menuItems[0]?.type?.toUpperCase() || menuItems[0]?.name.toUpperCase()
 
   return (
     <div className="mb-8 p-4 border rounded-xl">
       <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
       <div className="flex flex-col gap-2">
-        {foods.map((food) => (
+        {menuItems.map((menuItem) => (
           <div
-            key={food.foodId}
+            key={menuItem.id}
             className="flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors"
           >
             <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
-              {food.photoURL ? (
+              {menuItem.photoURL ? (
                 <img
-                  alt={food.name}
-                  src={food.photoURL}
+                  alt={menuItem.name}
+                  src={pb.files.getURL(menuItem, menuItem.photoURL)}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -133,13 +123,15 @@ const MenuItemCard = memo(function MenuItemCard({
               )}
             </div>
             <div className="flex-1">
-              <h3 className="font-medium">{food.name}</h3>
-              <p className="text-muted-foreground text-sm">Rs. {food.price}</p>
+              <h3 className="font-medium">{menuItem.name}</h3>
+              <p className="text-muted-foreground text-sm">
+                Rs. {menuItem.price}
+              </p>
             </div>
             {/* Edit and Delete Buttons */}
             <div className="flex gap-2">
-              <EditFoodDrawer food={food} />
-              <DeleteFoodDrawer food={food} />
+              <EditMenuItemDrawer menuItem={menuItem} />
+              <DeleteMenuItemDrawer menuItem={menuItem} />
             </div>
           </div>
         ))}
@@ -148,18 +140,15 @@ const MenuItemCard = memo(function MenuItemCard({
   )
 })
 
-// Validation schema for food form
-const foodValidationSchema = Yup.object({
+// Validation schema for menu item form
+const menuItemValidationSchema = Yup.object({
   name: Yup.string()
     .trim()
     .min(2, 'Too short')
     .max(64, 'Too long')
     .required('Required'),
   mainCategory: Yup.string()
-    .oneOf(
-      categories.map((cat) => cat.id),
-      'Invalid',
-    )
+    .oneOf([...MAIN_CATEGORIES], 'Invalid Category') // Uses your constant
     .required('Required'),
   price: Yup.number()
     .typeError('Must be a number')
@@ -169,35 +158,47 @@ const foodValidationSchema = Yup.object({
   photoURL: Yup.mixed().nullable(),
 })
 
-export function AddFoodDrawer() {
+interface MenuItemAddValues {
+  name: string
+  mainCategory: MainCategory
+  price: number
+  type?: string
+  photoURL?: File | string
+}
+
+export function AddMenuItemDrawer() {
+  const { user } = usePocketbaseAuth()
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const enterFoodItemsMutation = useMutation({
-    mutationFn: async (values: Omit<FoodItemProps, 'foodId'>) => {
-      const id = crypto.randomUUID()
-      const valuesWithId: FoodItemProps = { ...values, foodId: id }
-      const photoFile: File | null = valuesWithId.photoURL as File | null
+  const enterMenuItemMutation = useMutation({
+    mutationFn: async (values: MenuItemAddValues) => {
+      const formData = new FormData()
 
-      let storageURL = null
-      if (photoFile !== null) {
-        storageURL = await uploadMenuItemImage(id, photoFile)
+      // 1. Append all text fields
+      formData.append('name', values.name)
+      formData.append('price', values.price.toString())
+      formData.append('mainCategory', values.mainCategory)
+      formData.append('editedBy', user.id)
+      formData.append('addedBy', user.id)
+
+      if (values.type) formData.append('type', values.type)
+
+      // 2. Append the file (PocketBase handles the rest)
+      if (values.photoURL instanceof File) {
+        formData.append('photoURL', values.photoURL)
       }
 
-      const valuesWithPhotoURL = {
-        ...valuesWithId,
-        photoURL: storageURL,
-      }
-
-      await enterFoodItem(valuesWithPhotoURL)
+      // 3. Single request to Create
+      return await pb.collection('menuItems').create(formData)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['foods'] })
-      toast('Food Item Added successfully!')
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
+      toast.success('Menu Item Added successfully!')
       setOpen(false)
     },
     onError: (error: any) => {
-      toast('error!', error)
+      toast.error('Error adding item: ' + error.message)
     },
   })
 
@@ -217,21 +218,21 @@ export function AddFoodDrawer() {
           </SheetDescription>
         </SheetHeader>
 
-        <Formik<Omit<FoodItemProps, 'foodId'>> // id will be generated
+        <Formik<MenuItemAddValues>
           initialValues={{
             name: '',
             mainCategory: 'appetizers',
             price: 0,
-            type: null,
-            photoURL: null,
+            type: undefined,
+            photoURL: undefined,
           }}
-          validationSchema={foodValidationSchema}
+          validationSchema={menuItemValidationSchema}
           onSubmit={(values) => {
             const normalizedValues = {
               ...values,
-              type: values.type ? values.type.toLowerCase() : null,
+              type: values.type ? values.type.toLowerCase() : undefined,
             }
-            enterFoodItemsMutation.mutate(normalizedValues)
+            enterMenuItemMutation.mutate(normalizedValues)
           }}
         >
           {(formik) => (
@@ -240,7 +241,7 @@ export function AddFoodDrawer() {
                 <div className="flex flex-col gap-4 px-4 py-4">
                   {/* Name Field */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="name">Food Name</Label>
+                    <Label htmlFor="name">Menu Item Name</Label>
                     <Input
                       id="name"
                       name="name"
@@ -251,7 +252,7 @@ export function AddFoodDrawer() {
                     />
                     {formik.touched.name && formik.errors.name && (
                       <div className="text-red-500 text-xs">
-                        {formik.errors.name}
+                        {String(formik.errors.name)}
                       </div>
                     )}
                   </div>
@@ -270,9 +271,10 @@ export function AddFoodDrawer() {
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
+                        {MAIN_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {/* Replaces underscores with spaces and capitalizes for the UI */}
+                            {cat.replace('_', ' ').toUpperCase()}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -280,7 +282,7 @@ export function AddFoodDrawer() {
                     {formik.touched.mainCategory &&
                       formik.errors.mainCategory && (
                         <div className="text-red-500 text-xs">
-                          {formik.errors.mainCategory}
+                          {String(formik.errors.mainCategory)}
                         </div>
                       )}
                   </div>
@@ -299,7 +301,7 @@ export function AddFoodDrawer() {
                     />
                     {formik.touched.price && formik.errors.price && (
                       <div className="text-red-500 text-xs">
-                        {formik.errors.price}
+                        {String(formik.errors.price)}
                       </div>
                     )}
                   </div>
@@ -366,37 +368,48 @@ export function AddFoodDrawer() {
   )
 }
 
-// Edit Food Drawer Component
-function EditFoodDrawer({ food }: { food: FoodItemProps }) {
+interface MenuItemEditValues {
+  id: string
+  name: string
+  mainCategory: MainCategory
+  price: number
+  type?: string
+  photoURL?: File | string
+}
+
+// Edit Menu Item Drawer Component
+function EditMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
+  const { user } = usePocketbaseAuth()
 
-  const updateFoodItemsMutation = useMutation({
-    mutationFn: async (
-      values: Omit<FoodItemProps, 'foodId'> & { foodId: string },
-    ) => {
-      const photoFile: File | null = values.photoURL as File | null
+  const updateMenuItemsMutation = useMutation({
+    mutationFn: async (values: MenuItemEditValues) => {
+      const formData = new FormData()
 
-      let storageURL = null
-      if (photoFile !== null) {
-        storageURL = await uploadMenuItemImage(values.foodId, photoFile)
+      // 1. Append Text Fields
+      formData.append('name', values.name)
+      formData.append('price', values.price.toString())
+      formData.append('mainCategory', values.mainCategory)
+      formData.append('type', values.type ?? '')
+      formData.append('editedBy', user.id)
+
+      // 2. Handle Image
+      // Only append if the user actually picked a NEW file
+      if (values.photoURL instanceof File) {
+        formData.append('photoURL', values.photoURL)
       }
 
-      const valuesWithPhotoURL = {
-        ...values,
-        type: values.type ?? null, // ensure null
-        photoURL: storageURL ?? null, // ensure null if no file uploaded
-      }
-
-      await editFoodItem(valuesWithPhotoURL)
+      // 3. Single Update Request
+      return await pb.collection('menuItems').update(values.id, formData)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['foods'] })
-      toast('Food Item Updated successfully!')
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
+      toast.success('Item updated successfully!')
       setOpen(false)
     },
     onError: (error: any) => {
-      toast('error!', error)
+      toast.error('Update failed: ' + error.message)
     },
   })
 
@@ -409,23 +422,23 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
       </SheetTrigger>
       <SheetContent side="bottom">
         <SheetHeader>
-          <SheetTitle>Edit Food Item</SheetTitle>
+          <SheetTitle>Edit Menu Item</SheetTitle>
           <SheetDescription>
-            Update the details of {food.name}. Click save when you're done.
+            Update the details of {menuItem.name}. Click save when you're done.
           </SheetDescription>
         </SheetHeader>
 
-        <Formik<Omit<FoodItemProps, 'foodId'> & { foodId: string }>
+        <Formik<MenuItemEditValues>
           initialValues={{
-            foodId: food.foodId,
-            name: food.name,
-            mainCategory: food.mainCategory,
-            price: food.price,
-            type: food.type ?? null, // ensure null
-            photoURL: food.photoURL ?? null, // ensure null
+            id: menuItem.id,
+            name: menuItem.name,
+            mainCategory: menuItem.mainCategory,
+            price: menuItem.price,
+            type: menuItem.type ?? undefined,
+            photoURL: menuItem.photoURL ?? undefined,
           }}
-          validationSchema={foodValidationSchema}
-          onSubmit={(values) => updateFoodItemsMutation.mutate(values)}
+          validationSchema={menuItemValidationSchema}
+          onSubmit={(values) => updateMenuItemsMutation.mutate(values)}
         >
           {(formik) => (
             <Form>
@@ -433,7 +446,7 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
                 <div className="flex flex-col gap-4 px-4 py-4">
                   {/* Name */}
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="name">Food Name</Label>
+                    <Label htmlFor="name">Menu Item Name</Label>
                     <Input
                       id="name"
                       name="name"
@@ -459,9 +472,10 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
+                        {MAIN_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat}>
+                            {/* Replaces underscores with spaces and capitalizes for the UI */}
+                            {cat.replace('_', ' ').toUpperCase()}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -542,22 +556,23 @@ function EditFoodDrawer({ food }: { food: FoodItemProps }) {
   )
 }
 
-// Delete Food Drawer Component
-function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
+// Delete Menu Item Drawer Component
+function DeleteMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const deleteFoodItemMutation = useMutation({
+  const deleteMenuItemMutation = useMutation({
     mutationFn: async () => {
-      await deleteFoodItem(food.foodId)
+      // PocketBase handles deleting the associated photoURL file automatically
+      await pb.collection('menuItems').delete(menuItem.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['foods'] })
-      toast('Food Item Deleted successfully!')
+      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
+      toast.success('Menu Item Deleted successfully!')
       setOpen(false)
     },
     onError: (error: any) => {
-      toast('error!', error)
+      toast.error('Error deleting item: ' + error.message)
     },
   })
 
@@ -576,10 +591,10 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
 
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Delete Food Item</DrawerTitle>
+          <DrawerTitle>Delete Menu Item</DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to delete <strong>{food.name}</strong>? This
-            action cannot be undone.
+            Are you sure you want to delete <strong>{menuItem.name}</strong>?
+            This action cannot be undone.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -587,10 +602,10 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
           <div className="bg-card p-4 border rounded-lg">
             <div className="flex items-center gap-3">
               <div className="flex justify-center items-center bg-gray-100 rounded-lg w-12 h-12">
-                {typeof food.photoURL === 'string' && food.photoURL ? (
+                {typeof menuItem.photoURL === 'string' && menuItem.photoURL ? (
                   <img
-                    alt={food.name}
-                    src={food.photoURL}
+                    alt={menuItem.name}
+                    src={pb.files.getURL(menuItem, menuItem.photoURL)}
                     className="rounded-lg w-12 h-12 object-cover"
                     loading="lazy"
                   />
@@ -599,9 +614,9 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
                 )}
               </div>
               <div>
-                <h4 className="font-medium">{food.name}</h4>
+                <h4 className="font-medium">{menuItem.name}</h4>
                 <p className="text-muted-foreground text-sm">
-                  Rs. {food.price}
+                  Rs. {menuItem.price}
                 </p>
               </div>
             </div>
@@ -610,10 +625,10 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
 
         <DrawerFooter>
           <Button
-            onClick={() => deleteFoodItemMutation.mutate()}
-            disabled={deleteFoodItemMutation.isPending}
+            onClick={() => deleteMenuItemMutation.mutate()}
+            disabled={deleteMenuItemMutation.isPending}
           >
-            {deleteFoodItemMutation.isPending ? (
+            {deleteMenuItemMutation.isPending ? (
               <>
                 <LoaderIcon
                   className="mr-2 w-4 h-4 animate-spin"
@@ -636,10 +651,7 @@ function DeleteFoodDrawer({ food }: { food: FoodItemProps }) {
 
 // Main MenuManagement Component
 export function MenuManagement() {
-  const { data: foods = [], isLoading } = useQuery({
-    queryKey: ['foods'],
-    queryFn: getFoodItems,
-  })
+  const { data: menuItems = [], isLoading } = useQuery(menuItemsQuery())
 
   const { category: selectedCategory } = useSearch({
     from: '/home/menuManagement',
@@ -677,14 +689,14 @@ export function MenuManagement() {
             <Link
               to="/home/inventoryManagement"
               search={{ category: 'appetizers' }}
-              viewTransition={{ types: ['slide-right'] }}
+              viewTransition={{ types: ['slide-left'] }}
               className="inline-flex items-center gap-1 p-2 border rounded-lg text-muted-foreground hover:text-primary transition-colors"
               title="Go to Inventory"
             >
               <PartyPopperIcon className="w-5 h-5" />
               <span className="font-medium text-sm">Go To Inventory</span>
             </Link>
-            <AddFoodDrawer />
+            <AddMenuItemDrawer />
           </div>
         </div>
 
@@ -711,48 +723,50 @@ export function MenuManagement() {
         <div className="space-y-0 px-4">
           <AnimatePresence>
             {Object.values(
-              foods
-                .filter((food) => {
+              menuItems
+                .filter((menuItem) => {
                   if (search.trim()) {
                     const searchLower = search.toLowerCase()
-                    const inName = food.name.toLowerCase().includes(searchLower)
-                    const inCategory = food.mainCategory
+                    const inName = menuItem.name
+                      .toLowerCase()
+                      .includes(searchLower)
+                    const inCategory = menuItem.mainCategory
                       .toLowerCase()
                       .includes(searchLower)
                     return inName || inCategory
                   } else {
                     return (
                       selectedCategory === '' ||
-                      food.mainCategory === selectedCategory
+                      menuItem.mainCategory === selectedCategory
                     )
                   }
                 })
-                .reduce<Record<string, FoodItemProps[]>>((acc, food) => {
-                  const groupKey = food.type ?? food.name.toLowerCase()
+                .reduce<Record<string, MenuItemProps[]>>((acc, menuItem) => {
+                  const groupKey = menuItem.type ?? menuItem.name.toLowerCase()
                   if (!acc[groupKey]) acc[groupKey] = []
-                  acc[groupKey].push(food)
+                  acc[groupKey].push(menuItem)
                   return acc
                 }, {}),
-            ).map((foodsOfType) => (
+            ).map((menuItemsOfType) => (
               <motion.div
-                key={foodsOfType[0].type ?? foodsOfType[0].name}
+                key={menuItemsOfType[0].type ?? menuItemsOfType[0].name}
                 layout
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.25 }}
               >
-                <MenuItemCard foods={foodsOfType} />
+                <MenuItemCard menuItems={menuItemsOfType} />
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
 
-        {foods.filter((food) => {
+        {menuItems.filter((menuItem) => {
           if (!search.trim()) return false // Only show empty state if search is active and no results
           const searchLower = search.toLowerCase()
-          const inName = food.name.toLowerCase().includes(searchLower)
-          const inCategory = food.mainCategory
+          const inName = menuItem.name.toLowerCase().includes(searchLower)
+          const inCategory = menuItem.mainCategory
             .toLowerCase()
             .includes(searchLower)
 

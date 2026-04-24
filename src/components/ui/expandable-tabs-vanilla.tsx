@@ -4,7 +4,6 @@ import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
-import type { kanbanCategory } from '../stock'
 
 type MenuCategory =
   | 'appetizers'
@@ -22,7 +21,7 @@ interface Tab {
   title: string
   icon: LucideIcon
   type?: never
-  search: kanbanCategory | MenuCategory
+  search: MenuCategory
 }
 
 interface Separator {
@@ -89,7 +88,7 @@ const TabButton = React.memo(function TabButton({
       }}
       transition={transition}
       className={cn(
-        'relative flex flex-1 justify-center items-center rounded-xl px-0  text-black dark:text-white py-2 text-sm font-medium text-nowrap transition-colors duration-300',
+        'relative flex flex-1 justify-center items-center px-0 py-2 rounded-xl font-medium text-black dark:text-white text-sm text-nowrap transition-colors duration-300',
         selected
           ? cn('bg-muted')
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -137,7 +136,7 @@ export function ExpandableTabs({
   return (
     <div
       className={cn(
-        'flex  flex-no-wrap items-center gap-2 rounded-2xl border bg-background p-1 shadow-sm',
+        'flex flex-no-wrap items-center gap-2 bg-background shadow-sm p-1 border rounded-2xl',
         className,
       )}
     >

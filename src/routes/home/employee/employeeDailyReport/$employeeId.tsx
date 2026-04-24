@@ -2,13 +2,15 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { motion, AnimatePresence } from 'motion/react'
-import { ArrowLeft, ReceiptIcon } from 'lucide-react'
+import { ArrowLeft, LoaderIcon, ReceiptIcon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { collection, getDocs } from 'firebase/firestore'
-import { db, getSingleUser } from '@/firebase/firestore'
-import type { ProcessedOrder } from '@/firebase/takeOrder'
+import { pb } from '@/lib/pocketbase'
+import { type FetchedOrder } from '@/components/restaurant_mobile/types'
 import { ReceiptDrawer } from '@/components/restaurant_mobile/billing'
 import { calculateOrderTotal } from '@/components/dashboard_mobile/dashboard.utils'
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import type { User } from '@/lib/usePocketbaseAuth'
 
 export const Route = createFileRoute(
   '/home/employee/employeeDailyReport/$employeeId',
@@ -18,238 +20,253 @@ export const Route = createFileRoute(
 
 function RouteComponent() {
   const { employeeId } = Route.useParams()
-  const [selectedBill, setSelectedBill] = useState<ProcessedOrder | null>(null)
+  const [selectedBill, setSelectedBill] = useState<FetchedOrder | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [dayFilter, setDayFilter] = useState<1 | 2 | 7>(7) // Default to 7 days
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    () => new Date(),
+  )
 
-  // Fetch employee details
   const { data: employee } = useQuery({
     queryKey: ['employee', employeeId],
-    queryFn: () => getSingleUser(employeeId),
-  })
-
-  // Fetch employee's sales using inline useQuery
-  const { data: allEmployeeOrders = [], isLoading } = useQuery({
-    queryKey: [
-      'employeeSales',
-      employeeId,
-      employee?.firstName,
-      employee?.email,
-    ],
-    queryFn: async (): Promise<ProcessedOrder[]> => {
-      // Get employee details for filtering (firstName, displayName, email fallback)
-      if (!employee) return []
-
-      const processedByName = employee.firstName || employee.email || 'unknown'
-
-      // Fetch from weekly order history collections
-      const ordersRef = collection(db, 'orderHistoryDaily')
-      const querySnapshot = await getDocs(ordersRef)
-      let allOrders: ProcessedOrder[] = []
-
-      querySnapshot.forEach((doc) => {
-        const batchOrders = (doc.data().orders || []) as ProcessedOrder[]
-        allOrders = allOrders.concat(batchOrders)
-      })
-
-      // Filter by employee's processedBy name only
-      return allOrders
-        .filter((order) => {
-          const matchesEmployee = order.processedBy === processedByName
-          return matchesEmployee
-        })
-        .sort(
-          (a, b) =>
-            new Date(b.receiptDate).getTime() -
-            new Date(a.receiptDate).getTime(),
-        )
+    queryFn: async () => {
+      const record = await pb.collection('users').getOne<User>(employeeId)
+      return record
     },
-    enabled: !!employee, // Only run query when we have employee data
   })
 
-  // Filter orders by date range on the client side
-  const employeeSales = allEmployeeOrders.filter((order) => {
-    const now = new Date()
-    const orderDate = new Date(order.receiptDate)
-
-    // For "today" filter, compare dates without time
-    if (dayFilter === 1) {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const orderDateOnly = new Date(orderDate)
-      orderDateOnly.setHours(0, 0, 0, 0)
-
-      return orderDateOnly.getTime() === today.getTime()
-    }
-
-    // For multi-day filters, use time-based comparison
-    const dateThreshold = new Date(
-      now.getTime() - dayFilter * 24 * 60 * 60 * 1000,
-    )
-
-    return orderDate >= dateThreshold
+  const { data: allEmployeeOrders = [], isLoading } = useQuery<FetchedOrder[]>({
+    queryKey: ['employeeSales', employeeId, selectedDate],
+    queryFn: async () => {
+      return await pb.collection('orders').getFullList<FetchedOrder>({
+        filter: `createdBy = "${employeeId}" && receiptDate >= "${format(
+          selectedDate || new Date(),
+          'yyyy-MM-dd',
+        )}"`,
+        sort: '-receiptDate',
+        expand: 'payLaterCustomerId, createdBy',
+      })
+    },
+    enabled: !!employee,
   })
 
-  // Calculate total revenue from employee's sales
-  const totalRevenue = employeeSales.reduce((sum, bill) => {
-    return sum + calculateOrderTotal(bill)
-  }, 0)
+  const totalRevenue = allEmployeeOrders.reduce(
+    (sum, bill) => sum + calculateOrderTotal(bill),
+    0,
+  )
+  const paidCount = allEmployeeOrders.filter((b) => b.status === 'paid').length
+  const cancelledCount = allEmployeeOrders.filter(
+    (b) => b.status === 'cancelled',
+  ).length
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[40vh]">
-        <div className="text-center">
-          <ReceiptIcon className="mx-auto mb-4 w-12 h-12 text-muted-foreground animate-pulse" />
-          <p className="text-muted-foreground">Loading sales data...</p>
-        </div>
-      </div>
-    )
-  }
+  const initials = employee
+    ? `${employee.firstName[0]}${employee.lastName[0]}`.toUpperCase()
+    : '??'
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Sticky Header with Total Revenue */}
-      <div className="top-0 z-10 sticky bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="mx-auto px-7 py-6 max-w-5xl">
-          <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-3">
-              <Link
-                to="/home/employee/table"
-                className="flex justify-center items-center bg-muted hover:bg-muted/80 rounded-full w-8 h-8 transition-colors"
-                viewTransition={{ types: ['slide-right'] }}
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </Link>
-              <h1 className="font-bold text-foreground text-2xl">
-                Sales Profile
-              </h1>
-            </div>
-            <div className="text-right">
-              <div className="font-semibold text-foreground text-lg">
-                {employee
-                  ? `${employee.firstName} ${employee.lastName}`
-                  : 'Loading...'}
-              </div>
-              <div className="text-foreground text-sm">
-                {employee?.role || 'Employee'}
-              </div>
-            </div>
-          </div>
-
-          {/* Filter Chips */}
-          <div className="flex justify-center gap-2 mb-3">
-            {([1, 2, 7] as const).map((days) => (
-              <button
-                key={days}
-                onClick={() => setDayFilter(days)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 ${
-                  dayFilter === days
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                {days === 1 ? 'Today' : `${days} Days`}
-              </button>
-            ))}
-          </div>
-
-          {/* Total Revenue Card */}
-          <motion.div
-            className="hover:bg-emerald-500/10 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 hover:shadow-lg hover:backdrop-blur-md p-3 border border-emerald-500/20 hover:border-emerald-500/40 rounded-lg transition-all duration-300"
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3 }}
+      {/* Sticky Header */}
+      <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
+        <div className="mx-auto px-4 pt-4 pb-4 max-w-xl">
+          {/* Back nav */}
+          <Link
+            to="/home/employee/table"
+            className="inline-flex items-center gap-1 mb-4 text-muted-foreground"
+            viewTransition={{ types: ['slide-right'] }}
           >
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <ReceiptIcon className="w-4 h-4 text-emerald-600" />
-                <span className="font-medium text-emerald-600 text-sm">
-                  Total Revenue
-                </span>
-              </div>
-              <div className="font-bold text-emerald-600 text-lg">
-                Rs. {totalRevenue.toFixed(2)}
+            <ArrowLeft size={16} />
+            <span className="text-xs">Back</span>
+          </Link>
+
+          {/* Profile + revenue card */}
+          <div className="bg-white dark:bg-zinc-900 mb-3 border border-border rounded-xl overflow-hidden">
+            <div className="px-4 pt-4 pb-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-12 h-12 shrink-0">
+                  <AvatarImage
+                    src={
+                      employee?.avatar
+                        ? pb.files.getURL(employee, employee.avatar)
+                        : undefined
+                    }
+                  />
+                  <AvatarFallback className="bg-violet-100 dark:bg-violet-900/40 font-semibold text-violet-700 dark:text-violet-300">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-foreground text-base truncate leading-tight">
+                    {employee
+                      ? `${employee.firstName} ${employee.lastName}`
+                      : '...'}
+                  </div>
+                  <div className="text-muted-foreground text-xs capitalize">
+                    {employee?.role || 'Employee'}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="mb-0.5 text-[10px] text-muted-foreground">
+                    today's revenue
+                  </div>
+                  <div className="font-semibold text-foreground text-lg leading-tight">
+                    Rs. {totalRevenue.toFixed(2)}
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-1 text-muted-foreground text-xs">
-              {employeeSales.length} bills processed in{' '}
-              {dayFilter === 1 ? 'today' : `last ${dayFilter} days`}
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 border-border border-t">
+              <div className="px-4 py-2.5 border-border border-r">
+                <div className="mb-0.5 text-[10px] text-muted-foreground">
+                  Bills
+                </div>
+                <div className="font-semibold text-foreground text-lg">
+                  {allEmployeeOrders.length}
+                </div>
+              </div>
+              <div className="px-4 py-2.5 border-border border-r">
+                <div className="mb-0.5 text-[10px] text-muted-foreground">
+                  Paid
+                </div>
+                <div className="font-semibold text-green-600 dark:text-green-400 text-lg">
+                  {paidCount}
+                </div>
+              </div>
+              <div className="px-4 py-2.5">
+                <div className="mb-0.5 text-[10px] text-muted-foreground">
+                  Cancelled
+                </div>
+                <div className="font-semibold text-red-500 text-lg">
+                  {cancelledCount}
+                </div>
+              </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="mx-auto px-7 py-6 pb-20 max-w-5xl">
-        <div className="space-y-4">
-          {employeeSales.length === 0 ? (
-            <div className="flex flex-col items-center py-12 text-muted-foreground text-center">
-              <ReceiptIcon className="opacity-50 mb-4 w-12 h-12" />
-              <p>No sales found for this employee.</p>
-              <p className="text-sm">Sales will appear here once processed.</p>
+      {/* Content */}
+      <div className="mx-auto px-4 py-3 pb-20 max-w-xl">
+        {/* Filter row */}
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground text-xs">
+              {allEmployeeOrders.length} bills · tap to view receipt
+            </span>
+            {isLoading && (
+              <LoaderIcon className="w-3 h-3 text-muted-foreground animate-spin" />
+            )}
+          </div>
+          <DatePickerWithPresets
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+          />
+        </div>
+
+        <div className="space-y-2">
+          {!isLoading && allEmployeeOrders.length === 0 ? (
+            <div className="flex flex-col items-center py-16 text-muted-foreground text-center">
+              <ReceiptIcon className="opacity-30 mb-3 w-10 h-10" />
+              <p className="text-sm">No bills on this date.</p>
             </div>
           ) : (
             <AnimatePresence>
-              {employeeSales.map((bill, i, arr) => {
+              {allEmployeeOrders.map((bill, i) => {
                 const total = calculateOrderTotal(bill)
+                const isCancelled = bill.status === 'cancelled'
+                const itemSummary = bill.items
+                  .map((item) => `${item.name} × ${item.qty}`)
+                  .join(', ')
+
                 return (
                   <motion.div
-                    key={bill.receiptId}
+                    key={bill.id}
                     layout
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -100 }}
-                    transition={{ duration: 0.3, delay: i * 0.05 }}
-                    className="relative"
+                    exit={{ opacity: 0, x: -60 }}
+                    transition={{ duration: 0.2, delay: i * 0.03 }}
+                    className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
+                    onClick={() => {
+                      setSelectedBill(bill)
+                      setDrawerOpen(true)
+                    }}
                   >
-                    <div
-                      className="relative bg-card shadow-sm hover:shadow-md px-6 py-5 border border-border rounded-xl transition-all duration-200 cursor-pointer"
-                      onClick={() => {
-                        setSelectedBill(bill)
-                        setDrawerOpen(true)
-                      }}
-                    >
-                      {/* Timeline dot */}
-                      <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-card rounded-full w-3 h-3" />
-                      {/* Timeline line */}
-                      {i !== arr.length - 1 && (
-                        <div className="top-10 -left-[10px] absolute bg-border w-[1px] h-[calc(100%-2.5rem)]" />
-                      )}
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="flex-1">
-                          <div className="flex justify-between items-center mb-2">
-                            <h3 className="font-semibold text-primary text-base">
-                              {bill.receiptId}
-                            </h3>
-                            <div className="text-right">
-                              <div className="font-bold text-emerald-600 text-lg">
-                                Rs. {total.toFixed(2)}
-                              </div>
-                              {bill.complementary && (
-                                <span className="inline-block bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded-full text-green-800 dark:text-green-300 text-xs">
-                                  Complementary
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {/* Bill details */}
-                          <div className="gap-2 grid grid-cols-2 mb-2 text-muted-foreground text-xs">
-                            <span>
-                              Items:{' '}
-                              <span className="font-medium">
-                                {bill.items.length}
-                              </span>
-                            </span>
-                            <span className="col-span-1 text-right">
-                              <span className="font-medium">
-                                {format(
-                                  new Date(bill.receiptDate),
-                                  'MMM dd, hh:mm a',
-                                )}
-                              </span>
-                            </span>
-                          </div>
+                    {/* Main row */}
+                    <div className="flex justify-between items-start gap-3 px-4 pt-3 pb-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="mb-1 text-[10px] text-muted-foreground">
+                          KOT #{bill.kotNumber} · Table {bill.tableNumber}
                         </div>
+                        <div
+                          className={`text-sm font-medium leading-snug truncate ${
+                            isCancelled
+                              ? 'text-muted-foreground line-through'
+                              : 'text-foreground'
+                          }`}
+                        >
+                          {itemSummary}
+                        </div>
+                        {bill.expand?.payLaterCustomerId && (
+                          <div className="mt-0.5 text-[10px] text-violet-600 dark:text-violet-400">
+                            Credit: {bill.expand.payLaterCustomerId.name}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium
+                            ${
+                              bill.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                : bill.status === 'ready_to_serve'
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                  : bill.status === 'ready_to_pay'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                    : bill.status === 'paid'
+                                      ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'
+                                      : bill.status === 'credited'
+                                        ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300'
+                                        : bill.status === 'cancelled'
+                                          ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                                          : 'bg-muted text-muted-foreground'
+                            }`}
+                        >
+                          {bill.status
+                            .replace(/_/g, ' ')
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </span>
+                        <span
+                          className={`text-sm font-semibold ${
+                            isCancelled
+                              ? 'text-muted-foreground line-through'
+                              : 'text-foreground'
+                          }`}
+                        >
+                          Rs. {total.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Footer row */}
+                    <div className="flex justify-between items-center px-4 py-2 border-border border-t">
+                      <span className="text-[10px] text-muted-foreground">
+                        {format(new Date(bill.receiptDate), 'hh:mm a')}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {bill.complementary && (
+                          <span className="font-medium text-[10px] text-green-600 dark:text-green-400">
+                            Complementary
+                          </span>
+                        )}
+                        {bill.remarks && (
+                          <span className="max-w-[120px] text-[10px] text-muted-foreground truncate italic">
+                            "{bill.remarks}"
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground capitalize">
+                          {bill.paymentMethod}
+                        </span>
                       </div>
                     </div>
                   </motion.div>
@@ -259,6 +276,7 @@ function RouteComponent() {
           )}
         </div>
       </div>
+
       {selectedBill && (
         <ReceiptDrawer
           data={selectedBill}

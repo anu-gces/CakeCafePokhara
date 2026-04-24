@@ -1,40 +1,49 @@
 import { type ClassValue, clsx } from 'clsx'
-import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { twMerge } from 'tailwind-merge'
-import { Loader } from 'lucide-react'
+import { ClientResponseError } from 'pocketbase'
+import { endOfDay } from 'date-fns/endOfDay'
+import { startOfDay } from 'date-fns/startOfDay'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function useLoadingSpinner(isLoading: boolean) {
-  useEffect(() => {
-    let toastId = null
-
-    if (isLoading) {
-      toastId = toast('', {
-        style: {
-          background: 'transparent',
-          boxShadow: 'none',
-          border: 0,
-        },
-        duration: Number.POSITIVE_INFINITY,
-        icon: (
-          <div className="right-0 bottom-0 fixed animate-spin">
-            <Loader size={48} />
-          </div>
-        ),
-        closeButton: false,
-      })
-    } else {
-      if (toastId) {
-        toast.dismiss(toastId)
-      }
+// Returns the error message string only
+export function parsePbError(err: unknown): string {
+  if (err instanceof ClientResponseError) {
+    const fieldErrors = err.response?.data
+    if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+      return Object.entries(fieldErrors)
+        .map(([field, error]: [string, any]) => `${field}: ${error.message}`)
+        .join('\n')
     }
+    if (err.response?.message) return err.response.message
 
-    return () => {
-      toast.dismiss() // This will dismiss all toasts
+    const statusMessages: Record<number, string> = {
+      400: 'Invalid request.',
+      401: 'You must be logged in.',
+      403: "You don't have permission.",
+      404: 'Not found.',
+      429: 'Too many requests. Please slow down.',
+      500: 'Server error. Try again later.',
     }
-  }, [isLoading])
+    return statusMessages[err.status] ?? 'Something went wrong.'
+  }
+  return 'An unexpected error occurred.'
+}
+
+// Generates a Toast
+export function handlePbError(err: unknown) {
+  toast.error(parsePbError(err))
+}
+
+export function toUTCDateRange(date: Date) {
+  const start = startOfDay(date)
+  const end = endOfDay(date)
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  }
 }

@@ -8,42 +8,36 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
-import { motion, animate, useMotionValue, useTransform } from 'motion/react'
-import { BoxIcon, FuelIcon, MicrowaveIcon, RotateCwIcon } from 'lucide-react'
-
-import { useMutation } from '@tanstack/react-query'
+import { motion } from 'motion/react'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
 import {
-  BarChart2Icon,
+  BoxIcon,
+  MicrowaveIcon,
   BellIcon,
   CalendarIcon,
   CoffeeIcon,
   DollarSignIcon,
-  DonutIcon,
   HandCoinsIcon,
   HelpCircleIcon,
   HistoryIcon,
   MenuIcon,
-  PackageOpenIcon,
   UserIcon,
   UsersIcon,
-  UtensilsIcon,
   WifiIcon,
   WifiOffIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Button } from './ui/button'
 import { ExpandableTabs, type TabItem } from './ui/expandable-tabs'
 import { Separator } from './ui/separator'
 import { ModeToggle } from './ui/themeToggle'
-import fallbackAvatar from '@/assets/fallbackAvatar.png'
-import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
-import SplashScreen from './splashscreen'
 import { messaging } from '@/firebase/firebase'
 import { getToken } from 'firebase/messaging'
-import { saveUserFcmToken } from '@/firebase/firestore'
+import { logout } from '@/lib/auth'
+import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
+import { pb } from '@/lib/pocketbase'
 
 const tabs: TabItem[] = [
   {
@@ -57,11 +51,7 @@ const tabs: TabItem[] = [
     icon: BellIcon,
     to: '/home/notifications/orderNotification',
   },
-  {
-    title: 'Stocks',
-    icon: PackageOpenIcon,
-    to: '/home/stock?category="Kitchen"',
-  },
+
   { type: 'separator' },
   {
     title: 'History',
@@ -77,8 +67,7 @@ const tabs: TabItem[] = [
 ]
 
 export function Home() {
-  const { loading: isLoading } = useFirebaseAuth()
-  const { userAdditional } = useFirebaseAuth()
+  const { user } = usePocketbaseAuth()
 
   const [wasOffline, setWasOffline] = useState(false)
 
@@ -110,26 +99,36 @@ export function Home() {
   useEffect(() => {
     async function fetchAndSaveFcmToken() {
       if (
-        typeof Notification !== 'undefined' &&
-        Notification.permission === 'granted' &&
-        messaging
-      ) {
-        try {
-          const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-          })
-          if (token) {
-            await saveUserFcmToken(token)
-          }
-        } catch (err) {}
+        typeof Notification === 'undefined' ||
+        Notification.permission !== 'granted' ||
+        !messaging
+      )
+        return
+
+      try {
+        const token = await getToken(messaging, {
+          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+        })
+
+        if (!token) return
+
+        const userId = user.id
+        if (!userId) return
+
+        const uniqueKey = `${userId}_${token}`
+
+        await pb.collection('fcm_tokens').create({
+          userId,
+          token,
+          uniqueKey,
+        })
+      } catch (err) {
+        console.log('Error fetching FCM token:', err)
       }
     }
+
     fetchAndSaveFcmToken()
   }, [])
-
-  if (isLoading) {
-    return <SplashScreen />
-  }
 
   return (
     <>
@@ -138,7 +137,7 @@ export function Home() {
         data-vaul-drawer-wrapper=""
         className="flex flex-col justify-between bg-white dark:bg-background h-[100dvh] overflow-x-clip overflow-y-clip"
       >
-        <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-b border-border">
+        <div className="flex justify-between items-center bg-background shadow-md dark:shadow-2xl p-4 border-border border-b">
           <div className="flex items-center gap-2">
             <AvatarDrawer />
           </div>
@@ -149,15 +148,14 @@ export function Home() {
             'relative flex-grow overflow-x-hidden overflow-y-hidden [view-transition-name:main-content]  '
           }
         >
-          <PullToRefresh />
           <Outlet />
         </div>
         <ExpandableTabs
           tabs={tabs.filter(
             (tab) =>
               tab.title !== 'Dashboard' ||
-              userAdditional?.role === 'admin' ||
-              userAdditional?.role === 'owner',
+              user.role === 'manager' ||
+              user.role === 'owner',
           )}
           className="min-w-fit"
         />{' '}
@@ -167,16 +165,10 @@ export function Home() {
 }
 
 function AvatarDrawer() {
-  const navigate = useNavigate({ from: '/home' })
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const { user, userAdditional, logout } = useFirebaseAuth()
-  const logoutMutation = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
-      navigate({ to: '/' })
-      toast('Logged out successfully!')
-    },
-  })
+  const { user, pb } = usePocketbaseAuth()
+  const avatar = pb.files.getURL(user, user.avatar, { thumb: '100x100' })
 
   return (
     <Drawer direction="left" open={open} onOpenChange={setOpen}>
@@ -187,17 +179,10 @@ function AvatarDrawer() {
           className="flex items-center gap-4 bg-background hover:bg-muted shadow-sm px-2 py-2 border border-border rounded-xl w-full text-left transition"
         >
           <Avatar className="ring-2 ring-muted w-11 h-11">
-            <AvatarImage
-              src={
-                userAdditional?.profilePicture ||
-                userAdditional?.photoURL ||
-                fallbackAvatar
-              }
-              alt="User Avatar"
-            />
+            <AvatarImage src={avatar} alt="User Avatar" />
             <AvatarFallback className="font-medium text-base">
-              {userAdditional?.firstName?.charAt(0).toUpperCase() || 'U'}
-              {userAdditional?.lastName?.charAt(0).toUpperCase() || 'U'}
+              {user.firstName?.charAt(0).toUpperCase() || 'U'}
+              {user.lastName?.charAt(0).toUpperCase() || 'U'}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col justify-center">
@@ -205,7 +190,7 @@ function AvatarDrawer() {
               Welcome back,
             </span>
             <span className="font-semibold text-foreground text-sm leading-tight">
-              {userAdditional?.firstName || user?.displayName || 'User'}!
+              {user.username || user.firstName || 'User'}!
             </span>
           </div>
         </button>
@@ -230,7 +215,7 @@ function AvatarDrawer() {
 
           <Link
             to="/home/employee/$salaryLedger"
-            params={{ salaryLedger: userAdditional?.uid || '' }}
+            params={{ salaryLedger: user.id || '' }}
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
@@ -253,7 +238,15 @@ function AvatarDrawer() {
             <ModeToggle />
           </div>
           <DrawerClose asChild>
-            <Button onClick={() => logoutMutation.mutate()}>Logout</Button>
+            <Button
+              onClick={() => {
+                logout()
+                navigate({ to: '/' })
+                toast('Logged out successfully!')
+              }}
+            >
+              Logout
+            </Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
@@ -262,12 +255,16 @@ function AvatarDrawer() {
 }
 
 function HamburgerDrawer() {
-  const { userAdditional } = useFirebaseAuth()
+  const { user } = usePocketbaseAuth()
   const [open, setOpen] = useState(false)
+  const isAdmin = user.role === 'manager' || user.role === 'owner'
+
   return (
     <Drawer direction="right" open={open} onOpenChange={setOpen}>
-      <DrawerTrigger>
-        <MenuIcon />
+      <DrawerTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MenuIcon />
+        </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
@@ -277,9 +274,8 @@ function HamburgerDrawer() {
           </DrawerDescription>
         </DrawerHeader>
         <Separator />
-        <div className="flex flex-col flex-grow justify-center items-start space-y-2">
-          {(userAdditional?.role === 'admin' ||
-            userAdditional?.role === 'owner') && (
+        <div className="flex flex-col flex-grow justify-center items-start space-y-2 p-4">
+          {isAdmin && (
             <Link
               to="/home/employee/table"
               onClick={() => setOpen(false)}
@@ -290,17 +286,8 @@ function HamburgerDrawer() {
             </Link>
           )}
 
-          {(userAdditional?.role === 'admin' ||
-            userAdditional?.role === 'owner') && (
+          {isAdmin && (
             <>
-              <Link
-                to="/home/dashboard"
-                onClick={() => setOpen(false)}
-                className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-              >
-                <BarChart2Icon className="w-5 h-5" />
-                <span>Analytics</span>
-              </Link>
               <Link
                 to="/home/inventoryManagement"
                 search={{ category: 'appetizers' }}
@@ -308,7 +295,7 @@ function HamburgerDrawer() {
                 className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
               >
                 <BoxIcon className="w-5 h-5" />
-                <span>Stock Inventory Management</span>
+                <span>Inventory Management</span>
               </Link>
               <Link
                 to="/home/inventoryHistory"
@@ -317,67 +304,74 @@ function HamburgerDrawer() {
                 className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
               >
                 <HistoryIcon className="w-5 h-5" />
-                <span>Stock Inventory History</span>
+                <span>Inventory History</span>
               </Link>
             </>
           )}
 
-          <Link
-            to="/home/creditors/creditorsAll"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <HandCoinsIcon className="w-5 h-5" />
-            <span>Creditors</span>
-          </Link>
+          {/* LEDGER GROUP WITH VERTICAL LINE */}
+          <div className="space-y-1 w-full">
+            <div className="flex items-center space-x-3 p-3 font-bold text-[10px] text-muted-foreground/50 uppercase tracking-widest">
+              <HandCoinsIcon className="w-4 h-4" />
+              <span>Ledgers</span>
+            </div>
 
-          <Link
-            to="/home/vendors"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <HandCoinsIcon className="w-5 h-5" />
-            <span>Vendors</span>
-          </Link>
-
-          <Link
-            to="/home/kitchenLedger"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <UtensilsIcon className="w-5 h-5" />
-            <span>Kitchen Ledger</span>
-          </Link>
-          <Link
-            to="/home/bakeryLedger"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <DonutIcon className="w-5 h-5" />
-            <span>Bakery Ledger</span>
-          </Link>
-          <Link
-            to="/home/utilityLedger"
-            onClick={() => setOpen(false)}
-            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
-          >
-            <FuelIcon className="w-5 h-5" />
-            <span>Utility Ledger</span>
-          </Link>
-
-          {userAdditional?.role === 'admin' ||
-            (userAdditional?.role === 'owner' && (
+            <div className="relative space-y-1 ml-5 pl-2 border-zinc-200 dark:border-zinc-800 border-l">
               <Link
-                to="/home/baristaLedger"
+                to="/home/payLaterCustomers/payLaterCustomersAll"
                 onClick={() => setOpen(false)}
-                className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+                className="flex items-center space-x-3 p-2 rounded-md text-muted-foreground hover:text-foreground text-sm"
               >
-                <CoffeeIcon className="w-5 h-5" />
+                <span>Pay Later Customers</span>
+              </Link>
+
+              <Link
+                to="/home/vendors/vendorsAll"
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <span>Vendors</span>
+              </Link>
+
+              <Link
+                to="/home/expenseLedger/$department"
+                params={{ department: 'kitchen' }}
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <span>Kitchen Ledger</span>
+              </Link>
+              <Link
+                to="/home/expenseLedger/$department"
+                params={{ department: 'bakery' }}
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <span>Bakery Ledger</span>
+              </Link>
+              <Link
+                to="/home/expenseLedger/$department"
+                params={{ department: 'utility' }}
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
+                <span>Utility Ledger</span>
+              </Link>
+
+              <Link
+                to="/home/expenseLedger/$department"
+                params={{ department: 'barista' }}
+                onClick={() => setOpen(false)}
+                className="flex items-center space-x-3 p-2 rounded-md text-muted-foreground hover:text-foreground text-sm"
+              >
                 <span>Barista Ledger</span>
               </Link>
-            ))}
+            </div>
+          </div>
+
           <Link
-            to="/home/permanentInventory"
+            to="/home/assets/$department"
+            params={{ department: 'permanentInventory' }}
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
@@ -385,7 +379,8 @@ function HamburgerDrawer() {
             <span>Permanent Inventory</span>
           </Link>
           <Link
-            to="/home/equipment"
+            to="/home/assets/$department"
+            params={{ department: 'equipment' }}
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
@@ -456,123 +451,5 @@ function NotificationPermissionDrawer() {
         </div>
       </DrawerContent>
     </Drawer>
-  )
-}
-
-declare global {
-  interface Window {
-    __globalDragging: boolean
-  }
-}
-
-window.__globalDragging = false
-
-// function rubberBand(distance: number, max: number, resistance: number = 0.3) {
-//   if (distance < max) return distance
-//   return max + (distance - max) * resistance
-// }
-
-function PullToRefresh() {
-  const y = useMotionValue(0)
-  const rotate = useTransform(y, (v) => v * 2)
-  const startX = useRef<number | null>(null)
-  const startY = useRef<number | null>(null)
-  const scrollEl = useRef<HTMLElement | null>(null)
-  const isPulling = useRef(false)
-
-  useEffect(() => {
-    function findScrollable(el: HTMLElement | null): HTMLElement | null {
-      while (el) {
-        const overflowY = getComputedStyle(el).overflowY
-        if (
-          (overflowY === 'auto' || overflowY === 'scroll') &&
-          el.scrollHeight > el.clientHeight
-        ) {
-          return el
-        }
-        el = el.parentElement
-      }
-      return null
-    }
-
-    function handleTouchStart(e: TouchEvent) {
-      if (document.querySelector('[data-state="open"]')) return
-      const touchTarget = e.target as HTMLElement
-      const scrollable = findScrollable(touchTarget)
-      const isScrollableAtTop =
-        scrollable?.scrollTop === 0 ||
-        (scrollable == null && window.scrollY === 0)
-      if (isScrollableAtTop) {
-        startY.current = e.touches[0].clientY
-        startX.current = e.touches[0].clientX
-        scrollEl.current = scrollable
-        isPulling.current = true
-      }
-    }
-
-    function handleTouchMove(e: TouchEvent) {
-      if (!isPulling.current) return
-      if (window.__globalDragging) return
-      if (
-        startY.current !== null &&
-        (scrollEl.current?.scrollTop === 0 ||
-          (scrollEl.current == null && window.scrollY === 0))
-      ) {
-        const deltaY = e.touches[0].clientY - startY.current
-        if (deltaY > 0) {
-          y.set(Math.min(deltaY, 200))
-          e.preventDefault()
-        } else {
-          y.set(0) // Reset if user swipes up
-        }
-      }
-    }
-
-    function handleTouchEnd() {
-      if (!isPulling.current) return
-      const shouldReload = y.get() >= 190
-      animate(y, 0, {
-        type: 'spring',
-        stiffness: 500,
-        damping: 40,
-        mass: 2,
-        onComplete: () => {
-          if (shouldReload) {
-            window.location.reload()
-          }
-        },
-      })
-      startY.current = null
-      startX.current = null
-      scrollEl.current = null
-      isPulling.current = false
-    }
-
-    window.addEventListener('touchstart', handleTouchStart, { passive: true })
-    window.addEventListener('touchmove', handleTouchMove, { passive: false })
-    window.addEventListener('touchend', handleTouchEnd)
-
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart)
-      window.removeEventListener('touchmove', handleTouchMove)
-      window.removeEventListener('touchend', handleTouchEnd)
-    }
-  }, [y])
-
-  return (
-    <motion.div
-      style={{ y }}
-      className="-top-20 right-0 left-0 z-100 absolute flex justify-center items-center h-16"
-    >
-      <div className="relative flex justify-center items-center w-12 h-12">
-        <div className="absolute inset-0 bg-background shadow-lg rounded-full" />
-        <motion.div
-          className="z-10 absolute inset-0 flex justify-center items-center"
-          style={{ rotate }}
-        >
-          <RotateCwIcon className="drop-shadow w-7 h-7 text-rose-500" />
-        </motion.div>
-      </div>
-    </motion.div>
   )
 }

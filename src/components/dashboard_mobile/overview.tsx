@@ -24,9 +24,8 @@ import {
   calculateTotalExpenditure,
 } from './dashboard.utils'
 
-import { type ProcessedOrder } from '@/firebase/takeOrder'
-import { type KitchenLedgerItem } from '@/firebase/kitchenLedger'
-import { type BakeryLedgerItem } from '@/firebase/bakeryLedger'
+import type { FetchedOrder } from '../restaurant_mobile/types'
+import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
 
 export function OverviewBarChart({
   data,
@@ -82,36 +81,27 @@ export function OverviewBarChart({
 
 export function Overview({
   rawOrders,
-  kitchenLedger,
-  bakeryLedger,
+  expenseLedger,
 }: {
-  rawOrders: ProcessedOrder[]
-  kitchenLedger: KitchenLedgerItem[]
-  bakeryLedger: BakeryLedgerItem[]
+  rawOrders: FetchedOrder[]
+  expenseLedger: ExpenseLedger[]
 }) {
   const navigate = useNavigate()
 
-  const filteredOrders = rawOrders.filter(
-    (order) => !order.complementary && order.status === 'paid',
-  )
+  const totalRevenue = calculateTotalRevenue(rawOrders)
 
-  const totalRevenue = calculateTotalRevenue(filteredOrders)
-
-  const ordersByDay = filteredOrders.reduce(
-    (acc: Record<string, number>, order) => {
-      const day = format(parseISO(order.receiptDate), 'EEEE') // Get the day of the week
-      acc[day] = (acc[day] || 0) + 1 // Increment the count for the day
-      return acc
-    },
-    {},
-  )
+  const ordersByDay = rawOrders.reduce((acc: Record<string, number>, order) => {
+    const day = format(parseISO(order.receiptDate), 'EEEE') // Get the day of the week
+    acc[day] = (acc[day] || 0) + 1 // Increment the count for the day
+    return acc
+  }, {})
 
   // Handle the case when there are no orders or no data for the busiest day
   const sortedDays = Object.entries(ordersByDay).sort((a, b) => b[1] - a[1])
   const [busiestDay, busiestDaySales] =
     sortedDays.length > 0 ? sortedDays[0] : ['No data', 0]
 
-  const totalSales = filteredOrders.reduce((sum, order) => {
+  const totalSales = rawOrders.reduce((sum, order) => {
     const salesCount = order.items.reduce(
       (itemSum, item) => itemSum + item.qty,
       0,
@@ -119,7 +109,7 @@ export function Overview({
     return sum + salesCount
   }, 0)
 
-  const topSellingItems = filteredOrders
+  const topSellingItems = rawOrders
     .flatMap((order) => order.items)
     .reduce((acc: Record<string, number>, item) => {
       acc[item.name] = (acc[item.name] || 0) + item.qty
@@ -133,7 +123,7 @@ export function Overview({
     .join(', ')
 
   const monthlyRevenue = Array.from({ length: 12 }, (_, index) => {
-    const monthOrders = filteredOrders.filter((order) => {
+    const monthOrders = rawOrders.filter((order) => {
       // receiptDate is always an ISO string
       const month = parseISO(order.receiptDate).getMonth() // 0-indexed (Jan = 0)
       return month === index
@@ -144,20 +134,12 @@ export function Overview({
     }, 0)
 
     // Calculate expenses for this month
-    const monthKitchenLedger = kitchenLedger.filter((item) => {
-      const month = parseISO(item.addedAt).getMonth()
+    const monthExpenseLedger = expenseLedger.filter((item) => {
+      const month = parseISO(item.date).getMonth()
       return month === index
     })
 
-    const monthBakeryLedger = bakeryLedger.filter((item) => {
-      const month = parseISO(item.addedAt).getMonth()
-      return month === index
-    })
-
-    const expense = calculateTotalExpenditure(
-      monthKitchenLedger,
-      monthBakeryLedger,
-    )
+    const expense = calculateTotalExpenditure(monthExpenseLedger)
 
     return {
       name: format(new Date(2023, index), 'MMM'),
@@ -291,7 +273,7 @@ export function Overview({
             <CardDescription>Last 10 Sales. Click for more.</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentSales income={filteredOrders} />
+            <RecentSales income={rawOrders} />
           </CardContent>
         </Card>
       </div>

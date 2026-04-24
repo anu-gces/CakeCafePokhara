@@ -2,10 +2,9 @@ import { columns } from '@/components/employee'
 import { DataTable } from '@/components/ui/dataTable'
 import { createLazyFileRoute } from '@tanstack/react-router'
 
-import { getAllUsers } from '@/firebase/firestore'
-
 import { useQuery } from '@tanstack/react-query'
 import SplashScreen from '@/components/splashscreen'
+import { pb } from '@/lib/pocketbase'
 
 export const Route = createLazyFileRoute('/home/employee/table')({
   component: () => {
@@ -15,7 +14,11 @@ export const Route = createLazyFileRoute('/home/employee/table')({
       error,
     } = useQuery({
       queryKey: ['usersManagement'],
-      queryFn: getAllUsers,
+      queryFn: async () => {
+        return await pb.collection('users').getFullList({
+          sort: '-created',
+        })
+      },
       staleTime: Number.POSITIVE_INFINITY,
       gcTime: Number.POSITIVE_INFINITY,
     })

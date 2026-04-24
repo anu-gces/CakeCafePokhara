@@ -1,9 +1,8 @@
 import { addDays, differenceInDays, format, parseISO } from 'date-fns'
 import type { RevenueData } from './analytics'
-import type { ProcessedOrder } from '@/firebase/takeOrder'
-import type { KitchenLedgerItem } from '@/firebase/kitchenLedger'
-import type { BakeryLedgerItem } from '@/firebase/bakeryLedger'
 import { calculateOrderTotal } from './dashboard.utils'
+import type { FetchedOrder } from '../restaurant_mobile/types'
+import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
 
 export function groupDataByHour(dataArray: RevenueData[]) {
   return Object.values(
@@ -191,12 +190,10 @@ export function formatCompactNumber(value: number): string {
 
 export function mapToRevenueData({
   income,
-  kitchenLedger,
-  bakeryLedger,
+  expenseLedger,
 }: {
-  income: ProcessedOrder[]
-  kitchenLedger: KitchenLedgerItem[]
-  bakeryLedger: BakeryLedgerItem[]
+  income: FetchedOrder[]
+  expenseLedger: ExpenseLedger[]
 }): RevenueData[] {
   const dataMap = new Map<string, RevenueData>()
 
@@ -230,15 +227,11 @@ export function mapToRevenueData({
     dataMap.get(date)!.income += orderTotal
   }
 
-  for (const item of kitchenLedger) {
-    if (item.addedAt) {
-      push(item.addedAt, 0, item.price)
-    }
-  }
-
-  for (const item of bakeryLedger) {
-    if (item.addedAt) {
-      push(item.addedAt, 0, item.price)
+  for (const item of expenseLedger) {
+    if (item.date) {
+      // Calculate the actual total for this ledger entry
+      const itemTotal = (item.price || 0) * (item.quantity || 1)
+      push(item.date, 0, itemTotal)
     }
   }
 

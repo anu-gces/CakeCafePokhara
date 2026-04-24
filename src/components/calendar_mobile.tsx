@@ -15,7 +15,6 @@ import {
   enterCalendarEvent,
   getCalendarEventDocument,
 } from '@/firebase/firestore'
-import { useLoadingSpinner } from '@/lib/utils'
 import type { EventApi } from '@fullcalendar/core/index.js'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import FullCalendar from '@fullcalendar/react'
@@ -34,6 +33,7 @@ import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import FloatingActionMenu from './ui/floating-action-menu'
 import { setHours, setMinutes, setSeconds } from 'date-fns'
+import { InlineLoader } from './splashscreen'
 
 export type calendarEventProps = {
   id: string
@@ -70,8 +70,6 @@ export function Calendar() {
   useEffect(() => {
     setLocalEvents(calendarEvents || [])
   }, [calendarEvents])
-
-  useLoadingSpinner(isLoading)
 
   const queryClient = useQueryClient()
 
@@ -325,6 +323,11 @@ export function Calendar() {
         )}
 
         <div className="h-full">
+          {isLoading && (
+            <div className="flex justify-center items-center h-full">
+              <InlineLoader />
+            </div>
+          )}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin]}

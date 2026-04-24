@@ -5,32 +5,66 @@ import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import {
   CalendarIcon,
-  DollarSignIcon,
-  EditIcon,
+  CheckCircle2Icon,
   LoaderIcon,
+  PencilIcon,
   PlusIcon,
-  SaveIcon,
   Trash2Icon,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
-import {
-  getSeedBalance,
-  setSeedBalance,
-  deleteSeedBalance,
-} from '@/firebase/dailyBalances'
+import { pb } from '@/lib/pocketbase'
+
+export interface SeedBalance {
+  id: string
+  seedAmount: number
+  seedDate: string
+}
+
+interface SeedBalancePayload {
+  amount: number
+  date: string
+}
+
+const COLLECTION = 'seedConfig'
+
+async function getSeedBalance(): Promise<SeedBalance | null> {
+  try {
+    const records = await pb.collection(COLLECTION).getList<SeedBalance>(1, 1)
+    if (records.items.length === 0) return null
+    const r = records.items[0]
+    return { id: r.id, seedAmount: r.seedAmount, seedDate: r.seedDate }
+  } catch {
+    return null
+  }
+}
+
+async function setSeedBalance(
+  payload: SeedBalancePayload,
+  existingId?: string,
+): Promise<SeedBalance> {
+  const data = {
+    seedAmount: payload.amount,
+    seedDate: new Date(payload.date).toISOString(),
+  }
+  if (existingId) {
+    const r = await pb
+      .collection(COLLECTION)
+      .update<SeedBalance>(existingId, data)
+    return { id: r.id, seedAmount: r.seedAmount, seedDate: r.seedDate }
+  }
+  const r = await pb.collection(COLLECTION).create<SeedBalance>(data)
+  return { id: r.id, seedAmount: r.seedAmount, seedDate: r.seedDate }
+}
+
+async function deleteSeedBalance(id: string): Promise<void> {
+  await pb.collection(COLLECTION).delete(id)
+}
 
 const SeedOpeningConfig = () => {
   const [isEditing, setIsEditing] = useState(false)
@@ -45,36 +79,32 @@ const SeedOpeningConfig = () => {
   })
 
   const createMutation = useMutation({
-    mutationFn: setSeedBalance,
+    mutationFn: (payload: SeedBalancePayload) =>
+      setSeedBalance(payload, seedBalance?.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['seedBalance'] })
       setIsEditing(false)
       setAmount('')
       setSelectedDate(undefined)
-      toast.success('Opening balance configured successfully!')
+      toast.success('Opening balance saved')
     },
-    onError: () => {
-      toast.error('Failed to save opening balance')
-    },
+    onError: () => toast.error('Failed to save'),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: deleteSeedBalance,
+    mutationFn: () => deleteSeedBalance(seedBalance!.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['seedBalance'] })
-      toast.success('Opening balance deleted')
+      toast.success('Opening balance removed')
     },
-    onError: () => {
-      toast.error('Failed to delete opening balance')
-    },
+    onError: () => toast.error('Failed to delete'),
   })
 
   const handleSave = () => {
     if (!amount || !selectedDate) {
-      toast.error('Please fill in all required fields')
+      toast.error('Fill in all fields')
       return
     }
-
     createMutation.mutate({
       amount: Number.parseFloat(amount),
       date: format(selectedDate, 'yyyy-MM-dd'),
@@ -83,8 +113,8 @@ const SeedOpeningConfig = () => {
 
   const handleEdit = () => {
     if (seedBalance) {
-      setAmount(seedBalance.amount.toString())
-      setSelectedDate(new Date(seedBalance.date))
+      setAmount(seedBalance.seedAmount.toString())
+      setSelectedDate(new Date(seedBalance.seedDate))
       setIsEditing(true)
     }
   }
@@ -97,392 +127,201 @@ const SeedOpeningConfig = () => {
 
   if (isLoading) {
     return (
-      <div className="px-4 py-6 w-full min-h-[400px]">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex justify-center items-center h-full"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{
-              duration: 1,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: 'linear',
-            }}
-            className="border-primary border-b-2 rounded-full w-8 h-8"
-          />
-        </motion.div>
+      <div className="flex justify-center items-center min-h-[200px]">
+        <LoaderIcon className="w-5 h-5 text-muted-foreground animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="px-4 py-6 w-full min-h-screen">
-      <div className="mx-auto w-full max-w-md">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-6"
-        >
-          <h1 className="font-bold text-foreground text-2xl">
-            Opening Balance Configuration
-          </h1>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Set your initial cash balance to start tracking daily finances
-          </p>
-        </motion.div>
+    <div className="mx-auto px-4 pt-6 pb-10 w-full sm:w-[480px] lg:w-[540px]">
+      {/* Page heading */}
+      <div className="mb-6">
+        <p className="mb-1 text-muted-foreground text-xs uppercase tracking-widest">
+          Configuration
+        </p>
+        <h1 className="font-semibold text-foreground text-xl tracking-tight">
+          Opening Balance
+        </h1>
+      </div>
 
-        <div className="w-full min-h-[300px]">
-          <AnimatePresence mode="wait">
-            {!seedBalance && !isEditing ? (
-              <motion.div
-                key="empty-state"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-                className="w-full"
-              >
-                <Card className="border-2 border-dashed">
-                  <CardContent className="flex flex-col justify-center items-center px-4 py-12">
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{
-                        delay: 0.2,
-                        type: 'spring',
-                        stiffness: 200,
-                      }}
-                    >
-                      <DollarSignIcon className="mb-4 w-12 h-12 text-muted-foreground" />
-                    </motion.div>
-                    <motion.h3
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="mb-2 font-medium text-foreground text-lg text-center"
-                    >
-                      No opening balance configured
-                    </motion.h3>
-                    <motion.p
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="mb-6 text-muted-foreground text-sm text-center leading-relaxed"
-                    >
-                      Configure your initial opening balance to start tracking
-                      daily cash flow and financial reports.
-                    </motion.p>
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.5 }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full"
-                    >
-                      <Button
-                        onClick={() => setIsEditing(true)}
-                        className="flex justify-center items-center gap-2 w-full"
-                      >
-                        <PlusIcon className="w-4 h-4" color="white" />
-                        Configure Opening Balance
-                      </Button>
-                    </motion.div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : null}
-
-            {seedBalance && !isEditing ? (
-              <motion.div
-                key="display-state"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.4 }}
-                className="w-full"
-              >
-                <Card>
-                  <CardHeader className="pb-4">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="flex items-center gap-2 text-base">
-                          <motion.div
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            transition={{
-                              delay: 0.2,
-                              type: 'spring',
-                              stiffness: 200,
-                            }}
-                          >
-                            <DollarSignIcon className="flex-shrink-0 w-5 h-5 text-green-600" />
-                          </motion.div>
-                          <motion.span
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="truncate"
-                          >
-                            Opening Balance Configured
-                          </motion.span>
-                        </CardTitle>
-                        <motion.div
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4 }}
-                        >
-                          <CardDescription className="text-xs">
-                            Started on{' '}
-                            {format(new Date(seedBalance.date), 'MMM dd, yyyy')}
-                          </CardDescription>
-                        </motion.div>
-                      </div>
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{
-                          delay: 0.5,
-                          type: 'spring',
-                          stiffness: 200,
-                        }}
-                        className="flex-shrink-0"
-                      >
-                        <Badge
-                          variant="secondary"
-                          className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs"
-                        >
-                          Active
-                        </Badge>
-                      </motion.div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pb-4">
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="space-y-3"
-                    >
-                      <div>
-                        <label className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                          Amount
-                        </label>
-                        <motion.div
-                          initial={{ scale: 0.8 }}
-                          animate={{ scale: 1 }}
-                          transition={{
-                            delay: 0.4,
-                            type: 'spring',
-                            stiffness: 150,
-                          }}
-                          className="font-bold text-green-600 text-2xl"
-                        >
-                          Rs. {seedBalance.amount.toLocaleString()}
-                        </motion.div>
-                      </div>
-                      <div>
-                        <label className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                          Date
-                        </label>
-                        <div className="flex items-center gap-2 text-foreground">
-                          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">
-                            {format(new Date(seedBalance.date), 'MMM dd, yyyy')}
-                          </span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </CardContent>
-                  <CardFooter className="flex gap-2 pt-4">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="flex-1"
-                    >
-                      <Button
-                        onClick={handleEdit}
-                        className="flex justify-center items-center gap-2 w-full"
-                      >
-                        <EditIcon className="w-4 h-4" color="white" />
-                        Edit
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        variant="outline"
-                        onClick={() => deleteMutation.mutate()}
-                        disabled={deleteMutation.isPending}
-                        className="flex items-center gap-2 px-4"
-                      >
-                        {deleteMutation.isPending ? (
-                          <LoaderIcon className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2Icon className="w-4 h-4" />
-                        )}
-                        {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-                      </Button>
-                    </motion.div>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ) : null}
-
-            {isEditing ? (
-              <motion.div
-                key="editing-state"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
-                className="w-full"
-              >
-                <Card>
-                  <CardHeader className="pb-4">
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                    >
-                      <CardTitle className="text-lg">
-                        {seedBalance
-                          ? 'Edit Opening Balance'
-                          : 'Configure Opening Balance'}
-                      </CardTitle>
-                      <CardDescription className="text-sm leading-relaxed">
-                        {seedBalance
-                          ? 'Update your initial balance settings'
-                          : 'Set your starting cash amount and date when you begin using this system'}
-                      </CardDescription>
-                    </motion.div>
-                  </CardHeader>
-                  <CardContent className="space-y-6 pb-4">
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.2 }}
-                    >
-                      <label className="block mb-2 font-medium text-foreground text-sm">
-                        Opening Amount *
-                      </label>
-                      <div className="relative">
-                        <span className="top-1/2 left-3 absolute text-muted-foreground -translate-y-1/2 transform">
-                          Rs.
-                        </span>
-                        <Input
-                          type="number"
-                          placeholder="5000"
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          className="pl-10 w-full"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 }}
-                    >
-                      <label className="block mb-2 font-medium text-foreground text-sm">
-                        Starting Date *
-                      </label>
-                      <div className="w-full">
-                        <DatePickerWithPresets
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                        />
-                      </div>
-                    </motion.div>
-                  </CardContent>
-                  <CardFooter className="flex gap-2 pt-4">
-                    <motion.div
-                      className="flex-1"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        onClick={handleSave}
-                        disabled={
-                          createMutation.isPending || !amount || !selectedDate
-                        }
-                        className="w-full"
-                      >
-                        {createMutation.isPending ? (
-                          <div className="flex items-center gap-2">
-                            <LoaderIcon
-                              className="w-4 h-4 animate-spin"
-                              color="white"
-                            />
-                            {seedBalance ? 'Updating...' : 'Saving...'}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <SaveIcon className="w-4 h-4" color="white" />
-                            {seedBalance ? 'Update Balance' : 'Save Balance'}
-                          </div>
-                        )}
-                      </Button>
-                    </motion.div>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        variant="outline"
-                        onClick={handleCancel}
-                        className="bg-transparent px-6"
-                      >
-                        Cancel
-                      </Button>
-                    </motion.div>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
-
-        {seedBalance && (
+      <AnimatePresence mode="wait">
+        {!seedBalance && !isEditing && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            key="empty"
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="bg-blue-50 dark:bg-blue-900/20 mt-6 p-4 border border-blue-200 dark:border-blue-800 rounded-lg"
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
           >
-            <div className="flex items-start gap-3">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.7, type: 'spring', stiffness: 200 }}
-                className="flex-shrink-0 bg-blue-500 mt-2 rounded-full w-2 h-2"
-              />
-              <motion.div
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.8 }}
+            <div className="flex flex-col items-center gap-4 bg-muted/30 px-5 py-10 border border-border border-dashed rounded-xl text-center">
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                No opening balance set yet. <br />
+                Add one to start tracking daily cash flow.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="gap-1.5"
               >
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 text-sm">
-                  Balance Tracking Active
-                </h4>
-                <p className="mt-1 text-blue-700 dark:text-blue-300 text-xs leading-relaxed">
-                  Your daily balance calculations will use this amount as the
-                  starting point. All future daily opening balances will be
-                  chained from this initial configuration.
-                </p>
-              </motion.div>
+                <PlusIcon color="white" className="w-3.5 h-3.5" />
+                Set opening balance
+              </Button>
             </div>
           </motion.div>
         )}
-      </div>
+
+        {seedBalance && !isEditing && (
+          <motion.div
+            key="display"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="px-5 pt-5 pb-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="mb-1 text-muted-foreground text-xs">
+                      Seed amount
+                    </p>
+                    <p className="font-semibold text-foreground text-3xl tracking-tight">
+                      Rs. {seedBalance.seedAmount.toLocaleString('en-IN')}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1 mt-0.5 text-xs"
+                  >
+                    <CheckCircle2Icon className="w-3 h-3" />
+                    Active
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-1.5 mt-3 text-muted-foreground">
+                  <CalendarIcon className="flex-shrink-0 w-3.5 h-3.5" />
+                  <span className="text-sm">
+                    {format(new Date(seedBalance.seedDate), 'MMM d, yyyy')}
+                  </span>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex divide-x divide-border">
+                <button
+                  onClick={handleEdit}
+                  className="flex flex-1 justify-center items-center gap-2 hover:bg-muted/40 active:bg-muted/60 py-3 text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  <PencilIcon className="w-3.5 h-3.5" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                  className="flex flex-1 justify-center items-center gap-2 hover:bg-destructive/5 active:bg-destructive/10 disabled:opacity-40 py-3 text-muted-foreground hover:text-destructive text-sm transition-colors"
+                >
+                  {deleteMutation.isPending ? (
+                    <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="w-3.5 h-3.5" />
+                  )}
+                  {deleteMutation.isPending ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-3 px-1 text-muted-foreground text-xs leading-relaxed">
+              Daily opening balances chain forward from this date automatically.
+            </p>
+          </motion.div>
+        )}
+
+        {isEditing && (
+          <motion.div
+            key="editing"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <div className="px-5 pt-5 pb-1">
+                <p className="font-medium text-foreground text-sm">
+                  {seedBalance ? 'Edit balance' : 'Set opening balance'}
+                </p>
+                <p className="mt-0.5 text-muted-foreground text-xs">
+                  Starting point for all daily calculations.
+                </p>
+              </div>
+
+              <div className="space-y-4 px-5 py-5">
+                <div className="space-y-1.5">
+                  <label className="font-medium text-muted-foreground text-xs">
+                    Amount
+                  </label>
+                  <div className="relative">
+                    <span className="top-1/2 left-3 absolute text-muted-foreground text-sm -translate-y-1/2 pointer-events-none select-none">
+                      Rs.
+                    </span>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="pl-10 text-base"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-medium text-muted-foreground text-xs">
+                    Starting date
+                  </label>
+                  <DatePickerWithPresets
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex divide-x divide-border">
+                <button
+                  onClick={handleCancel}
+                  className="flex-1 hover:bg-muted/40 active:bg-muted/60 py-3 text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={
+                    createMutation.isPending || !amount || !selectedDate
+                  }
+                  className="flex flex-1 justify-center items-center gap-2 hover:bg-muted/40 active:bg-muted/60 disabled:opacity-40 py-3 font-medium text-foreground text-sm transition-colors"
+                >
+                  {createMutation.isPending && (
+                    <LoaderIcon
+                      color="white"
+                      className="w-3.5 h-3.5 animate-spin"
+                    />
+                  )}
+                  {createMutation.isPending
+                    ? 'Saving…'
+                    : seedBalance
+                      ? 'Update'
+                      : 'Save'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

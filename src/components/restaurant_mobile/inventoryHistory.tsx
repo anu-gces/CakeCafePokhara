@@ -8,9 +8,7 @@ import { Link } from '@tanstack/react-router'
 import {
   HistoryIcon,
   PackageIcon,
-  PlusIcon,
   MinusIcon,
-  EditIcon,
   TruckIcon,
   AlertTriangleIcon,
   RotateCcwIcon,
@@ -19,100 +17,69 @@ import {
   ArrowLeftIcon,
   LoaderIcon,
 } from 'lucide-react'
-import { getAllInventoryHistory } from '@/firebase/inventoryManagement'
-import { getAllUsers } from '@/firebase/firestore'
-import type { UserAdditional } from '@/firebase/firestore'
 import { template } from 'lodash'
+import { pb } from '@/lib/pocketbase'
+import { cn } from '@/lib/utils'
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
+
+export interface InventoryHistoryProps {
+  id: string // PocketBase record ID
+  reasonForStockEdit: 'restock' | 'sale' | 'waste' | 'correction' | 'cancelled'
+  name: string // Name of the food item
+  lastStockCount: number // Stock count before the change
+  currentStockCount: number // Stock count after the change
+  created: string // ISO timestamp of when the change was made
+  updated: string // ISO timestamp of when the change was last updated
+  expand?: {
+    editedStockBy: {
+      username: string
+      firstName: string
+      lastName: string
+    }
+  }
+}
 
 // Helper function to get user display name
-function getUserDisplayName(user: UserAdditional): string {
-  if (user.firstName && user.lastName) {
+function getFormattedUser(item: InventoryHistoryProps): string {
+  const user = item.expand?.editedStockBy
+  if (!user) return 'System'
+
+  if (user.firstName && user.lastName)
     return `${user.firstName} ${user.lastName}`
-  } else if (user.firstName) {
-    return user.firstName
-  } else if (user.lastName) {
-    return user.lastName
-  } else {
-    return user.email.split('@')[0] // Fallback to email username
-  }
+  if (user.firstName) return user.firstName
+  return user.username
 }
+
 function getReasonIcon(reason: string) {
-  const lowerReason = reason.toLowerCase()
-
-  if (
-    lowerReason.includes('restock') ||
-    lowerReason.includes('delivery') ||
-    lowerReason.includes('supply')
-  ) {
-    return <TruckIcon className="w-4 h-4" />
-  } else if (
-    lowerReason.includes('waste') ||
-    lowerReason.includes('spoil') ||
-    lowerReason.includes('expired')
-  ) {
-    return <AlertTriangleIcon className="w-4 h-4" />
-  } else if (
-    lowerReason.includes('usage') ||
-    lowerReason.includes('used') ||
-    lowerReason.includes('served')
-  ) {
+  const r = reason.toLowerCase()
+  if (r.includes('restock')) return <TruckIcon className="w-4 h-4" />
+  if (r.includes('waste')) return <AlertTriangleIcon className="w-4 h-4" />
+  if (r.includes('sale') || r.includes('usage'))
     return <MinusIcon className="w-4 h-4" />
-  } else if (
-    lowerReason.includes('edit') ||
-    lowerReason.includes('update') ||
-    lowerReason.includes('change')
-  ) {
-    return <EditIcon className="w-4 h-4" />
-  } else if (lowerReason.includes('add') || lowerReason.includes('new')) {
-    return <PlusIcon className="w-4 h-4" />
-  } else if (
-    lowerReason.includes('correction') ||
-    lowerReason.includes('adjust')
-  ) {
-    return <RotateCcwIcon className="w-4 h-4" />
-  } else {
-    return <PackageIcon className="w-4 h-4" />
-  }
+  if (r.includes('correction')) return <RotateCcwIcon className="w-4 h-4" />
+  return <PackageIcon className="w-4 h-4" />
 }
 
-// Function to get color based on reason text
 function getReasonColor(reason: string) {
-  const lowerReason = reason.toLowerCase()
+  const r = reason.toLowerCase()
 
-  if (
-    lowerReason.includes('restock') ||
-    lowerReason.includes('delivery') ||
-    lowerReason.includes('supply')
-  ) {
-    return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-  } else if (
-    lowerReason.includes('waste') ||
-    lowerReason.includes('spoil') ||
-    lowerReason.includes('expired')
-  ) {
-    return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-  } else if (
-    lowerReason.includes('usage') ||
-    lowerReason.includes('used') ||
-    lowerReason.includes('served')
-  ) {
-    return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-  } else if (
-    lowerReason.includes('edit') ||
-    lowerReason.includes('update') ||
-    lowerReason.includes('change')
-  ) {
-    return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-  } else if (lowerReason.includes('add') || lowerReason.includes('new')) {
-    return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-  } else if (
-    lowerReason.includes('correction') ||
-    lowerReason.includes('adjust')
-  ) {
-    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-  } else {
-    return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+  if (r.includes('restock')) {
+    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
   }
+
+  if (r.includes('waste') || r.includes('expiry') || r.includes('expired')) {
+    return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+  }
+
+  if (r.includes('sale')) {
+    return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+  }
+
+  if (r.includes('correction') || r.includes('adjust')) {
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+  }
+
+  return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200'
 }
 
 function formatTimestamp(timestamp: string) {
@@ -130,73 +97,57 @@ function formatTimestamp(timestamp: string) {
   })
 }
 
-// Card for a batch of inventory history items
-function HistoryBatchCard({
-  batch,
-  users,
-}: {
-  batch: import('@/firebase/inventoryManagement').InventoryHistoryProps
-  users: UserAdditional[]
-}) {
+function HistoryItemCard({ item }: { item: InventoryHistoryProps }) {
+  const stockChange = item.currentStockCount - item.lastStockCount
+  const userName = getFormattedUser(item)
+
   return (
-    <div className="space-y-4 bg-card p-4 border rounded-lg">
-      <div className="flex items-center gap-2 mb-2">
-        <HistoryIcon className="w-5 h-5 text-muted-foreground" />
-        <span className="font-semibold text-base">Batch Edit</span>
-        <Badge variant="secondary" className="text-xs">
-          <CalendarIcon className="mr-2 w-3 h-3" />
-          {formatTimestamp(
-            batch.foodItems[0]?.dateModified || new Date().toISOString(),
-          )}
-        </Badge>
+    <div className="flex gap-4 bg-card shadow-sm p-4 border rounded-lg">
+      <div
+        className={cn(
+          'flex justify-center items-center rounded-full w-12 h-12 shrink-0',
+          getReasonColor(item.reasonForStockEdit),
+        )}
+      >
+        {getReasonIcon(item.reasonForStockEdit)}
       </div>
-      <div className="space-y-2">
-        {batch.foodItems.map((entry) => {
-          const user = users.find((u) => u.uid === entry.editedStockBy)
-          const userDisplayName = user
-            ? getUserDisplayName(user)
-            : entry.editedStockBy || 'Unknown'
-          const stockChange =
-            (entry.currentStockCount || 0) - (entry.lastStockCount || 0)
-          return (
-            <div key={entry.foodId} className="flex gap-3">
-              <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full ${getReasonColor(entry.reasonForStockEdit || 'unknown')}`}
-              >
-                {getReasonIcon(entry.reasonForStockEdit || 'unknown')}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold text-sm truncate">
-                    {entry.name}
-                  </h3>
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium border border-muted-foreground/10 ${getReasonColor(entry.reasonForStockEdit || 'unknown')}`}
-                  >
-                    {entry.reasonForStockEdit || 'unknown'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-muted-foreground text-sm">
-                    {entry.lastStockCount} → {entry.currentStockCount} pieces
-                  </span>
-                  <span
-                    className={`text-sm font-semibold ${stockChange > 0 ? 'text-green-600' : 'text-red-600'}`}
-                  >
-                    ({stockChange > 0 ? '+' : ''}
-                    {stockChange})
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-muted-foreground text-xs">
-                  <div className="flex items-center gap-1">
-                    <UserIcon className="w-3 h-3" />
-                    <span>{userDisplayName}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-start mb-1">
+          <h3 className="font-bold text-sm truncate">{item.name}</h3>
+          <Badge
+            variant="outline"
+            className={cn(
+              'font-bold text-[10px] uppercase',
+              getReasonColor(item.reasonForStockEdit),
+            )}
+          >
+            {item.reasonForStockEdit}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-2 mb-2 text-sm">
+          <span className="text-muted-foreground">
+            {item.lastStockCount} → {item.currentStockCount}
+          </span>
+          <span
+            className={`font-bold ${stockChange > 0 ? 'text-green-600' : 'text-red-600'}`}
+          >
+            ({stockChange > 0 ? '+' : ''}
+            {stockChange})
+          </span>
+        </div>
+
+        <div className="flex justify-between items-center text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <UserIcon className="w-3 h-3" />
+            <span>{userName}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <CalendarIcon className="w-3 h-3" />
+            <span>{formatTimestamp(item.created)}</span>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -208,38 +159,40 @@ export function InventoryHistory() {
     'all' | 'restock' | 'sale' | 'waste' | 'correction' | 'cancelled'
   >('all')
 
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    () => new Date(),
+  )
+
   // Fetch inventory history using React Query
   const {
     data: inventoryHistory = [],
-    isLoading: isLoadingHistory,
-    error: historyError,
+    isLoading,
+    error,
   } = useQuery({
-    queryKey: ['inventoryHistory'],
-    queryFn: getAllInventoryHistory,
+    queryKey: ['inventoryHistory', selectedDate, selectedFilter],
+    queryFn: async () => {
+      const start = new Date(selectedDate!)
+      start.setHours(0, 0, 0, 0)
+
+      const end = new Date(selectedDate!)
+      end.setHours(23, 59, 59, 999)
+
+      const filter = `created >= "${start.toISOString()}" && created <= "${end.toISOString()}"`
+
+      return pb
+        .collection('inventoryHistory')
+        .getFullList<InventoryHistoryProps>({
+          sort: '-created',
+          expand: 'editedStockBy',
+          filter,
+        })
+    },
   })
-
-  console.log('fetched inventory history:', inventoryHistory)
-
-  // Fetch all users to resolve names
-  const {
-    data: users = [],
-    isLoading: isLoadingUsers,
-    error: usersError,
-  } = useQuery({
-    queryKey: ['allUsers'],
-    queryFn: getAllUsers,
-  })
-
-  const isLoading = isLoadingHistory || isLoadingUsers
-  const error = historyError || usersError
 
   // Filter history based on selected filter
-  const filteredHistory = inventoryHistory.filter((batch) => {
+  const filteredHistory = inventoryHistory.filter((item) => {
     if (selectedFilter === 'all') return true
-    // Show batch if any item in batch matches filter
-    return batch.foodItems.some(
-      (entry) => entry.reasonForStockEdit === selectedFilter,
-    )
+    return item.reasonForStockEdit === selectedFilter
   })
 
   if (error) {
@@ -279,9 +232,15 @@ export function InventoryHistory() {
           >
             <ArrowLeftIcon className="w-4 h-4" />
           </Link>
-          <div className="flex items-center gap-2">
-            <HistoryIcon className="w-5 h-5" />
-            <h1 className="font-semibold text-lg">Inventory History</h1>
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center gap-2">
+              <HistoryIcon className="w-5 h-5" />
+              <h1 className="font-semibold text-lg">Inventory History</h1>
+            </div>
+            <DatePickerWithPresets
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+            />
           </div>
         </div>
 
@@ -347,12 +306,8 @@ export function InventoryHistory() {
           </div>
         ) : filteredHistory.length > 0 ? (
           <div className="space-y-3">
-            {filteredHistory.map((batch) => (
-              <HistoryBatchCard
-                key={batch.historyId}
-                batch={batch}
-                users={users}
-              />
+            {filteredHistory.map((item) => (
+              <HistoryItemCard key={item.id} item={item} />
             ))}
           </div>
         ) : selectedFilter !== 'all' ? (

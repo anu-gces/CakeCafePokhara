@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,18 +36,18 @@ import {
   HistoryIcon,
   UtensilsCrossedIcon,
 } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DonutImage from '@/assets/donutImage'
 import SplashScreen from '@/components/splashscreen'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import { useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
-import { getFoodItems, type FoodItemProps } from '@/firebase/menuManagement'
 import { cn } from '@/lib/utils'
-import { editInventoryItem } from '@/firebase/inventoryManagement'
-import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 
 import { AnimatePresence, motion } from 'motion/react'
+import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
+import { type MenuItemProps } from '@/lib/pocketbase/menuManagement'
+import { pb } from '@/lib/pocketbase'
+import { ClientResponseError } from 'pocketbase'
 
 function CategoryTabs() {
   return (
@@ -100,9 +100,9 @@ const STOCK_STATUS: Record<
 }
 
 const InventoryItemCard = memo(function InventoryItemCard({
-  foods,
+  menuItems,
 }: {
-  foods: FoodItemProps[]
+  menuItems: MenuItemProps[]
 }) {
   const getStockStatus = (stock: number) => {
     if (stock === 0) {
@@ -114,24 +114,25 @@ const InventoryItemCard = memo(function InventoryItemCard({
     return STOCK_STATUS.IN_STOCK
   }
 
-  const type = foods[0]?.type?.toUpperCase() || foods[0]?.name.toUpperCase()
+  const type =
+    menuItems[0]?.type?.toUpperCase() || menuItems[0]?.name.toUpperCase()
 
   return (
     <div className="mb-8 p-4 border rounded-xl">
       <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
       <div className="flex flex-col gap-2">
-        {foods.map((food) => {
-          const stockStatus = getStockStatus(food.currentStockCount || 0)
+        {menuItems.map((menuItem) => {
+          const stockStatus = getStockStatus(menuItem.currentStockCount || 0)
           return (
             <div
-              key={food.foodId}
+              key={menuItem.id}
               className="flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors"
             >
               <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
-                {food.photoURL ? (
+                {menuItem.photoURL ? (
                   <img
-                    alt={food.name}
-                    src={food.photoURL}
+                    alt={menuItem.name}
+                    src={pb.files.getURL(menuItem, menuItem.photoURL)}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
@@ -141,20 +142,20 @@ const InventoryItemCard = memo(function InventoryItemCard({
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-medium">{food.name}</h3>
+                  <h3 className="font-medium">{menuItem.name}</h3>
                   <div
                     className={cn('rounded-full w-2 h-2', stockStatus.color)}
                   />
                 </div>
                 <div className="flex items-center gap-4 text-muted-foreground text-sm">
-                  <span>Stock: {food.currentStockCount ?? 0}</span>
+                  <span>Stock: {menuItem.currentStockCount ?? 0}</span>
                   <span className="text-xs">
-                    (was: {food.lastStockCount ?? 0})
+                    (was: {menuItem.lastStockCount ?? 0})
                   </span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <StockAdjustmentDrawer food={food} />
+                <StockAdjustmentDrawer menuItem={menuItem} />
               </div>
             </div>
           )
@@ -164,48 +165,50 @@ const InventoryItemCard = memo(function InventoryItemCard({
   )
 })
 
-function StockAdjustmentDrawer({ food }: { food: FoodItemProps }) {
-  const { user } = useFirebaseAuth()
-  const queryClient = useQueryClient()
+function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
+  const { user } = usePocketbaseAuth()
   const [open, setOpen] = useState(false)
   const [adjustment, setAdjustment] = useState(0)
+  const [isPending, setIsPending] = useState(false)
+  const [Error, setError] = useState<string | null>(null)
   const [reason, setReason] = useState<
     'restock' | 'sale' | 'waste' | 'correction'
   >('restock')
 
-  // Mutation for editing inventory item (updates main inventory collection)
-  const editInventoryMutation = useMutation({
-    mutationFn: (historyEntry: FoodItemProps) =>
-      editInventoryItem(historyEntry),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['foods'] })
-      toast.success('Inventory updated successfully')
-      setOpen(false)
-      setAdjustment(0)
-      setReason('restock')
-    },
-    onError: (error) => {
-      toast.error('Failed to update inventory', {
-        description: (error as Error).message,
-      })
-    },
-  })
-
-  const currentStock = food.currentStockCount ?? 0
+  const currentStock = menuItem.currentStockCount ?? 0
   const newStock = currentStock + adjustment
 
-  const handleAdjustment = () => {
-    // Create updated item with new stock values
-    const updatedItem: FoodItemProps = {
-      ...food,
-      lastStockCount: currentStock,
-      currentStockCount: newStock,
-      reasonForStockEdit: reason,
-      editedStockBy: user?.uid || user?.email || user?.displayName || 'N/A',
-      dateModified: new Date().toISOString(),
-    }
+  const handleAdjustment = async () => {
+    setIsPending(true)
+    setError(null)
+    try {
+      const updatedData = {
+        lastStockCount: currentStock,
+        currentStockCount: newStock,
+        reasonForStockEdit: reason,
+        editedStockBy: user.id,
+      }
 
-    editInventoryMutation.mutate(updatedItem)
+      await pb.collection('menuItems').update(menuItem.id, updatedData)
+
+      // await pb.collection('inventoryHistory').create<InventoryHistoryProps>({
+      //   name: menuItem.name,
+      //   lastStockCount: currentStock,
+      //   currentStockCount: newStock,
+      //   reasonForStockEdit: reason,
+      //   editedStockBy: user.id,
+      // })
+
+      toast.success('Inventory updated')
+      setOpen(false)
+    } catch (error) {
+      if (error instanceof ClientResponseError) {
+        setError(error.message || 'Update failed')
+      }
+      toast.error('Updated Failed', { description: Error })
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
@@ -217,7 +220,7 @@ function StockAdjustmentDrawer({ food }: { food: FoodItemProps }) {
       </SheetTrigger>
       <SheetContent side="bottom">
         <SheetHeader>
-          <SheetTitle>Adjust Stock - {food.name}</SheetTitle>
+          <SheetTitle>Adjust Stock - {menuItem.name}</SheetTitle>
           <SheetDescription>
             Enter the stock change amount and reason
           </SheetDescription>
@@ -275,11 +278,9 @@ function StockAdjustmentDrawer({ food }: { food: FoodItemProps }) {
         <SheetFooter>
           <Button
             onClick={handleAdjustment}
-            disabled={
-              adjustment === 0 || !reason || editInventoryMutation.isPending
-            }
+            disabled={adjustment === 0 || !reason || isPending}
           >
-            {editInventoryMutation.isPending ? (
+            {isPending ? (
               <span className="flex items-center gap-2">
                 <LoaderIcon className="w-4 h-4 animate-spin" color="white" />
                 Processing...
@@ -298,10 +299,50 @@ function StockAdjustmentDrawer({ food }: { food: FoodItemProps }) {
 }
 
 export function InventoryManagement() {
-  const { data: foods = [], isLoading } = useQuery({
-    queryKey: ['foods'],
-    queryFn: getFoodItems,
-  })
+  const [menuItems, setMenuItems] = useState<MenuItemProps[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // 1. Initial Fetch
+    const fetchInitialData = async () => {
+      try {
+        const records = await pb
+          .collection('menuItems')
+          .getFullList<MenuItemProps>({
+            sort: '-created',
+          })
+        setMenuItems(records)
+      } catch (err) {
+        console.error('Initial fetch failed:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchInitialData()
+
+    // 2. Real-time Subscription
+    pb.collection('menuItems').subscribe<MenuItemProps>('*', (e) => {
+      setMenuItems((current) => {
+        if (e.action === 'create') {
+          return [e.record, ...current]
+        }
+        if (e.action === 'update') {
+          return current.map((item) =>
+            item.id === e.record.id ? e.record : item,
+          )
+        }
+        if (e.action === 'delete') {
+          return current.filter((item) => item.id !== e.record.id)
+        }
+        return current
+      })
+    })
+
+    return () => {
+      pb.collection('menuItems').unsubscribe('*')
+    }
+  }, [])
 
   const { category: selectedCategory = '' } = useSearch({
     from: '/home/inventoryManagement',
@@ -370,47 +411,49 @@ export function InventoryManagement() {
         <div className="space-y-0 p-4">
           <AnimatePresence>
             {Object.values(
-              foods
-                .filter((food) => {
+              menuItems
+                .filter((menuItem) => {
                   if (search.trim()) {
                     const searchLower = search.toLowerCase()
-                    const inName = food.name.toLowerCase().includes(searchLower)
-                    const inCategory = food.mainCategory
+                    const inName = menuItem.name
+                      .toLowerCase()
+                      .includes(searchLower)
+                    const inCategory = menuItem.mainCategory
                       .toLowerCase()
                       .includes(searchLower)
                     return inName || inCategory
                   } else {
                     return (
                       selectedCategory === '' ||
-                      food.mainCategory === selectedCategory
+                      menuItem.mainCategory === selectedCategory
                     )
                   }
                 })
-                .reduce<Record<string, FoodItemProps[]>>((acc, food) => {
-                  const groupKey = food.type ?? food.name.toLowerCase()
+                .reduce<Record<string, MenuItemProps[]>>((acc, menuItem) => {
+                  const groupKey = menuItem.type ?? menuItem.name.toLowerCase()
                   if (!acc[groupKey]) acc[groupKey] = []
-                  acc[groupKey].push(food)
+                  acc[groupKey].push(menuItem)
                   return acc
                 }, {}),
-            ).map((foodsOfType) => (
+            ).map((menuItemsOfType) => (
               <motion.div
-                key={foodsOfType[0].type ?? foodsOfType[0].name}
+                key={`${menuItemsOfType[0].type ?? menuItemsOfType[0].name}-${menuItemsOfType.length}`}
                 layout
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.25 }}
               >
-                <InventoryItemCard foods={foodsOfType} />
+                <InventoryItemCard menuItems={menuItemsOfType} />
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
-        {foods.filter((food) => {
+        {menuItems.filter((menuItem) => {
           if (!search.trim()) return false // Only show empty state if search is active and no results
           const searchLower = search.toLowerCase()
-          const inName = food.name.toLowerCase().includes(searchLower)
-          const inCategory = food.mainCategory
+          const inName = menuItem.name.toLowerCase().includes(searchLower)
+          const inCategory = menuItem.mainCategory
             .toLowerCase()
             .includes(searchLower)
 

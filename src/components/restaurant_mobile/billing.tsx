@@ -5,18 +5,11 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   EyeIcon,
-  LoaderIcon,
 } from 'lucide-react'
-import {
-  permaDeleteOrder,
-  editOrder,
-  type ProcessedOrder,
-} from '@/firebase/takeOrder'
 
 import { Input } from '../ui/input'
 import { Button } from '@/components/ui/button'
-import { MoreHorizontal, SquarePenIcon, Trash2Icon } from 'lucide-react'
-import * as Yup from 'yup'
+import { MoreHorizontal } from 'lucide-react'
 import CakeCafeLogo from '@/assets/Logob.png'
 import {
   DropdownMenu,
@@ -25,8 +18,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Form, Formik } from 'formik'
-import React, { type Dispatch, type SetStateAction } from 'react'
+import React from 'react'
 import {
   Drawer,
   DrawerClose,
@@ -36,17 +28,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { toast } from 'sonner'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+
 import { ScrollArea } from '@radix-ui/react-scroll-area'
 import {
   Table,
@@ -56,17 +38,17 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table'
-import { getDailyDocId } from '@/firebase/firestore.utils'
+import type { FetchedOrder } from './types'
 
-export const columns: ColumnDef<ProcessedOrder>[] = [
+export const columns: ColumnDef<FetchedOrder>[] = [
   {
     id: 'actions',
     accessorKey: 'actions',
     header: 'Actions',
     cell: ({ row }) => {
       const order = row.original
-      const [isEditDrawerOpen, setEditDrawerOpen] = React.useState(false)
-      const [isDeleteDrawerOpen, setDeleteDrawerOpen] = React.useState(false)
+      // const [isEditDrawerOpen, setEditDrawerOpen] = React.useState(false)
+      // const [isDeleteDrawerOpen, setDeleteDrawerOpen] = React.useState(false)
       const [isReceiptDrawerOpen, setReceiptDrawerOpen] = React.useState(false)
 
       return (
@@ -92,7 +74,7 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
               >
                 <EyeIcon /> View Receipt
               </DropdownMenuItem>
-              <DropdownMenuItem
+              {/* <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
                   setEditDrawerOpen(true)
@@ -108,7 +90,7 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
                 }}
               >
                 <Trash2Icon /> Delete Order
-              </DropdownMenuItem>
+              </DropdownMenuItem> */}
             </DropdownMenuContent>
           </DropdownMenu>
           {isReceiptDrawerOpen && (
@@ -118,27 +100,28 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
               setReceiptOpen={setReceiptDrawerOpen}
             />
           )}
-          {isEditDrawerOpen && (
+          {/* {isEditDrawerOpen && (
             <EditDrawer
               isEditDrawerOpen={isEditDrawerOpen}
               setEditDrawerOpen={setEditDrawerOpen}
               order={order}
             />
-          )}
+          )} */}
+          {/*
           {isDeleteDrawerOpen && (
             <DeleteDrawer
               isDeleteDrawerOpen={isDeleteDrawerOpen}
               setDeleteDrawerOpen={setDeleteDrawerOpen}
               order={order}
             />
-          )}
+          )} */}
         </>
       )
     },
   },
   {
-    accessorKey: 'receiptId',
-    id: 'receiptId',
+    accessorKey: 'id',
+    id: 'id',
     header: 'Receipt ID',
   },
   {
@@ -248,9 +231,16 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   },
 
   {
-    accessorKey: 'creditor',
-    id: 'creditor',
-    header: 'Creditor',
+    accessorKey: 'payLaterCustomerId',
+    id: 'payLaterCustomerId',
+    header: 'Pay Later Customer',
+    cell: ({ row }) => {
+      const customer = row.original.expand?.payLaterCustomerId
+
+      if (!customer) return '—'
+
+      return customer.name
+    },
   },
   {
     accessorKey: 'paymentMethod',
@@ -320,486 +310,481 @@ export const columns: ColumnDef<ProcessedOrder>[] = [
   },
 
   {
-    accessorKey: 'processedBy',
-    id: 'processedBy',
-    header: 'Processed By',
+    accessorKey: 'createdBy',
+    id: 'createdBy',
+    header: 'Created By',
   },
 ]
 
-interface EditDrawerProps {
-  isEditDrawerOpen: boolean
-  setEditDrawerOpen: Dispatch<SetStateAction<boolean>>
-  order: ProcessedOrder
-}
+// interface EditDrawerProps {
+//   isEditDrawerOpen: boolean
+//   setEditDrawerOpen: Dispatch<SetStateAction<boolean>>
+//   order: FetchedOrder
+// }
 
-const EditDrawer = ({
-  isEditDrawerOpen,
-  setEditDrawerOpen,
-  order,
-}: EditDrawerProps) => {
-  const initialValues = {
-    kotNumber: order.kotNumber || '',
-    status: order.status || '',
-    discountAmount: order.discountAmount || 0,
-    taxAmount: order.taxAmount || 0,
-    receiptDate: order.receiptDate
-      ? typeof order.receiptDate === 'string'
-        ? order.receiptDate
-        : format(order.receiptDate, 'yyyy-MM-dd HH:mm')
-      : '',
-    creditor: order.creditor || '',
-    remarks: order.remarks || '',
-    complementary: order.complementary || false,
-    tableNumber: order.tableNumber || 0,
-    paymentMethod: order.paymentMethod || 'cash',
-  }
+// const EditDrawer = ({
+//   isEditDrawerOpen,
+//   setEditDrawerOpen,
+//   order,
+// }: EditDrawerProps) => {
+//   const initialValues = {
+//     kotNumber: order.kotNumber || '',
+//     status: order.status || '',
+//     discountAmount: order.discountAmount || 0,
+//     taxAmount: order.taxAmount || 0,
+//     receiptDate: order.receiptDate
+//       ? typeof order.receiptDate === 'string'
+//         ? order.receiptDate
+//         : format(order.receiptDate, 'yyyy-MM-dd HH:mm')
+//       : '',
+//     payLaterCustomerId: order.payLaterCustomerId || '',
+//     remarks: order.remarks || '',
+//     complementary: order.complementary || false,
+//     tableNumber: order.tableNumber || 0,
+//     paymentMethod: order.paymentMethod || 'cash',
+//   }
 
-  // Yup validation schema
-  const EditOrderSchema = Yup.object().shape({
-    kotNumber: Yup.string().required('KOT Number is required'),
-    discountAmount: Yup.number()
-      .min(0)
-      .max(100)
-      .required('Discount Amount is required'),
-    taxAmount: Yup.number().min(0).max(100).required('Tax Amount is required'),
-    receiptDate: Yup.string().required('Receipt Date is required'),
-    creditor: Yup.string().nullable(),
-    remarks: Yup.string(),
-    complementary: Yup.boolean(),
-    tableNumber: Yup.number().required('Table Number is required'),
-    manualRounding: Yup.number(),
-    paymentMethod: Yup.string()
-      .oneOf(['cash', 'bank', 'esewa'])
-      .required('Payment Method is required'),
-  })
+//   // Yup validation schema
+//   const EditOrderSchema = Yup.object().shape({
+//     kotNumber: Yup.string().required('KOT Number is required'),
+//     discountAmount: Yup.number()
+//       .min(0)
+//       .max(100)
+//       .required('Discount Amount is required'),
+//     taxAmount: Yup.number().min(0).max(100).required('Tax Amount is required'),
+//     receiptDate: Yup.string().required('Receipt Date is required'),
+//     creditor: Yup.string().nullable(),
+//     remarks: Yup.string(),
+//     complementary: Yup.boolean(),
+//     tableNumber: Yup.number().required('Table Number is required'),
+//     manualRounding: Yup.number(),
+//     paymentMethod: Yup.string()
+//       .oneOf(['cash', 'bank', 'esewa'])
+//       .required('Payment Method is required'),
+//   })
 
-  const queryClient = useQueryClient()
+//   const queryClient = useQueryClient()
 
-  const editOrderMutation = useMutation({
-    mutationFn: async ({
-      batchDocId,
-      updatedOrder,
-    }: {
-      batchDocId: string
-      updatedOrder: ProcessedOrder
-    }) => {
-      await editOrder(batchDocId, updatedOrder)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
-      queryClient.refetchQueries({ queryKey: ['getAllOrders'] })
-      toast.success('Order updated successfully')
-      setEditDrawerOpen(false)
-    },
-  })
+//   const editOrderMutation = useMutation({
+//     mutationFn: async ({
+//       batchDocId,
+//       updatedOrder,
+//     }: {
+//       batchDocId: string
+//       updatedOrder: FetchedOrder
+//     }) => {
+//       await editOrder(batchDocId, updatedOrder)
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
+//       queryClient.refetchQueries({ queryKey: ['getAllOrders'] })
+//       toast.success('Order updated successfully')
+//       setEditDrawerOpen(false)
+//     },
+//   })
 
-  return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={isEditDrawerOpen}
-      onOpenChange={setEditDrawerOpen}
-    >
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Edit Order</DrawerTitle>
-          <DrawerDescription>
-            Make changes to this order here.
-          </DrawerDescription>
-        </DrawerHeader>
-        <Formik
-          initialValues={initialValues}
-          validationSchema={EditOrderSchema}
-          onSubmit={async (values, actions) => {
-            try {
-              const updatedOrder: ProcessedOrder = {
-                ...order,
-                ...values,
-                receiptDate: new Date(values.receiptDate).toISOString(),
-                paymentMethod: values.paymentMethod as
-                  | 'cash'
-                  | 'bank'
-                  | 'esewa',
-              }
+//   return (
+//     <Drawer
+//       shouldScaleBackground={true}
+//       setBackgroundColorOnScale={true}
+//       open={isEditDrawerOpen}
+//       onOpenChange={setEditDrawerOpen}
+//     >
+//       <DrawerContent>
+//         <DrawerHeader>
+//           <DrawerTitle>Edit Order</DrawerTitle>
+//           <DrawerDescription>
+//             Make changes to this order here.
+//           </DrawerDescription>
+//         </DrawerHeader>
+//         <Formik
+//           initialValues={initialValues}
+//           validationSchema={EditOrderSchema}
+//           onSubmit={async (values, actions) => {
+//             try {
+//               const updatedOrder: FetchedOrder = {
+//                 ...order,
+//                 ...values,
+//                 receiptDate: new Date(values.receiptDate).toISOString(),
+//                 paymentMethod: values.paymentMethod as
+//                   | 'cash'
+//                   | 'bank'
+//                   | 'esewa',
+//               }
 
-              editOrderMutation.mutate({
-                batchDocId: getDailyDocId(new Date(order.receiptDate)),
-                updatedOrder,
-              })
-            } catch (err) {
-              console.error(err)
-              toast.error('Failed to update order')
-            } finally {
-              actions.setSubmitting(false)
-            }
-          }}
-        >
-          {(formik) => (
-            <Form className="space-y-4">
-              <ScrollArea className="px-4 h-72 overflow-y-auto">
-                <div className="flex flex-col gap-4">
-                  {/* Non-editable fields */}
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="receiptId"
-                    >
-                      Receipt ID
-                    </Label>
-                    <Input
-                      id="receiptId"
-                      value={order.receiptId}
-                      disabled
-                      className="mb-2"
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="kotNumber"
-                    >
-                      KOT Number
-                    </Label>
-                    <Input
-                      id="kotNumber"
-                      name="kotNumber"
-                      value={formik.values.kotNumber}
-                      onChange={formik.handleChange}
-                    />
-                    {formik.touched.kotNumber && formik.errors.kotNumber && (
-                      <div className="text-red-500 text-xs">
-                        {formik.errors.kotNumber}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="processedBy"
-                    >
-                      Processed By
-                    </Label>
-                    <Input
-                      id="processedBy"
-                      value={order.processedBy}
-                      disabled
-                      className="mb-2"
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="status"
-                    >
-                      Status
-                    </Label>
-                    <Input
-                      id="status"
-                      name="status"
-                      value={formik.values.status}
-                      disabled
-                      className="mb-2"
-                    />
-                  </div>
-                  {/* Editable fields (only those in AddToCart/ProcessedOrder) */}
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="discountAmount"
-                    >
-                      Discount Amount
-                    </Label>
-                    <Input
-                      id="discountAmount"
-                      name="discountAmount"
-                      type="number"
-                      value={formik.values.discountAmount}
-                      onChange={formik.handleChange}
-                    />
-                    {formik.touched.discountAmount &&
-                      formik.errors.discountAmount && (
-                        <div className="text-red-500 text-xs">
-                          {formik.errors.discountAmount}
-                        </div>
-                      )}
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="taxAmount"
-                    >
-                      Tax Amount
-                    </Label>
-                    <Input
-                      id="taxAmount"
-                      name="taxAmount"
-                      type="number"
-                      value={formik.values.taxAmount}
-                      onChange={formik.handleChange}
-                    />
-                    {formik.touched.taxAmount && formik.errors.taxAmount && (
-                      <div className="text-red-500 text-xs">
-                        {formik.errors.taxAmount}
-                      </div>
-                    )}
-                  </div>
+//               editOrderMutation.mutate({
+//                 batchDocId: getDailyDocId(new Date(order.receiptDate)),
+//                 updatedOrder,
+//               })
+//             } catch (err) {
+//               console.error(err)
+//               toast.error('Failed to update order')
+//             } finally {
+//               actions.setSubmitting(false)
+//             }
+//           }}
+//         >
+//           {(formik) => (
+//             <Form className="space-y-4">
+//               <ScrollArea className="px-4 h-72 overflow-y-auto">
+//                 <div className="flex flex-col gap-4">
+//                   {/* Non-editable fields */}
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="receiptId"
+//                     >
+//                       Receipt ID
+//                     </Label>
+//                     <Input id="id" value={order.id} disabled className="mb-2" />
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="kotNumber"
+//                     >
+//                       KOT Number
+//                     </Label>
+//                     <Input
+//                       id="kotNumber"
+//                       name="kotNumber"
+//                       value={formik.values.kotNumber}
+//                       onChange={formik.handleChange}
+//                     />
+//                     {formik.touched.kotNumber && formik.errors.kotNumber && (
+//                       <div className="text-red-500 text-xs">
+//                         {formik.errors.kotNumber}
+//                       </div>
+//                     )}
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="createdBy"
+//                     >
+//                       Processed By
+//                     </Label>
+//                     <Input
+//                       id="createdBy"
+//                       value={order.createdBy}
+//                       disabled
+//                       className="mb-2"
+//                     />
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="status"
+//                     >
+//                       Status
+//                     </Label>
+//                     <Input
+//                       id="status"
+//                       name="status"
+//                       value={formik.values.status}
+//                       disabled
+//                       className="mb-2"
+//                     />
+//                   </div>
+//                   {/* Editable fields (only those in AddToCart/ProcessedOrder) */}
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="discountAmount"
+//                     >
+//                       Discount Amount
+//                     </Label>
+//                     <Input
+//                       id="discountAmount"
+//                       name="discountAmount"
+//                       type="number"
+//                       value={formik.values.discountAmount}
+//                       onChange={formik.handleChange}
+//                     />
+//                     {formik.touched.discountAmount &&
+//                       formik.errors.discountAmount && (
+//                         <div className="text-red-500 text-xs">
+//                           {formik.errors.discountAmount}
+//                         </div>
+//                       )}
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="taxAmount"
+//                     >
+//                       Tax Amount
+//                     </Label>
+//                     <Input
+//                       id="taxAmount"
+//                       name="taxAmount"
+//                       type="number"
+//                       value={formik.values.taxAmount}
+//                       onChange={formik.handleChange}
+//                     />
+//                     {formik.touched.taxAmount && formik.errors.taxAmount && (
+//                       <div className="text-red-500 text-xs">
+//                         {formik.errors.taxAmount}
+//                       </div>
+//                     )}
+//                   </div>
 
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="receiptDate"
-                    >
-                      Receipt Date
-                    </Label>
-                    <Input
-                      id="receiptDate"
-                      name="receiptDate"
-                      type="datetime-local"
-                      value={
-                        formik.values.receiptDate &&
-                        !isNaN(new Date(formik.values.receiptDate).getTime())
-                          ? format(
-                              new Date(formik.values.receiptDate),
-                              "yyyy-MM-dd'T'HH:mm",
-                            )
-                          : ''
-                      }
-                      onChange={formik.handleChange}
-                    />
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="receiptDate"
+//                     >
+//                       Receipt Date
+//                     </Label>
+//                     <Input
+//                       id="receiptDate"
+//                       name="receiptDate"
+//                       type="datetime-local"
+//                       value={
+//                         formik.values.receiptDate &&
+//                         !isNaN(new Date(formik.values.receiptDate).getTime())
+//                           ? format(
+//                               new Date(formik.values.receiptDate),
+//                               "yyyy-MM-dd'T'HH:mm",
+//                             )
+//                           : ''
+//                       }
+//                       onChange={formik.handleChange}
+//                     />
 
-                    {formik.touched.receiptDate &&
-                      formik.errors.receiptDate && (
-                        <div className="text-red-500 text-xs">
-                          {formik.errors.receiptDate}
-                        </div>
-                      )}
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="creditor"
-                    >
-                      Creditor
-                    </Label>
-                    <Input
-                      id="creditor"
-                      name="creditor"
-                      value={formik.values.creditor ?? ''}
-                      onChange={formik.handleChange}
-                      disabled
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="remarks"
-                    >
-                      Remarks
-                    </Label>
-                    <Input
-                      id="remarks"
-                      name="remarks"
-                      value={formik.values.remarks}
-                      onChange={formik.handleChange}
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="paymentMethod"
-                    >
-                      Payment Method
-                    </Label>
-                    <Select
-                      value={formik.values.paymentMethod}
-                      onValueChange={(value) =>
-                        formik.setFieldValue('paymentMethod', value)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select payment method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="bank">Bank</SelectItem>
-                        <SelectItem value="esewa">eSewa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {formik.touched.paymentMethod &&
-                      formik.errors.paymentMethod && (
-                        <div className="text-red-500 text-xs">
-                          {formik.errors.paymentMethod}
-                        </div>
-                      )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="complementary"
-                      name="complementary"
-                      checked={formik.values.complementary}
-                      onCheckedChange={(checked) => {
-                        formik.setFieldValue('complementary', checked)
-                      }}
-                    />
-                    <Label
-                      htmlFor="complementary"
-                      className="font-semibold text-xs"
-                    >
-                      Complementary
-                    </Label>
-                  </div>
-                  <div>
-                    <Label
-                      className="mb-1 font-semibold text-xs"
-                      htmlFor="tableNumber"
-                    >
-                      Table Number
-                    </Label>
-                    <Input
-                      id="tableNumber"
-                      name="tableNumber"
-                      type="number"
-                      value={formik.values.tableNumber}
-                      onChange={formik.handleChange}
-                    />
-                  </div>
-                </div>
-              </ScrollArea>
+//                     {formik.touched.receiptDate &&
+//                       formik.errors.receiptDate && (
+//                         <div className="text-red-500 text-xs">
+//                           {formik.errors.receiptDate}
+//                         </div>
+//                       )}
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="payLaterCustomerId"
+//                     >
+//                       payLaterCustomerId
+//                     </Label>
+//                     <Input
+//                       id="payLaterCustomerId"
+//                       name="payLaterCustomerId"
+//                       value={formik.values.payLaterCustomerId ?? ''}
+//                       onChange={formik.handleChange}
+//                       disabled
+//                     />
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="remarks"
+//                     >
+//                       Remarks
+//                     </Label>
+//                     <Input
+//                       id="remarks"
+//                       name="remarks"
+//                       value={formik.values.remarks}
+//                       onChange={formik.handleChange}
+//                     />
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="paymentMethod"
+//                     >
+//                       Payment Method
+//                     </Label>
+//                     <Select
+//                       value={formik.values.paymentMethod}
+//                       onValueChange={(value) =>
+//                         formik.setFieldValue('paymentMethod', value)
+//                       }
+//                     >
+//                       <SelectTrigger className="w-full">
+//                         <SelectValue placeholder="Select payment method" />
+//                       </SelectTrigger>
+//                       <SelectContent>
+//                         <SelectItem value="cash">Cash</SelectItem>
+//                         <SelectItem value="bank">Bank</SelectItem>
+//                         <SelectItem value="esewa">eSewa</SelectItem>
+//                       </SelectContent>
+//                     </Select>
+//                     {formik.touched.paymentMethod &&
+//                       formik.errors.paymentMethod && (
+//                         <div className="text-red-500 text-xs">
+//                           {formik.errors.paymentMethod}
+//                         </div>
+//                       )}
+//                   </div>
+//                   <div className="flex items-center gap-2">
+//                     <Checkbox
+//                       id="complementary"
+//                       name="complementary"
+//                       checked={formik.values.complementary}
+//                       onCheckedChange={(checked) => {
+//                         formik.setFieldValue('complementary', checked)
+//                       }}
+//                     />
+//                     <Label
+//                       htmlFor="complementary"
+//                       className="font-semibold text-xs"
+//                     >
+//                       Complementary
+//                     </Label>
+//                   </div>
+//                   <div>
+//                     <Label
+//                       className="mb-1 font-semibold text-xs"
+//                       htmlFor="tableNumber"
+//                     >
+//                       Table Number
+//                     </Label>
+//                     <Input
+//                       id="tableNumber"
+//                       name="tableNumber"
+//                       type="number"
+//                       value={formik.values.tableNumber}
+//                       onChange={formik.handleChange}
+//                     />
+//                   </div>
+//                 </div>
+//               </ScrollArea>
 
-              <DrawerFooter>
-                <Button type="submit" disabled={formik.isSubmitting}>
-                  {editOrderMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <LoaderIcon
-                        className="w-4 h-4 animate-spin"
-                        color="white"
-                      />
-                      Saving...
-                    </span>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditDrawerOpen(false)
-                  }}
-                >
-                  Cancel
-                </Button>
-              </DrawerFooter>
-            </Form>
-          )}
-        </Formik>
-      </DrawerContent>
-    </Drawer>
-  )
-}
+//               <DrawerFooter>
+//                 <Button type="submit" disabled={formik.isSubmitting}>
+//                   {editOrderMutation.isPending ? (
+//                     <span className="flex items-center gap-2">
+//                       <LoaderIcon
+//                         className="w-4 h-4 animate-spin"
+//                         color="white"
+//                       />
+//                       Saving...
+//                     </span>
+//                   ) : (
+//                     'Save'
+//                   )}
+//                 </Button>
+//                 <Button
+//                   type="button"
+//                   variant="outline"
+//                   onClick={(e) => {
+//                     e.stopPropagation()
+//                     setEditDrawerOpen(false)
+//                   }}
+//                 >
+//                   Cancel
+//                 </Button>
+//               </DrawerFooter>
+//             </Form>
+//           )}
+//         </Formik>
+//       </DrawerContent>
+//     </Drawer>
+//   )
+// }
 
-interface DeleteDrawerProps {
-  isDeleteDrawerOpen: boolean
-  setDeleteDrawerOpen: Dispatch<SetStateAction<boolean>>
-  order?: ProcessedOrder
-}
+// interface DeleteDrawerProps {
+//   isDeleteDrawerOpen: boolean
+//   setDeleteDrawerOpen: Dispatch<SetStateAction<boolean>>
+//   order?: FetchedOrder
+// }
 
-const DeleteDrawer = ({
-  isDeleteDrawerOpen,
-  setDeleteDrawerOpen,
-  order,
-}: DeleteDrawerProps) => {
-  const queryClient = useQueryClient()
-  const [localLoading, setLocalLoading] = React.useState(false)
-  const deleteOrderMutation = useMutation({
-    mutationFn: async ({
-      batchDocId,
-      receiptId,
-    }: {
-      batchDocId: string
-      receiptId: string
-    }) => {
-      await permaDeleteOrder(batchDocId, receiptId)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
-      toast.success('Order deleted successfully')
-      setDeleteDrawerOpen(false)
-      setLocalLoading(false)
-    },
-    onError: () => {
-      toast.error('Failed to delete order')
-      setLocalLoading(false)
-    },
-  })
+// const DeleteDrawer = ({
+//   isDeleteDrawerOpen,
+//   setDeleteDrawerOpen,
+//   order,
+// }: DeleteDrawerProps) => {
+//   const queryClient = useQueryClient()
+//   const [localLoading, setLocalLoading] = React.useState(false)
+//   const deleteOrderMutation = useMutation({
+//     mutationFn: async ({
+//       batchDocId,
+//       receiptId,
+//     }: {
+//       batchDocId: string
+//       receiptId: string
+//     }) => {
+//       await permaDeleteOrder(batchDocId, receiptId)
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ['getAllOrders'] })
+//       toast.success('Order deleted successfully')
+//       setDeleteDrawerOpen(false)
+//       setLocalLoading(false)
+//     },
+//     onError: () => {
+//       toast.error('Failed to delete order')
+//       setLocalLoading(false)
+//     },
+//   })
 
-  return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={isDeleteDrawerOpen}
-      onOpenChange={setDeleteDrawerOpen}
-    >
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Delete Order</DrawerTitle>
-          <DrawerDescription>
-            Are you sure you want to delete this order?
-            <br />
-            <span className="font-semibold text-red-500">Receipt ID:</span>
-            <span className="ml-2 font-mono">{order?.receiptId ?? 'N/A'}</span>
-            <br />
-            <span className="text-muted-foreground text-xs">
-              This action cannot be undone.
-            </span>
-          </DrawerDescription>
-        </DrawerHeader>
-        <DrawerFooter>
-          <Button
-            type="button"
-            disabled={deleteOrderMutation.isPending || localLoading}
-            onClick={async (e) => {
-              e.stopPropagation()
-              if (!order) return
-              setLocalLoading(true)
-              await deleteOrderMutation.mutateAsync({
-                batchDocId: getDailyDocId(new Date(order.receiptDate)),
-                receiptId: order.receiptId,
-              })
-            }}
-          >
-            {deleteOrderMutation.isPending || localLoading ? (
-              <span className="flex items-center gap-2">
-                <LoaderIcon className="w-4 h-4 animate-spin" color="white" />
-                Deleting...
-              </span>
-            ) : (
-              'Delete'
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={deleteOrderMutation.isPending || localLoading}
-            onClick={(e) => {
-              e.stopPropagation()
-              setDeleteDrawerOpen(false)
-            }}
-          >
-            Cancel
-          </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
-  )
-}
+//   return (
+//     <Drawer
+//       shouldScaleBackground={true}
+//       setBackgroundColorOnScale={true}
+//       open={isDeleteDrawerOpen}
+//       onOpenChange={setDeleteDrawerOpen}
+//     >
+//       <DrawerContent>
+//         <DrawerHeader>
+//           <DrawerTitle>Delete Order</DrawerTitle>
+//           <DrawerDescription>
+//             Are you sure you want to delete this order?
+//             <br />
+//             <span className="font-semibold text-red-500">Receipt ID:</span>
+//             <span className="ml-2 font-mono">{order?.receiptId ?? 'N/A'}</span>
+//             <br />
+//             <span className="text-muted-foreground text-xs">
+//               This action cannot be undone.
+//             </span>
+//           </DrawerDescription>
+//         </DrawerHeader>
+//         <DrawerFooter>
+//           <Button
+//             type="button"
+//             disabled={deleteOrderMutation.isPending || localLoading}
+//             onClick={async (e) => {
+//               e.stopPropagation()
+//               if (!order) return
+//               setLocalLoading(true)
+//               await deleteOrderMutation.mutateAsync({
+//                 batchDocId: getDailyDocId(new Date(order.receiptDate)),
+//                 receiptId: order.receiptId,
+//               })
+//             }}
+//           >
+//             {deleteOrderMutation.isPending || localLoading ? (
+//               <span className="flex items-center gap-2">
+//                 <LoaderIcon className="w-4 h-4 animate-spin" color="white" />
+//                 Deleting...
+//               </span>
+//             ) : (
+//               'Delete'
+//             )}
+//           </Button>
+//           <Button
+//             variant="outline"
+//             disabled={deleteOrderMutation.isPending || localLoading}
+//             onClick={(e) => {
+//               e.stopPropagation()
+//               setDeleteDrawerOpen(false)
+//             }}
+//           >
+//             Cancel
+//           </Button>
+//         </DrawerFooter>
+//       </DrawerContent>
+//     </Drawer>
+//   )
+// }
 
 export function ReceiptDrawer({
   data,
   receiptOpen,
   setReceiptOpen,
 }: {
-  data: ProcessedOrder
+  data: FetchedOrder
   receiptOpen: boolean
   setReceiptOpen: (open: boolean) => void
 }) {
@@ -841,11 +826,9 @@ export function ReceiptDrawer({
           <div className="bg-white dark:bg-black p-4 border border-border">
             <h2 className="mb-4 font-bold text-center">Receipt</h2>
             <div className="mb-4 text-xs text-center">
-              <div>ID: {data.receiptId}</div>
-              <div>
-                Date:{' '}
-                {format(new Date(data.receiptDate), "yyyy-MM-dd '@' hh:mm a")}
-              </div>
+              <div>ID: {data.id}</div>
+              <div>KOT: {data.kotNumber}</div>
+              {format(new Date(data.created), 'PPpp')}
             </div>
 
             <ScrollArea className="h-72 overflow-y-auto">
@@ -859,7 +842,7 @@ export function ReceiptDrawer({
                 </TableHeader>
                 <TableBody>
                   {data.items.map((item) => (
-                    <TableRow key={item.foodId}>
+                    <TableRow key={item.menuItemId}>
                       <TableCell>{item.name}</TableCell>
                       <TableCell className="text-center">{item.qty}</TableCell>
                       <TableCell className="text-right">
@@ -883,7 +866,7 @@ export function ReceiptDrawer({
 
                   <TableRow>
                     <TableCell colSpan={2} className="text-right">
-                      Discount ({data.discountAmount})
+                      Discount
                     </TableCell>
                     <TableCell className="text-right text-nowrap">
                       - Rs. {Number(data.discountAmount).toFixed(2)}
@@ -892,10 +875,10 @@ export function ReceiptDrawer({
 
                   <TableRow>
                     <TableCell colSpan={2} className="text-right">
-                      Tax ({data.taxAmount})
+                      Tax
                     </TableCell>
                     <TableCell className="text-right text-nowrap">
-                      - Rs. {Number(data.taxAmount).toFixed(2)}
+                      + Rs. {Number(data.taxAmount).toFixed(2)}
                     </TableCell>
                   </TableRow>
 
@@ -909,7 +892,11 @@ export function ReceiptDrawer({
                   </TableRow>
                   <TableRow>
                     <TableCell className="text-gray-500 text-xs text-left">
-                      Processed By: {data.processedBy}
+                      Created By:
+                      {data.expand?.createdBy?.firstName &&
+                      data.expand?.createdBy?.lastName
+                        ? `${data.expand.createdBy.firstName} ${data.expand.createdBy.lastName}`
+                        : data.expand?.createdBy?.username}
                     </TableCell>
                     <TableCell className="font-semibold text-right">
                       Total
@@ -933,14 +920,14 @@ export function ReceiptDrawer({
               <div className="space-y-1 mt-4 text-xs">
                 {data.remarks && (
                   <div>
-                    <span className="font-semibold">Remarks:</span>{' '}
+                    <span className="font-semibold">Remarks:</span>
                     {data.remarks}
                   </div>
                 )}
-                {data.creditor && (
+                {data.payLaterCustomerId && (
                   <div>
-                    <span className="font-semibold">Creditor:</span>{' '}
-                    {data.creditor}
+                    <span className="font-semibold">Pay Later Customer:</span>
+                    {data.expand?.payLaterCustomerId?.name}
                   </div>
                 )}
                 {data.complementary && (

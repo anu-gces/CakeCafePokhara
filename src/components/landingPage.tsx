@@ -1,112 +1,111 @@
 import { useNavigate } from '@tanstack/react-router'
-import { useFirebaseAuth } from '@/lib/useFirebaseAuth'
 import { AnimatePresence, motion } from 'motion/react'
 import type React from 'react'
 import { useState } from 'react'
-import CakeCakeLogo from '../assets/Logob.png'
-import { Button } from './ui/button'
-import { ModeToggle } from './ui/themeToggle'
+import CakeCakeLogo from '@/assets/Logob.png'
+import { Button } from '@/components/ui/button'
+import { ModeToggle } from '@/components/ui/themeToggle'
 import { Loader } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
-function GoogleLogo() {
-  // White Google logo SVG
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      x="0px"
-      y="0px"
-      width="100"
-      height="100"
-      viewBox="0,0,256,256"
-      style={{ fill: '#FFFFFF' }}
-    >
-      <g
-        fill="#ffffff"
-        fillRule="nonzero"
-        stroke="none"
-        strokeWidth="1"
-        strokeLinecap="butt"
-        strokeLinejoin="miter"
-        strokeMiterlimit="10"
-        strokeDasharray=""
-        strokeDashoffset="0"
-        fontFamily="none"
-        fontWeight="none"
-        fontSize="none"
-        textAnchor="none"
-        style={{ mixBlendMode: 'normal' }}
-      >
-        <g transform="scale(8.53333,8.53333)">
-          <path d="M15.00391,3c-6.629,0 -12.00391,5.373 -12.00391,12c0,6.627 5.37491,12 12.00391,12c10.01,0 12.26517,-9.293 11.32617,-14h-1.33008h-2.26758h-7.73242v4h7.73828c-0.88958,3.44825 -4.01233,6 -7.73828,6c-4.418,0 -8,-3.582 -8,-8c0,-4.418 3.582,-8 8,-8c2.009,0 3.83914,0.74575 5.24414,1.96875l2.8418,-2.83984c-2.134,-1.944 -4.96903,-3.12891 -8.08203,-3.12891z"></path>
-        </g>
-      </g>
-    </svg>
-  )
-}
+import { login } from '@/lib/auth'
+import { parsePbError } from '@/lib/utils'
 
-function LoginForm() {
-  const navigate = useNavigate({ from: '/' })
-
+export function LoginForm() {
+  const navigate = useNavigate()
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const { signInWithGoogle, userAdditional } = useFirebaseAuth()
 
-  const loginWithGoogle = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!isSigningIn) {
-      setIsSigningIn(true)
-      try {
-        await signInWithGoogle()
-        // Wait for userAdditional to update after sign-in
-        if (!userAdditional?.isProfileComplete) {
-          navigate({ to: '/profileComplete' })
-        } else {
-          navigate({
-            to: '/home/takeOrder',
-            search: { category: 'appetizers' },
-          })
-        }
-      } catch (error) {
-        setErrorMessage(
-          'Error signing in with Google: ' + (error as Error).message,
-        )
-      } finally {
-        setIsSigningIn(false)
-      }
+    const formData = new FormData(e.currentTarget)
+
+    // Extracting the values from the form
+    const username = formData.get('username') as string
+    const password = formData.get('password') as string
+
+    setIsSigningIn(true)
+    setErrorMessage(null)
+
+    try {
+      // 1. Call our PocketBase login logic
+      await login(username, password)
+
+      // 2. Navigate on success
+      navigate({
+        to: '/home/takeOrder',
+        search: { category: 'appetizers' },
+      })
+    } catch (error: unknown) {
+      setErrorMessage(parsePbError(error))
+    } finally {
+      setIsSigningIn(false)
     }
   }
 
   return (
-    <div className="gap-6 grid mx-auto w-[350px]">
-      <div className="gap-2 grid text-center">
-        <h1 className="font-bold text-3xl">Login</h1>
-        <p className="text-muted-foreground text-balance">
-          Cick the Button below to login to your account.
+    <div className="space-y-8 mx-auto w-[320px]">
+      <div className="space-y-2 text-center">
+        <h1 className="font-bold text-3xl uppercase tracking-tighter">Login</h1>
+        <p className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+          Internal Access Only
         </p>
       </div>
-      <div className="gap-4 grid">
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1">
+          <Label
+            htmlFor="username"
+            className="opacity-60 text-[10px] uppercase"
+          >
+            Username
+          </Label>
+          <Input
+            id="username"
+            name="username"
+            type="text"
+            placeholder="john_doe23"
+            required
+            autoComplete="username"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <Label
+            htmlFor="password"
+            className="opacity-60 text-[10px] uppercase"
+          >
+            Password
+          </Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            required
+            className="border"
+            autoComplete="current-password"
+          />
+        </div>
+
         <Button
-          className="w-full"
-          onClick={loginWithGoogle}
+          type="submit"
+          className="flex justify-center items-center bg-primary hover:bg-primary/90 disabled:opacity-50 mt-4 rounded-none w-full h-12 text-primary-foreground text-xs uppercase tracking-widest"
           disabled={isSigningIn}
         >
-          <span className="flex justify-center items-center gap-2">
-            <GoogleLogo />
-            {isSigningIn ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" color="white" />
-              </>
-            ) : (
-              'Login with Google'
-            )}
-          </span>
+          {isSigningIn ? (
+            <Loader className="w-4 h-4 animate-spin" color="white" />
+          ) : (
+            'Authorize'
+          )}
         </Button>
+
         {errorMessage && (
-          <div className="mt-4 p-2 border border-primary rounded text-primary text-center">
+          <p className="mt-2 text-[10px] text-destructive text-center uppercase tracking-tight">
             {errorMessage}
-          </div>
+          </p>
         )}
-      </div>
+      </form>
     </div>
   )
 }

@@ -2,16 +2,14 @@ import './index.css'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen.ts'
-import { useFirebaseAuth } from './lib/useFirebaseAuth.ts'
-import SplashScreen from './components/splashscreen.tsx'
+import { pb } from './lib/pocketbase.ts'
 
 const queryClient = new QueryClient()
-
 const router = createRouter({
   routeTree,
   context: {
     queryClient,
-    authentication: undefined!,
+    pb: pb,
   },
   defaultPreload: 'intent',
   // Since we're using React Query, we don't want loader calls to ever be stale
@@ -27,15 +25,25 @@ declare module '@tanstack/react-router' {
 }
 
 export function AppProvider() {
-  const authentication = useFirebaseAuth()
-
-  if (authentication.loading) {
-    return <SplashScreen />
-  }
-
+  // useEffect(() => {
+  //   const refresh = async () => {
+  //     if (pb.authStore.isValid) {
+  //       try {
+  //         await pb.collection('users').authRefresh()
+  //         console.log('token refreshed')
+  //       } catch {
+  //         console.log('token dead, clearing')
+  //         pb.authStore.clear()
+  //       }
+  //     } else {
+  //       console.log('no valid token on load')
+  //     }
+  //   }
+  //   refresh()
+  // }, [])
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} context={{ authentication }} />
+      <RouterProvider router={router} context={{ pb: pb }} />
     </QueryClientProvider>
   )
 }
