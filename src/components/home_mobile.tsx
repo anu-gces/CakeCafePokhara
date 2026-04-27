@@ -9,7 +9,12 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { motion } from 'motion/react'
-import { Link, Outlet, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  Outlet,
+  useNavigate,
+  useRouteContext,
+} from '@tanstack/react-router'
 import {
   BoxIcon,
   MicrowaveIcon,
@@ -33,10 +38,9 @@ import { Button } from './ui/button'
 import { ExpandableTabs, type TabItem } from './ui/expandable-tabs'
 import { Separator } from './ui/separator'
 import { ModeToggle } from './ui/themeToggle'
-import { messaging } from '@/firebase/firebase'
+import { messaging } from '@/lib/firebase'
 import { getToken } from 'firebase/messaging'
 import { logout } from '@/lib/auth'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 import { pb } from '@/lib/pocketbase'
 
 const tabs: TabItem[] = [
@@ -67,7 +71,8 @@ const tabs: TabItem[] = [
 ]
 
 export function Home() {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
 
   const [wasOffline, setWasOffline] = useState(false)
 
@@ -167,7 +172,10 @@ export function Home() {
 function AvatarDrawer() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const { user, pb } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
+  const pb = auth.pb
+
   const avatar = pb.files.getURL(user, user.avatar, { thumb: '100x100' })
 
   return (
@@ -255,7 +263,8 @@ function AvatarDrawer() {
 }
 
 function HamburgerDrawer() {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const [open, setOpen] = useState(false)
   const isAdmin = user.role === 'manager' || user.role === 'owner'
 

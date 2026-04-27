@@ -6,6 +6,8 @@ import {
 } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import type { LucideIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { playNotificationsSound } from '@/assets/playSFX'
 import { pb } from '@/lib/pocketbase'
 import { useEffect, useState } from 'react'
 import type { FetchedOrder } from '../restaurant_mobile/types'
@@ -52,6 +54,7 @@ const spanVariants = {
 }
 
 const transition = { delay: 0.1, type: 'spring', bounce: 0, duration: 0.6 }
+const THRESHOLD_MS = 5000 // 5 seconds threshold
 
 export function ExpandableTabs({
   tabs,
@@ -91,60 +94,66 @@ export function ExpandableTabs({
   useEffect(() => {
     if (!user) return
 
-    const setupNotifications = async () => {
-      // 2. Initial Fetch
-      const resultList = await pb
-        .collection<FetchedOrder>('orders')
-        .getList(1, 1, {
+    const fetchCount = async () => {
+      try {
+        const resultList = await pb.collection('orders').getList(1, 1, {
           filter:
             'status != "paid" && status != "credited" && dismissed = false',
-          requestKey: 'notificationsCount', // Keeps this request unique
         })
+
+        setNotificationCount(resultList.totalItems)
+      } catch (err: any) {
+        if (!err.isAbort) console.error(err)
+      }
+    }
+
+    fetchCount()
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+
+    const handleEvent = async (event: any) => {
+      const order = event.record
+      if (!order) return
+
+      // 🔢 Notification count logic
+      const resultList = await pb.collection('orders').getList(1, 1, {
+        filter: 'status != "paid" && status != "credited" && dismissed = false',
+      })
 
       setNotificationCount(resultList.totalItems)
+
+      // 🔔 Toast + sound logic
+      const now = Date.now()
+      const receiptTime = new Date(order.updated).getTime()
+
+      const isRecent = now - receiptTime <= THRESHOLD_MS
+      const isNotSelf = user?.firstName !== order.createdBy
+
+      if (isRecent && isNotSelf) {
+        toast(
+          <div className="flex items-center gap-3">
+            <span className="inline-block bg-red-500 rounded-full w-2 h-2" />
+            <div>
+              <p className="font-semibold text-base">New Order</p>
+              <p className="text-muted-foreground text-sm">
+                Table <span className="font-medium">{order.tableNumber}</span> —
+                Placed just now
+              </p>
+            </div>
+          </div>,
+        )
+
+        playNotificationsSound()
+      }
     }
 
-    const subscribe = async () => {
-      const unsubscribe = await pb
-        .collection('orders')
-        .subscribe<FetchedOrder>('*', (e) => {
-          const { record, action } = e
+    //
+    pb.collection('orders').subscribe('*', handleEvent)
 
-          if (action === 'create') {
-            setNotificationCount((c) => c + 1)
-            return
-          }
-
-          if (action === 'update') {
-            const isTerminal =
-              record.status === 'paid' ||
-              record.status === 'credited' ||
-              record.dismissed
-
-            const isCancelled = record.status === 'cancelled'
-            const isRefunded = record.status === 'refunded'
-
-            if (isTerminal || isCancelled || isRefunded) {
-              setNotificationCount((c) => Math.max(0, c - 1))
-            }
-            return
-          }
-
-          if (action === 'delete') {
-            setNotificationCount((c) => Math.max(0, c - 1))
-          }
-        })
-
-      return unsubscribe
-    }
-
-    const unsubscribePromise = subscribe()
-
-    setupNotifications()
-
-    // 4. The Cleanup
     return () => {
-      unsubscribePromise.then((unsub) => unsub())
+      pb.collection('orders').unsubscribe('*')
     }
   }, [user])
 
@@ -185,17 +194,11 @@ export function ExpandableTabs({
             )}
           >
             <div className="relative">
-              {tab.title === 'Notifications' && (
+              {tab.title === 'Notifications' && notificationCount > 0 && (
                 <>
-                  <span
-                    className="-top-1 -left-2 absolute bg-rose-400 opacity-75 rounded-full w-4 h-4 animate-ping"
-                    style={{ opacity: notificationCount > 0 ? 1 : 0 }}
-                  ></span>
+                  <span className="-top-1 -left-2 absolute bg-rose-400 opacity-75 rounded-full w-4 h-4 animate-ping"></span>
 
-                  <div
-                    style={{ opacity: notificationCount > 0 ? 1 : 0 }}
-                    className="-top-1 -left-2 absolute flex justify-center items-center bg-rose-500 rounded-full w-4 h-4 text-white text-xs"
-                  >
+                  <div className="-top-1 -left-2 absolute flex justify-center items-center bg-rose-500 rounded-full w-4 h-4 text-white text-xs">
                     {notificationCount}
                   </div>
                 </>

@@ -21,14 +21,14 @@ import {
   XIcon,
   LoaderIcon,
 } from 'lucide-react'
-import { Outlet } from '@tanstack/react-router'
+import { Outlet, useRouteContext } from '@tanstack/react-router'
 import { Button } from './ui/button'
-import SplashScreen from './splashscreen'
+import { SplashScreen } from './splashscreen'
 import AnimatedClockIcon from '@/assets/AnimatedClockIcon'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 import { pb } from '@/lib/pocketbase'
 import type { FetchedOrder } from './restaurant_mobile/types'
 import { ReceiptDrawer } from './restaurant_mobile/billing'
+import { cn } from '@/lib/utils'
 
 export function Notifications() {
   return (
@@ -36,6 +36,28 @@ export function Notifications() {
       <Outlet />
     </div>
   )
+}
+
+// Helper: Update Status
+const updateOrderStatus = async (id: string, status: string) => {
+  try {
+    await pb
+      .collection('orders')
+      .update(id, { status }, { requestKey: 'updateStatus' })
+  } catch (err) {
+    console.error('Failed to update status:', err)
+  }
+}
+
+// Helper: Dismiss Notification
+const dismissOrderNotification = async (id: string) => {
+  try {
+    await pb
+      .collection('orders')
+      .update(id, { dismissed: true }, { requestKey: 'dismissNotification' })
+  } catch (err) {
+    console.error('Failed to dismiss:', err)
+  }
 }
 
 export function OrderNotification() {
@@ -50,27 +72,12 @@ export function OrderNotification() {
     open: boolean
     order?: FetchedOrder
   }>({ open: false })
-  const { user } = usePocketbaseAuth()
-
-  // Helper: Update Status
-  const updateOrderStatus = async (id: string, status: string) => {
-    try {
-      await pb.collection('orders').update(id, { status })
-    } catch (err) {
-      console.error('Failed to update status:', err)
-    }
-  }
-
-  // Helper: Dismiss Notification
-  const dismissOrderNotification = async (id: string) => {
-    try {
-      await pb.collection('orders').update(id, { dismissed: true })
-    } catch (err) {
-      console.error('Failed to dismiss:', err)
-    }
-  }
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
 
   useEffect(() => {
+    if (!user) return
+
     const fetchInitialData = async () => {
       try {
         const records = await pb
@@ -79,6 +86,7 @@ export function OrderNotification() {
             sort: '-created',
             filter: 'dismissed = false',
             expand: 'payLaterCustomerId, createdBy',
+            requestKey: 'notifications',
           })
         setOrders(records)
       } catch (err) {
@@ -90,42 +98,49 @@ export function OrderNotification() {
 
     fetchInitialData()
 
-    pb.collection('orders').subscribe<FetchedOrder>('*', (e) => {
-      setOrders((current) => {
-        if (e.action === 'create') return [e.record, ...current]
-        if (e.action === 'update') {
-          if (e.record.dismissed)
-            return current.filter((item) => item.id !== e.record.id)
-          return current.map((item) =>
-            item.id === e.record.id ? e.record : item,
-          )
-        }
-        if (e.action === 'delete')
-          return current.filter((item) => item.id !== e.record.id)
-        return current
-      })
-    })
+    const subscribe = async () => {
+      const unsubscribe = await pb
+        .collection('orders')
+        .subscribe<FetchedOrder>('*', (e) => {
+          setOrders((current) => {
+            if (e.action === 'create') return [e.record, ...current]
+            if (e.action === 'update') {
+              if (e.record.dismissed)
+                return current.filter((item) => item.id !== e.record.id)
+              return current.map((item) =>
+                item.id === e.record.id ? e.record : item,
+              )
+            }
+            if (e.action === 'delete')
+              return current.filter((item) => item.id !== e.record.id)
+            return current
+          })
+        })
+      return unsubscribe
+    }
+
+    const unsubscribePromise = subscribe()
 
     return () => {
-      pb.collection('orders').unsubscribe('*')
+      unsubscribePromise.then((unsub) => unsub())
     }
-  }, [])
+  }, [user])
 
   if (isLoading) return <SplashScreen />
 
-  if (orders.length === 0) {
-    return (
-      <div className="flex flex-col justify-center items-center h-full text-center">
+  return (
+    <div className="space-y-3 p-3">
+      <div
+        className={cn(
+          'absolute inset-0 flex flex-col justify-center items-center text-center transition-opacity duration-500',
+          orders.length === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+        )}
+      >
         <div className="inline-flex bg-muted/30 mb-3 p-4 rounded-full">
           <Clock className="w-6 h-6 text-muted-foreground" />
         </div>
         <p className="text-muted-foreground">No unpaid orders at the moment</p>
       </div>
-    )
-  }
-
-  return (
-    <div className="space-y-3 p-3">
       <AnimatePresence mode="popLayout">
         {orders.map((order) => {
           const {
@@ -328,21 +343,6 @@ export function OrderNotification() {
           try {
             const order = orders?.find((o) => o.id === cancelDrawer.id)
             if (!order) throw new Error('Order not found')
-
-            // // Restore Inventory Logic
-            // for (const cartItem of order.items) {
-            //   const foodItem = await pb
-            //     .collection('menuItems')
-            //     .getOne(cartItem.menuItemId, { expand: 'menuItemId' })
-            //   const newStock = (foodItem.currentStockCount || 0) + cartItem.qty
-
-            //   await pb.collection('menuItems').update(cartItem.menuItemId, {
-            //     currentStockCount: newStock,
-            //     lastStockCount: foodItem.currentStockCount,
-            //     reasonForStockEdit: 'cancelled',
-            //     editedStockBy: user.id,
-            //   })
-            // }
 
             await pb
               .collection('orders')

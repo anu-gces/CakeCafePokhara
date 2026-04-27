@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
+import { useRouteContext } from '@tanstack/react-router'
 import { handlePbError } from '@/lib/utils'
 
 type Department = 'permanentInventory' | 'equipment'
@@ -111,7 +111,7 @@ function AssetsComponent() {
           </h1>
 
           {/* Asset Summary Card */}
-          <div className="flex justify-between items-center bg-white dark:bg-zinc-900 shadow-sm p-4 border border-border rounded-xl">
+          <div className="flex justify-between items-center bg-card shadow-sm p-4 border border-border rounded-xl">
             <div className="flex items-center gap-3">
               <div className="bg-primary/10 p-2 rounded-lg text-primary">
                 <PackageIcon className="w-5 h-5" />
@@ -157,7 +157,7 @@ function AssetsComponent() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, x: -20 }}
-              className="flex justify-between items-center bg-white dark:bg-zinc-900 shadow-sm p-4 border border-border rounded-xl"
+              className="flex justify-between items-center bg-card shadow-sm p-4 border border-border rounded-xl"
             >
               <div className="pr-2 min-w-0">
                 <h3 className="font-semibold text-sm truncate">{item.name}</h3>
@@ -225,7 +225,8 @@ function AddAssetDrawer({
   department: Department
   onSuccess: () => void
 }) {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ name: '', quantity: '', remarks: '' })
 

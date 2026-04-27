@@ -177,7 +177,7 @@ function RouteComponent() {
             orders.map((order, i) => (
               <div
                 key={order.id}
-                className="relative bg-white dark:bg-zinc-900 shadow-sm hover:shadow-md border border-border rounded-xl overflow-hidden transition"
+                className="relative bg-card shadow-sm hover:shadow-md border border-border rounded-xl overflow-hidden transition"
               >
                 {/* Timeline dot */}
                 <div className="top-7 -left-4 absolute bg-primary shadow border-2 border-white dark:border-zinc-900 rounded-full w-3 h-3" />

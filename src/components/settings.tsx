@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { pb } from '@/lib/pocketbase'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,11 +15,12 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { handlePbError } from '@/lib/utils'
 
 export function Settings() {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const navigate = useNavigate()
 
   const [usernameDrawerOpen, setUsernameDrawerOpen] = useState(false)
@@ -39,7 +39,6 @@ export function Settings() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [email, setEmail] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
@@ -60,7 +59,6 @@ export function Settings() {
     setFirstName(user?.firstName ?? '')
     setLastName(user?.lastName ?? '')
     setPhoneNumber(String(user?.phoneNumber ?? ''))
-    setEmail(user?.email ?? '')
     setAvatarFile(null)
     setAvatarPreview(null)
     setProfileDrawerOpen(true)
@@ -136,16 +134,14 @@ export function Settings() {
         <h1 className="mb-4 font-bold text-primary text-2xl">Settings</h1>
 
         {/* Profile card */}
-        <div className="bg-white dark:bg-zinc-900 mb-4 border border-border rounded-xl overflow-hidden">
+        <div className="bg-card mb-4 border border-border rounded-xl overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-4">
             <Avatar className="w-14 h-14 shrink-0">
               <AvatarImage
                 src={user ? pb.files.getURL(user, user.avatar) : undefined}
                 alt={user ? `${user.firstName} ${user.lastName}` : ''}
               />
-              <AvatarFallback className="bg-violet-100 dark:bg-violet-900/40 font-semibold text-violet-700 dark:text-violet-300 text-sm">
-                {initials}
-              </AvatarFallback>
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-foreground text-base leading-tight">
@@ -184,13 +180,13 @@ export function Settings() {
         </div>
 
         {/* Actions */}
-        <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <button
             className="flex items-center gap-3 active:bg-muted px-4 py-3.5 border-border border-b w-full text-left transition-colors"
             onClick={handleProfileDrawerOpen}
           >
-            <div className="flex justify-center items-center bg-emerald-100 dark:bg-emerald-900/40 rounded-lg w-8 h-8 shrink-0">
-              <CameraIcon className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
+            <div className="flex justify-center items-center rounded-lg w-8 h-8 shrink-0">
+              <CameraIcon className="w-4 h-4" />
             </div>
             <div className="flex-1">
               <div className="font-medium text-foreground text-sm">
@@ -207,8 +203,8 @@ export function Settings() {
             className="flex items-center gap-3 active:bg-muted px-4 py-3.5 border-border border-b w-full text-left transition-colors"
             onClick={() => setUsernameDrawerOpen(true)}
           >
-            <div className="flex justify-center items-center bg-violet-100 dark:bg-violet-900/40 rounded-lg w-8 h-8 shrink-0">
-              <UserIcon className="w-4 h-4 text-violet-700 dark:text-violet-300" />
+            <div className="flex justify-center items-center rounded-lg w-8 h-8 shrink-0">
+              <UserIcon className="w-4 h-4" />
             </div>
             <div className="flex-1">
               <div className="font-medium text-foreground text-sm">
@@ -225,8 +221,8 @@ export function Settings() {
             className="flex items-center gap-3 active:bg-muted px-4 py-3.5 w-full text-left transition-colors"
             onClick={() => setPasswordDrawerOpen(true)}
           >
-            <div className="flex justify-center items-center bg-amber-100 dark:bg-amber-900/40 rounded-lg w-8 h-8 shrink-0">
-              <LockIcon className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <div className="flex justify-center items-center rounded-lg w-8 h-8 shrink-0">
+              <LockIcon className="w-4 h-4" />
             </div>
             <div className="flex-1">
               <div className="font-medium text-foreground text-sm">
@@ -307,17 +303,6 @@ export function Settings() {
                   onChange={(e) => setLastName(e.target.value)}
                 />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                disabled
-              />
             </div>
 
             <div className="space-y-1.5">

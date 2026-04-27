@@ -4,15 +4,12 @@ import { LandingPage } from '@/components/landingPage'
 export const Route = createFileRoute('/')({
   component: LandingPage,
 
-  beforeLoad: ({ context: { pb } }) => {
-    // Wait for the user to be loaded if needed
-    if (!pb.authStore.isValid) {
-      return null
+  beforeLoad: ({ context: { auth } }) => {
+    if (auth.isAuthenticated) {
+      throw redirect({
+        to: '/home/takeOrder',
+        search: { category: 'appetizers' },
+      })
     }
-
-    throw redirect({
-      to: '/home/takeOrder',
-      search: { category: 'appetizers' },
-    })
   },
 })

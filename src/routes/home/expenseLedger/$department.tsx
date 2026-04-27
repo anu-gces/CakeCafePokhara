@@ -1,4 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  useNavigate,
+  useRouteContext,
+} from '@tanstack/react-router'
 import {
   ArrowLeft,
   LoaderIcon,
@@ -24,7 +28,6 @@ import {
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 import { handlePbError } from '@/lib/utils'
 import { Select } from '@radix-ui/react-select'
 import {
@@ -49,7 +52,7 @@ type Department = 'kitchen' | 'bakery' | 'utility' | 'barista'
 export type ExpenseLedger = {
   id: string
   department: Department
-  itemName: string
+  name: string
   quantity: number
   price: number
   remarks: string
@@ -167,7 +170,7 @@ function RouteComponent() {
           </h1>
 
           {/* Summary card */}
-          <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="flex justify-between items-center px-4 py-3">
               <div className="flex items-center gap-2">
                 <ReceiptIcon className="w-4 h-4 text-primary" />
@@ -244,17 +247,17 @@ function RouteComponent() {
                   className="relative"
                 >
                   {/* Timeline dot */}
-                  <div className="top-5 -left-3.5 absolute bg-primary border-2 border-white dark:border-zinc-900 rounded-full w-2.5 h-2.5" />
+                  <div className="top-5 -left-3.5 absolute bg-primary border-2 rounded-full w-2.5 h-2.5" />
                   {i !== entries.length - 1 && (
                     <div className="top-8 -left-[9px] absolute dark:bg-zinc-700 bg-border w-px h-[calc(100%-1.5rem)]" />
                   )}
 
-                  <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden">
+                  <div className="bg-card border border-border rounded-xl overflow-hidden">
                     {/* Header */}
                     <div className="flex justify-between items-start gap-2 px-4 pt-3 pb-2.5">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-foreground text-sm truncate">
-                          {entry.itemName}
+                          {entry.name}
                         </div>
                         <div className="mt-0.5 text-[10px] text-muted-foreground">
                           {format(new Date(entry.date), 'dd MMM yyyy, hh:mm a')}
@@ -358,7 +361,7 @@ function RouteComponent() {
 }
 
 type ExpenseForm = {
-  itemName: string
+  name: string
   quantity: string
   price: string
   remarks: string
@@ -368,7 +371,7 @@ type ExpenseForm = {
 }
 
 const emptyForm: ExpenseForm = {
-  itemName: '',
+  name: '',
   quantity: '',
   price: '',
   remarks: '',
@@ -388,7 +391,8 @@ function AddEntryDrawer({
   department: Department
   onSuccess: () => void
 }) {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const [form, setForm] = useState<ExpenseForm>(emptyForm)
 
   const { data: vendors } = useQuery({
@@ -402,7 +406,7 @@ function AddEntryDrawer({
       return await pb.collection('expenseLedger').create({
         department,
         vendorId: form.vendorId,
-        itemName: form.itemName,
+        name: form.name,
         quantity: Number(form.quantity),
         price: Number(form.price),
         remarks: form.remarks,
@@ -421,12 +425,7 @@ function AddEntryDrawer({
   })
 
   return (
-    <Drawer
-      shouldScaleBackground
-      setBackgroundColorOnScale
-      open={open}
-      onOpenChange={onOpenChange}
-    >
+    <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="capitalize">
@@ -435,14 +434,12 @@ function AddEntryDrawer({
         </DrawerHeader>
         <div className="flex flex-col gap-4 px-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="itemName">Item name</Label>
+            <Label htmlFor="name">Item name</Label>
             <Input
-              id="itemName"
+              id="name"
               placeholder="e.g. Flour, Meat, Milk"
-              value={form.itemName}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, itemName: e.target.value }))
-              }
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </div>
           <div className="flex gap-4">
@@ -538,7 +535,7 @@ function AddEntryDrawer({
           <Button
             onClick={() => addEntryMutation.mutate(form)}
             disabled={
-              !form.itemName ||
+              !form.name ||
               !form.quantity ||
               !form.price ||
               addEntryMutation.isPending

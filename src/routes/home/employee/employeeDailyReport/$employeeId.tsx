@@ -10,7 +10,7 @@ import { ReceiptDrawer } from '@/components/restaurant_mobile/billing'
 import { calculateOrderTotal } from '@/components/dashboard_mobile/dashboard.utils'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import type { User } from '@/lib/usePocketbaseAuth'
+import type { User } from '@/lib/auth'
 
 export const Route = createFileRoute(
   '/home/employee/employeeDailyReport/$employeeId',
@@ -78,7 +78,7 @@ function RouteComponent() {
           </Link>
 
           {/* Profile + revenue card */}
-          <div className="bg-white dark:bg-zinc-900 mb-3 border border-border rounded-xl overflow-hidden">
+          <div className="bg-card mb-3 border border-border rounded-xl overflow-hidden">
             <div className="px-4 pt-4 pb-3">
               <div className="flex items-center gap-3">
                 <Avatar className="w-12 h-12 shrink-0">
@@ -186,7 +186,7 @@ function RouteComponent() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -60 }}
                     transition={{ duration: 0.2, delay: i * 0.03 }}
-                    className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
+                    className="bg-card border border-border rounded-xl overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
                     onClick={() => {
                       setSelectedBill(bill)
                       setDrawerOpen(true)

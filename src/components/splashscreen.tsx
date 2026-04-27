@@ -1,4 +1,4 @@
-const SplashScreen = () => {
+export const SplashScreen = () => {
   return (
     <div className="z-50 absolute inset-0 flex justify-center items-center bg-background">
       <div className="flex flex-col justify-center items-center">
@@ -263,5 +263,3 @@ export const InlineLoader = ({ text = 'Preparing your Cake...' }) => {
     </div>
   )
 }
-
-export default SplashScreen

@@ -1,5 +1,11 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowLeft, LoaderIcon, Trash2Icon, WalletIcon } from 'lucide-react'
+import { createFileRoute, Link, useRouteContext } from '@tanstack/react-router'
+import {
+  ArrowLeft,
+  LoaderIcon,
+  PlusIcon,
+  Trash2Icon,
+  WalletIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import * as Yup from 'yup'
@@ -23,7 +29,6 @@ import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
-import { usePocketbaseAuth, type User } from '@/lib/usePocketbaseAuth'
 import { pb } from '@/lib/pocketbase'
 import {
   Select,
@@ -33,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { format } from 'date-fns'
+import type { User } from '@/lib/auth'
 
 export const Route = createFileRoute('/home/employee/$salaryLedger')({
   component: RouteComponent,
@@ -52,7 +58,8 @@ type SalaryLedgerData = {
 
 function RouteComponent() {
   const { salaryLedger } = Route.useParams()
-  const { user: loggedInUser } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const loggedInUser = auth.user!
 
   const { data: employeeData, isLoading: isEmployeeLoading } = useQuery<User>({
     queryKey: ['user', salaryLedger],
@@ -96,7 +103,7 @@ function RouteComponent() {
           </Link>
 
           {/* Profile card */}
-          <div className="bg-white dark:bg-zinc-900 mb-3 border border-border rounded-xl overflow-hidden">
+          <div className="bg-card mb-3 border border-border rounded-xl overflow-hidden">
             <div className="flex items-center gap-3 px-4 pt-4 pb-3">
               <Avatar className="w-12 h-12 shrink-0">
                 <AvatarImage
@@ -224,12 +231,15 @@ function RouteComponent() {
                     <div className="top-8 -left-[9px] absolute dark:bg-zinc-700 bg-border w-px h-[calc(100%-1.5rem)]" />
                   )}
 
-                  <div className="relative bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden">
+                  <div className="relative bg-card border border-border rounded-xl overflow-hidden">
                     {/* Main row */}
                     <div className="flex justify-between items-start gap-3 px-4 pt-3 pb-2.5">
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-foreground text-base">
                           Rs. {Number(payment.amountPaid).toLocaleString()}
+                          <div className="mt-0.5 text-[10px] text-muted-foreground capitalize">
+                            {payment.paymentMethod}
+                          </div>
                         </div>
                         <div className="mt-0.5 text-[10px] text-muted-foreground">
                           Paid by {payment.paidBy}
@@ -239,12 +249,12 @@ function RouteComponent() {
                         <div className="font-medium text-foreground text-sm">
                           {format(new Date(payment.datePaid), 'dd MMM yyyy')}
                         </div>
-                        {payment.paymentMethod && (
-                          <div className="mt-0.5 text-[10px] text-muted-foreground capitalize">
-                            {payment.paymentMethod}
-                          </div>
-                        )}
                       </div>
+                      {loggedInUser?.role !== 'employee' && (
+                        <div className="">
+                          <DeletePaymentDrawer paymentId={payment.id} />
+                        </div>
+                      )}
                     </div>
 
                     {/* Footer row */}
@@ -260,13 +270,6 @@ function RouteComponent() {
                             "{payment.notes}"
                           </span>
                         )}
-                      </div>
-                    )}
-
-                    {/* Delete button for managers/owners */}
-                    {loggedInUser?.role !== 'employee' && (
-                      <div className="px-4 pt-0 pb-3">
-                        <DeletePaymentDrawer paymentId={payment.id} />
                       </div>
                     )}
                   </div>
@@ -295,12 +298,7 @@ const DeletePaymentDrawer = ({ paymentId }: { paymentId: string }) => {
     },
   })
   return (
-    <Drawer
-      open={open}
-      onOpenChange={setOpen}
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-    >
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger>
         <Trash2Icon className="w-5 h-5" />
       </DrawerTrigger>
@@ -391,14 +389,11 @@ function LedgerDrawer({ salary }: { salary: number }) {
   })
 
   return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={open}
-      onOpenChange={setOpen}
-    >
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <Button variant="default">Add Entry</Button>
+        <Button variant="default">
+          <PlusIcon color="white" /> Add Entry
+        </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>

@@ -10,16 +10,14 @@ export type Search = {
 }
 
 export const Route = createFileRoute('/home/menuManagement')({
-  beforeLoad: ({ context: { pb } }) => {
-    const auth = pb.authStore
+  beforeLoad: ({ context: { auth } }) => {
+    const user = auth.user
 
-    const user = auth.record
-
-    if (!auth.isValid || !user) {
+    if (!auth.isAuthenticated || !user) {
       throw redirect({ to: '/' })
     }
 
-    if (user.role !== 'admin' && user.role !== 'owner') {
+    if (user.role !== 'manager' && user.role !== 'owner') {
       throw redirect({
         to: '/home/takeOrder',
         search: { category: 'appetizers' },
@@ -44,3 +42,5 @@ export const Route = createFileRoute('/home/menuManagement')({
     return <MenuManagement />
   },
 })
+
+

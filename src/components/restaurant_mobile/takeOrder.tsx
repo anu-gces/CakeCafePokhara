@@ -1,4 +1,4 @@
-import { Link, useSearch } from '@tanstack/react-router'
+import { Link, useRouteContext, useSearch } from '@tanstack/react-router'
 import { useEffect, useState, useRef } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { toast } from 'sonner'
@@ -39,8 +39,8 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
 import DonutImage from '@/assets/donutImage'
-import SplashScreen from '@/components/splashscreen'
-import { cn } from '@/lib/utils'
+import { SplashScreen } from '@/components/splashscreen'
+import { cn, handlePbError } from '@/lib/utils'
 import { SeatingPlan } from '@/components/restaurant_mobile/seatingPlan'
 import {
   Select,
@@ -55,7 +55,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import * as Yup from 'yup'
 import { Switch } from '../ui/switch'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 import { pb } from '@/lib/pocketbase'
 import type { MenuItemProps } from '@/lib/pocketbase/menuManagement'
 import type {
@@ -311,7 +310,9 @@ function CartDrawer({
   receiptDate: Date | undefined
   setReceiptDate: (d: Date | undefined) => void
 }) {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
+
   const { data: payLaterCustomers = [] } = useQuery({
     queryKey: ['payLaterCustomers'],
     queryFn: async () => {
@@ -378,6 +379,7 @@ function CartDrawer({
         dismissed: addToCart.dismissed ?? false,
         createdBy: user.id,
       }
+      console.log(processedOrder)
       return await pb.collection('orders').create(processedOrder)
     },
     onSuccess: async (_, addToCart) => {
@@ -429,9 +431,7 @@ function CartDrawer({
       }
       onClearCart()
     },
-    onError: (error: any) => {
-      toast.error(`Error: ${error.message}`)
-    },
+    onError: handlePbError,
   })
 
   const totalItems = cart.items.reduce((sum, item) => sum + item.qty, 0)
@@ -484,12 +484,7 @@ function CartDrawer({
   }, [deliveryFee])
 
   return (
-    <Drawer
-      open={isOpen}
-      onOpenChange={onOpenChange}
-      shouldScaleBackground
-      setBackgroundColorOnScale
-    >
+    <Drawer open={isOpen} onOpenChange={onOpenChange}>
       <TransitioningDrawerContent>
         <DrawerHeader>
           <DrawerTitle>
@@ -1106,7 +1101,8 @@ export function TakeOrder() {
     }
   }, [])
 
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const [cart, setCart] = useState<AddToCart>(emptyCart)
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
   const { category: selectedCategory } = useSearch({ from: '/home/takeOrder' })

@@ -9,34 +9,10 @@ import { toast } from 'sonner'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
 import { useState } from 'react'
 import { handlePbError } from '@/lib/utils'
-
+import { type ExpenseLedger } from '../expenseLedger/$department'
 export const Route = createFileRoute('/home/vendors/$id')({
   component: RouteComponent,
 })
-
-// Matching the ExpenseLedger type from the department design system
-type ExpenseLedger = {
-  id: string
-  department: string
-  itemName: string
-  quantity: number
-  price: number
-  remarks: string
-  status: 'paid' | 'credited'
-  createdBy: string
-  date: string
-  expand?: {
-    createdBy?: {
-      id: string
-      firstName: string
-      lastName: string
-    }
-    vendorId?: {
-      id: string
-      name: string
-    }
-  }
-}
 
 function RouteComponent() {
   const navigate = useNavigate()
@@ -107,7 +83,6 @@ function RouteComponent() {
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Sticky Header - Department Style */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-4 pt-4 pb-4 max-w-xl">
           <div className="flex justify-between items-center mb-4">
@@ -124,15 +99,13 @@ function RouteComponent() {
               <ArrowLeft size={16} />
               <span className="text-sm">Back to Vendors</span>
             </Button>
-            {/* ADD ENTRY BUTTON REMOVED AS REQUESTED */}
           </div>
 
           <h1 className="mb-3 font-bold text-primary text-2xl">
             {vendor?.name || 'Vendor'} Ledger
           </h1>
 
-          {/* Summary card - Exact Department Design */}
-          <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="flex justify-between items-center px-4 py-3">
               <div className="flex items-center gap-2">
                 <ReceiptIcon className="w-4 h-4 text-primary" />
@@ -166,7 +139,6 @@ function RouteComponent() {
         </div>
       </div>
 
-      {/* Content - Timeline Style */}
       <div className="mx-auto px-4 py-3 pb-20 max-w-xl">
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-1.5">
@@ -213,11 +185,11 @@ function RouteComponent() {
                     <div className="top-8 -left-[9px] absolute dark:bg-zinc-700 bg-border w-px h-[calc(100%-1.5rem)]" />
                   )}
 
-                  <div className="bg-white dark:bg-zinc-900 border border-border rounded-xl overflow-hidden">
+                  <div className="bg-card border border-border rounded-xl overflow-hidden">
                     <div className="flex justify-between items-start gap-2 px-4 pt-3 pb-2.5">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-foreground text-sm truncate">
-                          {entry.itemName}
+                          {entry.name}
                         </div>
                         <div className="mt-0.5 text-[10px] text-muted-foreground italic">
                           Dept:{' '}

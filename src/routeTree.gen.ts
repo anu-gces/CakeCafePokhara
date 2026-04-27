@@ -17,7 +17,6 @@ import { Route as HomeImport } from './routes/home'
 import { Route as IndexImport } from './routes/index'
 import { Route as HomeVendorsImport } from './routes/home/vendors'
 import { Route as HomeTakeOrderImport } from './routes/home/takeOrder'
-import { Route as HomeStockImport } from './routes/home/stock'
 import { Route as HomePayLaterCustomersImport } from './routes/home/payLaterCustomers'
 import { Route as HomeNotificationsImport } from './routes/home/notifications'
 import { Route as HomeMenuManagementImport } from './routes/home/menuManagement'
@@ -31,7 +30,6 @@ import { Route as HomeVendorsVendorsAllImport } from './routes/home/vendors/vend
 import { Route as HomeVendorsIdImport } from './routes/home/vendors/$id'
 import { Route as HomePayLaterCustomersPayLaterCustomersAllImport } from './routes/home/payLaterCustomers/payLaterCustomersAll'
 import { Route as HomePayLaterCustomersIdImport } from './routes/home/payLaterCustomers/$id'
-import { Route as HomeNotificationsStockNotificationImport } from './routes/home/notifications/stockNotification'
 import { Route as HomeNotificationsOrderNotificationImport } from './routes/home/notifications/orderNotification'
 import { Route as HomeExpenseLedgerDepartmentImport } from './routes/home/expenseLedger/$department'
 import { Route as HomeEmployeeTableImport } from './routes/home/employee/table'
@@ -95,12 +93,6 @@ const HomeVendorsRoute = HomeVendorsImport.update({
 const HomeTakeOrderRoute = HomeTakeOrderImport.update({
   id: '/takeOrder',
   path: '/takeOrder',
-  getParentRoute: () => HomeRoute,
-} as any)
-
-const HomeStockRoute = HomeStockImport.update({
-  id: '/stock',
-  path: '/stock',
   getParentRoute: () => HomeRoute,
 } as any)
 
@@ -184,13 +176,6 @@ const HomePayLaterCustomersIdRoute = HomePayLaterCustomersIdImport.update({
   path: '/$id',
   getParentRoute: () => HomePayLaterCustomersRoute,
 } as any)
-
-const HomeNotificationsStockNotificationRoute =
-  HomeNotificationsStockNotificationImport.update({
-    id: '/stockNotification',
-    path: '/stockNotification',
-    getParentRoute: () => HomeNotificationsRoute,
-  } as any)
 
 const HomeNotificationsOrderNotificationRoute =
   HomeNotificationsOrderNotificationImport.update({
@@ -328,13 +313,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomePayLaterCustomersImport
       parentRoute: typeof HomeImport
     }
-    '/home/stock': {
-      id: '/home/stock'
-      path: '/stock'
-      fullPath: '/home/stock'
-      preLoaderRoute: typeof HomeStockImport
-      parentRoute: typeof HomeImport
-    }
     '/home/takeOrder': {
       id: '/home/takeOrder'
       path: '/takeOrder'
@@ -417,13 +395,6 @@ declare module '@tanstack/react-router' {
       path: '/orderNotification'
       fullPath: '/home/notifications/orderNotification'
       preLoaderRoute: typeof HomeNotificationsOrderNotificationImport
-      parentRoute: typeof HomeNotificationsImport
-    }
-    '/home/notifications/stockNotification': {
-      id: '/home/notifications/stockNotification'
-      path: '/stockNotification'
-      fullPath: '/home/notifications/stockNotification'
-      preLoaderRoute: typeof HomeNotificationsStockNotificationImport
       parentRoute: typeof HomeNotificationsImport
     }
     '/home/payLaterCustomers/$id': {
@@ -535,14 +506,11 @@ const HomeEmployeeRouteWithChildren = HomeEmployeeRoute._addFileChildren(
 
 interface HomeNotificationsRouteChildren {
   HomeNotificationsOrderNotificationRoute: typeof HomeNotificationsOrderNotificationRoute
-  HomeNotificationsStockNotificationRoute: typeof HomeNotificationsStockNotificationRoute
 }
 
 const HomeNotificationsRouteChildren: HomeNotificationsRouteChildren = {
   HomeNotificationsOrderNotificationRoute:
     HomeNotificationsOrderNotificationRoute,
-  HomeNotificationsStockNotificationRoute:
-    HomeNotificationsStockNotificationRoute,
 }
 
 const HomeNotificationsRouteWithChildren =
@@ -588,7 +556,6 @@ interface HomeRouteChildren {
   HomeMenuManagementRoute: typeof HomeMenuManagementRoute
   HomeNotificationsRoute: typeof HomeNotificationsRouteWithChildren
   HomePayLaterCustomersRoute: typeof HomePayLaterCustomersRouteWithChildren
-  HomeStockRoute: typeof HomeStockRoute
   HomeTakeOrderRoute: typeof HomeTakeOrderRoute
   HomeVendorsRoute: typeof HomeVendorsRouteWithChildren
   HomeBillingLazyRoute: typeof HomeBillingLazyRoute
@@ -607,7 +574,6 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeMenuManagementRoute: HomeMenuManagementRoute,
   HomeNotificationsRoute: HomeNotificationsRouteWithChildren,
   HomePayLaterCustomersRoute: HomePayLaterCustomersRouteWithChildren,
-  HomeStockRoute: HomeStockRoute,
   HomeTakeOrderRoute: HomeTakeOrderRoute,
   HomeVendorsRoute: HomeVendorsRouteWithChildren,
   HomeBillingLazyRoute: HomeBillingLazyRoute,
@@ -630,7 +596,6 @@ export interface FileRoutesByFullPath {
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/payLaterCustomers': typeof HomePayLaterCustomersRouteWithChildren
-  '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/billing': typeof HomeBillingLazyRoute
@@ -643,7 +608,6 @@ export interface FileRoutesByFullPath {
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/expenseLedger/$department': typeof HomeExpenseLedgerDepartmentRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
-  '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
   '/home/payLaterCustomers/$id': typeof HomePayLaterCustomersIdRoute
   '/home/payLaterCustomers/payLaterCustomersAll': typeof HomePayLaterCustomersPayLaterCustomersAllRoute
   '/home/vendors/$id': typeof HomeVendorsIdRoute
@@ -664,7 +628,6 @@ export interface FileRoutesByTo {
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/payLaterCustomers': typeof HomePayLaterCustomersRouteWithChildren
-  '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/billing': typeof HomeBillingLazyRoute
@@ -677,7 +640,6 @@ export interface FileRoutesByTo {
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/expenseLedger/$department': typeof HomeExpenseLedgerDepartmentRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
-  '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
   '/home/payLaterCustomers/$id': typeof HomePayLaterCustomersIdRoute
   '/home/payLaterCustomers/payLaterCustomersAll': typeof HomePayLaterCustomersPayLaterCustomersAllRoute
   '/home/vendors/$id': typeof HomeVendorsIdRoute
@@ -699,7 +661,6 @@ export interface FileRoutesById {
   '/home/menuManagement': typeof HomeMenuManagementRoute
   '/home/notifications': typeof HomeNotificationsRouteWithChildren
   '/home/payLaterCustomers': typeof HomePayLaterCustomersRouteWithChildren
-  '/home/stock': typeof HomeStockRoute
   '/home/takeOrder': typeof HomeTakeOrderRoute
   '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/billing': typeof HomeBillingLazyRoute
@@ -712,7 +673,6 @@ export interface FileRoutesById {
   '/home/employee/table': typeof HomeEmployeeTableRoute
   '/home/expenseLedger/$department': typeof HomeExpenseLedgerDepartmentRoute
   '/home/notifications/orderNotification': typeof HomeNotificationsOrderNotificationRoute
-  '/home/notifications/stockNotification': typeof HomeNotificationsStockNotificationRoute
   '/home/payLaterCustomers/$id': typeof HomePayLaterCustomersIdRoute
   '/home/payLaterCustomers/payLaterCustomersAll': typeof HomePayLaterCustomersPayLaterCustomersAllRoute
   '/home/vendors/$id': typeof HomeVendorsIdRoute
@@ -735,7 +695,6 @@ export interface FileRouteTypes {
     | '/home/menuManagement'
     | '/home/notifications'
     | '/home/payLaterCustomers'
-    | '/home/stock'
     | '/home/takeOrder'
     | '/home/vendors'
     | '/home/billing'
@@ -748,7 +707,6 @@ export interface FileRouteTypes {
     | '/home/employee/table'
     | '/home/expenseLedger/$department'
     | '/home/notifications/orderNotification'
-    | '/home/notifications/stockNotification'
     | '/home/payLaterCustomers/$id'
     | '/home/payLaterCustomers/payLaterCustomersAll'
     | '/home/vendors/$id'
@@ -768,7 +726,6 @@ export interface FileRouteTypes {
     | '/home/menuManagement'
     | '/home/notifications'
     | '/home/payLaterCustomers'
-    | '/home/stock'
     | '/home/takeOrder'
     | '/home/vendors'
     | '/home/billing'
@@ -781,7 +738,6 @@ export interface FileRouteTypes {
     | '/home/employee/table'
     | '/home/expenseLedger/$department'
     | '/home/notifications/orderNotification'
-    | '/home/notifications/stockNotification'
     | '/home/payLaterCustomers/$id'
     | '/home/payLaterCustomers/payLaterCustomersAll'
     | '/home/vendors/$id'
@@ -801,7 +757,6 @@ export interface FileRouteTypes {
     | '/home/menuManagement'
     | '/home/notifications'
     | '/home/payLaterCustomers'
-    | '/home/stock'
     | '/home/takeOrder'
     | '/home/vendors'
     | '/home/billing'
@@ -814,7 +769,6 @@ export interface FileRouteTypes {
     | '/home/employee/table'
     | '/home/expenseLedger/$department'
     | '/home/notifications/orderNotification'
-    | '/home/notifications/stockNotification'
     | '/home/payLaterCustomers/$id'
     | '/home/payLaterCustomers/payLaterCustomersAll'
     | '/home/vendors/$id'
@@ -863,7 +817,6 @@ export const routeTree = rootRoute
         "/home/menuManagement",
         "/home/notifications",
         "/home/payLaterCustomers",
-        "/home/stock",
         "/home/takeOrder",
         "/home/vendors",
         "/home/billing",
@@ -916,8 +869,7 @@ export const routeTree = rootRoute
       "filePath": "home/notifications.tsx",
       "parent": "/home",
       "children": [
-        "/home/notifications/orderNotification",
-        "/home/notifications/stockNotification"
+        "/home/notifications/orderNotification"
       ]
     },
     "/home/payLaterCustomers": {
@@ -927,10 +879,6 @@ export const routeTree = rootRoute
         "/home/payLaterCustomers/$id",
         "/home/payLaterCustomers/payLaterCustomersAll"
       ]
-    },
-    "/home/stock": {
-      "filePath": "home/stock.tsx",
-      "parent": "/home"
     },
     "/home/takeOrder": {
       "filePath": "home/takeOrder.tsx",
@@ -985,10 +933,6 @@ export const routeTree = rootRoute
     },
     "/home/notifications/orderNotification": {
       "filePath": "home/notifications/orderNotification.tsx",
-      "parent": "/home/notifications"
-    },
-    "/home/notifications/stockNotification": {
-      "filePath": "home/notifications/stockNotification.tsx",
       "parent": "/home/notifications"
     },
     "/home/payLaterCustomers/$id": {

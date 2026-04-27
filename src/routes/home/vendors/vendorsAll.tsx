@@ -1,4 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  useNavigate,
+  useRouteContext,
+} from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import {
   Drawer,
@@ -26,7 +30,6 @@ import { handleSwipeSnap } from '@/lib/swipeGestures'
 import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { pb } from '@/lib/pocketbase'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 
 export const Route = createFileRoute('/home/vendors/vendorsAll')({
   component: RouteComponent,
@@ -60,7 +63,8 @@ function RouteComponent() {
   const [name, setName] = useState('')
   const [remarks, setRemarks] = useState('')
 
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const isEmployee = user.role === 'employee'
 
   const navigate = useNavigate({ from: '/home/vendors' })
@@ -111,7 +115,7 @@ function RouteComponent() {
           </div>
         </div>
         {!isEmployee && (
-          <Drawer shouldScaleBackground={true} setBackgroundColorOnScale={true}>
+          <Drawer>
             <DrawerTrigger asChild>
               <Button className="flex gap-2 mr-6">
                 <Plus size={18} color="white" />
@@ -176,7 +180,8 @@ function VendorsCard({
   payLaterCustomer: Vendors
   navigate: ReturnType<typeof useNavigate>
 }) {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const isEmployee = user.role === 'employee'
   const x = useMotionValue(0)
   const snapState = useRef<'center' | 'left' | 'right'>('center')
@@ -274,12 +279,7 @@ function EditDrawer({ payLaterCustomer }: { payLaterCustomer: Vendors }) {
   }
 
   return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={open}
-      onOpenChange={setOpen}
-    >
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <Button variant={'ghost'} size="icon" onClick={() => setOpen(true)}>
           <PencilIcon className="w-4 h-4" />
@@ -348,12 +348,7 @@ function DeleteDrawer({ payLaterCustomer }: { payLaterCustomer: Vendors }) {
   })
 
   return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={open}
-      onOpenChange={setOpen}
-    >
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <Button variant={'ghost'} size="icon" onClick={() => setOpen(true)}>
           <Trash2Icon className="w-4 h-4" />

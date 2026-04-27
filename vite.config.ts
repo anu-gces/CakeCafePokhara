@@ -116,6 +116,11 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    },
     watch: {
       ignored: ['**/pocketbase/**'],
     },

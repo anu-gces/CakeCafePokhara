@@ -125,7 +125,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Urbanist', sans-serif;
   }
 }
 

@@ -4,7 +4,6 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 import { ThemeProvider } from '@/components/contexts/themeProvider'
 import { Toaster } from '@/components/ui/sonner'
-import PocketBase from 'pocketbase'
 
 import {
   AlertCircle,
@@ -14,11 +13,12 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { globalError404 } from '@/components/globalError404'
-import SplashScreen from '@/components/splashscreen'
+import { SplashScreen } from '@/components/splashscreen'
+import type { AuthContext } from '@/lib/auth'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
-  pb: PocketBase
+  auth: AuthContext
 }>()({
   component: () => {
     return (

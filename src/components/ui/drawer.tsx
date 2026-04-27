@@ -5,9 +5,18 @@ import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 
 function Drawer({
+  shouldScaleBackground = true,
+  setBackgroundColorOnScale = true,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
+  return (
+    <DrawerPrimitive.Root
+      shouldScaleBackground={shouldScaleBackground}
+      setBackgroundColorOnScale={setBackgroundColorOnScale}
+      data-slot="drawer"
+      {...props}
+    />
+  )
 }
 
 function DrawerTrigger({

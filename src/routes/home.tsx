@@ -7,10 +7,10 @@ import { useNavigate } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/home')({
   component: Home,
-  beforeLoad: ({ context: { pb } }) => {
-    const user = pb.authStore.record ?? null
-
-    if (!pb.authStore.isValid || !user) {
+  beforeLoad: ({ context: { auth } }) => {
+    // 2. Use the 'isAuthenticated' boolean we set up
+    // This replaces the manual isValid and null checks
+    if (!auth.isAuthenticated) {
       throw redirect({ to: '/' })
     }
   },

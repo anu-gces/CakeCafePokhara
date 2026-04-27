@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import type React from 'react'
 import { useState } from 'react'
-import CakeCakeLogo from '@/assets/Logob.png'
+import CakeCakeLogo from '@/assets/Logob.webp'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/ui/themeToggle'
 import { Loader } from 'lucide-react'
@@ -96,7 +96,7 @@ export function LoginForm() {
           {isSigningIn ? (
             <Loader className="w-4 h-4 animate-spin" color="white" />
           ) : (
-            'Authorize'
+            'Login'
           )}
         </Button>
 
@@ -130,7 +130,7 @@ export function LandingPage() {
           <ModeToggle />
         </div>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <motion.div
             className="flex justify-center items-end lg:items-center pb-4 w-full lg:w-1/2 h-1/2 lg:h-full"
             variants={variants2}
@@ -140,13 +140,15 @@ export function LandingPage() {
           >
             <img
               src={CakeCakeLogo}
-              alt="Image"
+              alt="Logo"
+              loading="lazy"
+              decoding="async"
               className="w-50 object-contain"
             />
           </motion.div>
         </AnimatePresence>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           <motion.div
             className="flex justify-center items-start lg:items-center pt-4 border-t-1 lg:border-t-0 lg:border-l-1 w-full lg:w-1/2 h-1/2 lg:h-full"
             variants={variants}

@@ -53,10 +53,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DonutImage from '@/assets/donutImage'
 import { Formik, Form } from 'formik'
 import * as Yup from 'yup'
-import SplashScreen from '@/components/splashscreen'
+import { SplashScreen } from '@/components/splashscreen'
 import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
-import { useSearch } from '@tanstack/react-router'
+import { useRouteContext, useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import { pb } from '@/lib/pocketbase'
@@ -66,7 +66,6 @@ import {
   type MenuItemProps,
   type MainCategory,
 } from '@/lib/pocketbase/menuManagement'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 
 function CategoryTabs() {
   return (
@@ -167,7 +166,8 @@ interface MenuItemAddValues {
 }
 
 export function AddMenuItemDrawer() {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
 
@@ -381,7 +381,8 @@ interface MenuItemEditValues {
 function EditMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
 
   const updateMenuItemsMutation = useMutation({
     mutationFn: async (values: MenuItemEditValues) => {
@@ -577,12 +578,7 @@ function DeleteMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
   })
 
   return (
-    <Drawer
-      open={open}
-      onOpenChange={setOpen}
-      shouldScaleBackground
-      setBackgroundColorOnScale
-    >
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <Button variant="outline" size="icon">
           <Trash2Icon className="w-4 h-4" />

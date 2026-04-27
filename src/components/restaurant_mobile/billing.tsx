@@ -10,7 +10,7 @@ import {
 import { Input } from '../ui/input'
 import { Button } from '@/components/ui/button'
 import { MoreHorizontal } from 'lucide-react'
-import CakeCafeLogo from '@/assets/Logob.png'
+import CakeCafeLogo from '@/assets/Logob.webp'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -385,8 +385,6 @@ export const columns: ColumnDef<FetchedOrder>[] = [
 
 //   return (
 //     <Drawer
-//       shouldScaleBackground={true}
-//       setBackgroundColorOnScale={true}
 //       open={isEditDrawerOpen}
 //       onOpenChange={setEditDrawerOpen}
 //     >
@@ -721,8 +719,6 @@ export const columns: ColumnDef<FetchedOrder>[] = [
 
 //   return (
 //     <Drawer
-//       shouldScaleBackground={true}
-//       setBackgroundColorOnScale={true}
 //       open={isDeleteDrawerOpen}
 //       onOpenChange={setDeleteDrawerOpen}
 //     >
@@ -789,12 +785,7 @@ export function ReceiptDrawer({
   setReceiptOpen: (open: boolean) => void
 }) {
   return (
-    <Drawer
-      shouldScaleBackground={true}
-      setBackgroundColorOnScale={true}
-      open={receiptOpen}
-      onOpenChange={setReceiptOpen}
-    >
+    <Drawer open={receiptOpen} onOpenChange={setReceiptOpen}>
       <DrawerContent>
         <DrawerHeader>
           <div className="flex md:flex-row flex-col md:justify-center lg:justify-center items-center gap-4 p-2">

@@ -3,24 +3,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Link } from '@tanstack/react-router'
-import {
-  HistoryIcon,
-  PackageIcon,
-  MinusIcon,
-  TruckIcon,
-  AlertTriangleIcon,
-  RotateCcwIcon,
-  UserIcon,
-  CalendarIcon,
-  ArrowLeftIcon,
-  LoaderIcon,
-} from 'lucide-react'
-import { template } from 'lodash'
+import { HistoryIcon, AlertTriangleIcon, ArrowLeftIcon } from 'lucide-react'
 import { pb } from '@/lib/pocketbase'
 import { cn } from '@/lib/utils'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
+import { SplashScreen } from '../splashscreen'
 
 export interface InventoryHistoryProps {
   id: string // PocketBase record ID
@@ -50,103 +39,78 @@ function getFormattedUser(item: InventoryHistoryProps): string {
   return user.username
 }
 
-function getReasonIcon(reason: string) {
-  const r = reason.toLowerCase()
-  if (r.includes('restock')) return <TruckIcon className="w-4 h-4" />
-  if (r.includes('waste')) return <AlertTriangleIcon className="w-4 h-4" />
-  if (r.includes('sale') || r.includes('usage'))
-    return <MinusIcon className="w-4 h-4" />
-  if (r.includes('correction')) return <RotateCcwIcon className="w-4 h-4" />
-  return <PackageIcon className="w-4 h-4" />
+function groupHistoryItems(items: InventoryHistoryProps[]) {
+  const groups: InventoryHistoryProps[][] = []
+
+  for (const item of items) {
+    const itemTime = new Date(item.created).getTime()
+    const matchingGroup = groups.find((group) => {
+      const groupTime = new Date(group[0].created).getTime()
+      const sameUser =
+        group[0].expand?.editedStockBy?.username ===
+        item.expand?.editedStockBy?.username
+      return sameUser && Math.abs(itemTime - groupTime) <= 10_000
+    })
+
+    if (matchingGroup) {
+      matchingGroup.push(item)
+    } else {
+      groups.push([item])
+    }
+  }
+
+  return groups
 }
 
-function getReasonColor(reason: string) {
-  const r = reason.toLowerCase()
-
-  if (r.includes('restock')) {
-    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
-  }
-
-  if (r.includes('waste') || r.includes('expiry') || r.includes('expired')) {
-    return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-  }
-
-  if (r.includes('sale')) {
-    return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-  }
-
-  if (r.includes('correction') || r.includes('adjust')) {
-    return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
-  }
-
-  return 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200'
-}
-
-function formatTimestamp(timestamp: string) {
-  const date = new Date(timestamp)
-  const formatTemplate = template('${year}-${month}-${day}, ${time}')
-  return formatTemplate({
-    year: date.getFullYear(),
-    month: String(date.getMonth() + 1).padStart(2, '0'),
-    day: String(date.getDate()).padStart(2, '0'),
-    time: date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }),
-  })
-}
-
-function HistoryItemCard({ item }: { item: InventoryHistoryProps }) {
-  const stockChange = item.currentStockCount - item.lastStockCount
-  const userName = getFormattedUser(item)
+function HistoryItemCard({ items }: { items: InventoryHistoryProps[] }) {
+  const first = items[0]
 
   return (
-    <div className="flex gap-4 bg-card shadow-sm p-4 border rounded-lg">
-      <div
-        className={cn(
-          'flex justify-center items-center rounded-full w-12 h-12 shrink-0',
-          getReasonColor(item.reasonForStockEdit),
-        )}
-      >
-        {getReasonIcon(item.reasonForStockEdit)}
+    <div className="flex gap-4">
+      <div className="w-16 text-right shrink-0">
+        <span className="text-[11px] text-muted-foreground">
+          {new Date(first.created).toLocaleTimeString(undefined, {
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit',
+          })}
+        </span>
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-start mb-1">
-          <h3 className="font-bold text-sm truncate">{item.name}</h3>
-          <Badge
-            variant="outline"
-            className={cn(
-              'font-bold text-[10px] uppercase',
-              getReasonColor(item.reasonForStockEdit),
-            )}
-          >
-            {item.reasonForStockEdit}
-          </Badge>
+      <div className="flex-1 pt-1 border-t">
+        <div className="flex items-center gap-1.5 mb-1.5 text-[11px] text-muted-foreground">
+          <span>{getFormattedUser(first)}</span>
+          <span>·</span>
+          <span>{first.reasonForStockEdit}</span>
         </div>
 
-        <div className="flex items-center gap-2 mb-2 text-sm">
-          <span className="text-muted-foreground">
-            {item.lastStockCount} → {item.currentStockCount}
-          </span>
-          <span
-            className={`font-bold ${stockChange > 0 ? 'text-green-600' : 'text-red-600'}`}
-          >
-            ({stockChange > 0 ? '+' : ''}
-            {stockChange})
-          </span>
-        </div>
-
-        <div className="flex justify-between items-center text-[11px] text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <UserIcon className="w-3 h-3" />
-            <span>{userName}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <CalendarIcon className="w-3 h-3" />
-            <span>{formatTimestamp(item.created)}</span>
-          </div>
+        <div className="flex flex-col gap-1.5">
+          {items.map((item) => {
+            const delta = item.currentStockCount - item.lastStockCount
+            return (
+              <div key={item.id} className="flex justify-between items-center">
+                <span className="text-sm">{item.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground text-xs">
+                    {item.lastStockCount} → {item.currentStockCount}
+                  </span>
+                  <span
+                    className={cn(
+                      'font-medium text-xs',
+                      delta > 0
+                        ? 'text-green-700'
+                        : delta < 0
+                          ? 'text-red-700'
+                          : 'text-muted-foreground',
+                    )}
+                  >
+                    {delta > 0 ? '+' : ''}
+                    {delta}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -169,7 +133,7 @@ export function InventoryHistory() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['inventoryHistory', selectedDate, selectedFilter],
+    queryKey: ['inventoryHistory', selectedDate],
     queryFn: async () => {
       const start = new Date(selectedDate!)
       start.setHours(0, 0, 0, 0)
@@ -246,68 +210,37 @@ export function InventoryHistory() {
 
         {/* Filter Chips */}
         <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
-          <Button
-            variant={selectedFilter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs whitespace-nowrap"
-            onClick={() => setSelectedFilter('all')}
+          <Tabs
+            value={selectedFilter}
+            onValueChange={(value) =>
+              setSelectedFilter(value as typeof selectedFilter)
+            }
           >
-            All
-          </Button>
-          <Button
-            variant={selectedFilter === 'restock' ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs whitespace-nowrap"
-            onClick={() => setSelectedFilter('restock')}
-          >
-            Restock
-          </Button>
-          <Button
-            variant={selectedFilter === 'sale' ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs whitespace-nowrap"
-            onClick={() => setSelectedFilter('sale')}
-          >
-            Sale
-          </Button>
-          <Button
-            variant={selectedFilter === 'waste' ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs whitespace-nowrap"
-            onClick={() => setSelectedFilter('waste')}
-          >
-            Waste
-          </Button>
-          <Button
-            variant={selectedFilter === 'correction' ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs whitespace-nowrap"
-            onClick={() => setSelectedFilter('correction')}
-          >
-            Correction
-          </Button>
-          <Button
-            variant={selectedFilter === 'cancelled' ? 'default' : 'outline'}
-            size="sm"
-            className="text-xs whitespace-nowrap"
-            onClick={() => setSelectedFilter('cancelled')}
-          >
-            Cancelled
-          </Button>
+            <TabsList className="flex flex-wrap">
+              <TabsTrigger value="all">All</TabsTrigger>
+
+              <TabsTrigger value="restock">Restock</TabsTrigger>
+
+              <TabsTrigger value="sale">Sale</TabsTrigger>
+
+              <TabsTrigger value="waste">Waste</TabsTrigger>
+
+              <TabsTrigger value="correction">Correction</TabsTrigger>
+
+              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
       {/* History list */}
-      <div className="p-4">
+      <div className="mx-auto p-4 w-full sm:w-[640px]">
         {isLoading ? (
-          <div className="flex flex-col justify-center items-center py-12 text-muted-foreground">
-            <LoaderIcon className="mb-4 w-8 h-8 animate-spin" />
-            <p className="text-sm">Loading inventory history...</p>
-          </div>
+          <SplashScreen />
         ) : filteredHistory.length > 0 ? (
           <div className="space-y-3">
-            {filteredHistory.map((item) => (
-              <HistoryItemCard key={item.id} item={item} />
+            {groupHistoryItems(filteredHistory).map((group) => (
+              <HistoryItemCard key={group[0].id} items={group} />
             ))}
           </div>
         ) : selectedFilter !== 'all' ? (

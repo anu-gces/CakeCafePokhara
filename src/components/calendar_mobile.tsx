@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button'
-import { DatePickerWithPresets as DatePicker } from '@/components/ui/datepicker'
 import {
   Drawer,
   DrawerClose,
@@ -8,13 +7,12 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  DrawerTrigger,
 } from '@/components/ui/drawer'
+
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  enterCalendarEvent,
-  getCalendarEventDocument,
-} from '@/firebase/firestore'
+
 import type { EventApi } from '@fullcalendar/core/index.js'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import FullCalendar from '@fullcalendar/react'
@@ -27,379 +25,348 @@ import {
   ChevronRight,
   Plus,
   RotateCcw,
-  Save,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import FloatingActionMenu from './ui/floating-action-menu'
-import { setHours, setMinutes, setSeconds } from 'date-fns'
-import { InlineLoader } from './splashscreen'
+import { SplashScreen } from './splashscreen'
+import { pb } from '@/lib/pocketbase'
+import { handlePbError } from '@/lib/utils'
+import { Switch } from './ui/switch'
 
-export type calendarEventProps = {
+export type CalendarEventProps = {
   id: string
   title: string
-  start: string
-  end: string
+  startDate: string
+  endDate: string
   color: string
-  startTime?: string
-  endTime?: string
-}
-
-function combineDateAndTime(date: Date, time: string): Date {
-  const [hours, minutes] = time.split(':').map(Number)
-  let result = setHours(date, hours)
-  result = setMinutes(result, minutes)
-  result = setSeconds(result, 0)
-  return result
 }
 
 export function Calendar() {
-  const [localEvents, setLocalEvents] = useState<calendarEventProps[]>([])
+  const queryClient = useQueryClient()
 
   const {
-    data: calendarEvents,
+    data: events = [],
     isLoading,
     error,
-  } = useQuery<calendarEventProps[]>({
+  } = useQuery<CalendarEventProps[]>({
     queryKey: ['calendarEvents'],
-    queryFn: getCalendarEventDocument,
+    queryFn: () => pb.collection('calendarEvents').getFullList(),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
   })
 
-  useEffect(() => {
-    setLocalEvents(calendarEvents || [])
-  }, [calendarEvents])
-
-  const queryClient = useQueryClient()
-
-  const enterCalendarEventMutation = useMutation({
-    mutationFn: enterCalendarEvent,
+  const addEventMutation = useMutation({
+    mutationFn: (event: Omit<CalendarEventProps, 'id'>) =>
+      pb.collection('calendarEvents').create(event),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendarEvents'] })
-      toast('Calendar event entered successfully!')
+      toast('Event added!')
     },
-    onError: (error: any) => {
-      toast('error!', error)
+    onError: handlePbError,
+  })
+
+  const deleteEventMutation = useMutation({
+    mutationFn: (id: string) => pb.collection('calendarEvents').delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendarEvents'] })
+      toast('Event deleted!')
     },
+    onError: handlePbError,
   })
 
   const [title, setTitle] = useState('')
-  const [start, setStart] = useState<Date>()
-  const [end, setEnd] = useState<Date>()
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [color, setColor] = useState('#e11d48')
   const [open, setOpen] = useState(false)
-  const [startTime, setStartTime] = useState('')
-  const [endTime, setEndTime] = useState('')
   const [selectedEvent, setSelectedEvent] = useState<EventApi | null>(null)
   const [detailsDrawer, setDetailsDrawer] = useState(false)
-
-  const handleSubmit = (e: any) => {
-    e.preventDefault()
-    if (!title) {
-      alert('Title is required')
-      return
-    }
-    if (!start || !end) {
-      alert('Both start and end dates are required')
-      return
-    }
-
-    const startDateTime =
-      startTime && start ? combineDateAndTime(start, startTime) : start
-    const endDateTime = endTime && end ? combineDateAndTime(end, endTime) : end
-
-    if (startDateTime > endDateTime) {
-      alert('End date and time must be after start date and time')
-      return
-    }
-
-    setLocalEvents((prevEvents) => [
-      ...prevEvents,
-      {
-        id: (prevEvents.length + 1).toString(),
-        title,
-        start: startDateTime.toISOString(),
-        end: endDateTime.toISOString(),
-        color,
-      },
-    ])
-
-    setTitle('')
-    setStart(undefined)
-    setEnd(undefined)
-    setStartTime('')
-    setEndTime('')
-    setColor('#e11d48')
-    // Close the Drawer here
-    setOpen(false)
-  }
-
+  const [isDayView, setIsDayView] = useState(false)
   const calendarRef = useRef<any>(null)
 
-  const handleNext = () => {
-    const calendarApi = calendarRef.current.getApi()
-    calendarApi.next()
-  }
+  const handleNext = () => calendarRef.current.getApi().next()
+  const handleToday = () => calendarRef.current.getApi().today()
+  const handlePrev = () => calendarRef.current.getApi().prev()
 
-  const handleToday = () => {
-    const calendarApi = calendarRef.current.getApi()
-    calendarApi.today()
-  }
+  const handleDayView = () =>
+    calendarRef.current.getApi().changeView('timeGridDay')
 
-  const handlePrev = () => {
-    const calendarApi = calendarRef.current.getApi()
-    calendarApi.prev()
-  }
+  const handleMonthView = () =>
+    calendarRef.current.getApi().changeView('dayGridMonth')
 
-  const handleDayView = () => {
-    const calendarApi = calendarRef.current.getApi()
-    calendarApi.changeView('timeGridDay')
-  }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
 
-  const handleMonthView = () => {
-    const calendarApi = calendarRef.current.getApi()
-    calendarApi.changeView('dayGridMonth')
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('End date must be after start date')
+      return
+    }
+
+    addEventMutation.mutate({
+      title,
+      startDate: new Date(startDate).toISOString(),
+      endDate: new Date(endDate).toISOString(),
+      color,
+    })
+
+    setTitle('')
+    setStartDate('')
+    setEndDate('')
+    setColor('#e11d48')
+    setOpen(false)
   }
 
   return (
     <div className="flex flex-col p-4 w-full h-full">
-      {/* <h2 className="first:mt-0 mb-2 pb-2 border-b font-semibold text-3xl text-center tracking-tight scroll-m-20">
-        Scheduler
-      </h2> */}
-
-      <div className="flex justify-between py-2">
-        <div className="inline-flex -space-x-px bg-background shadow-sm rounded-md overflow-hidden">
+      {/* TOP BAR */}
+      <div className="flex justify-between items-center py-2">
+        {/* LEFT CONTROLS */}
+        <div className="flex items-center gap-2">
+          {/* Drawer Trigger */}
           <Drawer
-            shouldScaleBackground={true}
-            setBackgroundColorOnScale={true}
+            shouldScaleBackground={false}
+            setBackgroundColorOnScale={false}
             open={open}
             onOpenChange={setOpen}
           >
+            <DrawerTrigger asChild>
+              <Button size="sm" className="flex items-center gap-1">
+                <Plus color="white" className="w-4 h-4" />
+                Add Event
+              </Button>
+            </DrawerTrigger>
+
             <DrawerContent>
               <DrawerHeader>
                 <DrawerTitle>Add Event</DrawerTitle>
                 <DrawerDescription>
-                  Add a new event to the calendar. Click save when you're done.
+                  Create a new calendar event.
                 </DrawerDescription>
               </DrawerHeader>
+
               <form onSubmit={handleSubmit} className="gap-4 grid py-4">
                 <div className="items-center gap-4 grid grid-cols-4">
-                  <Label htmlFor="title" className="text-right">
-                    Title
-                  </Label>
+                  <Label className="text-right">Title</Label>
                   <Input
-                    id="title"
-                    type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="col-span-3"
-                    required
                   />
                 </div>
-                <div className="items-center gap-4 grid grid-cols-4">
-                  <Label htmlFor="start" className="text-right">
-                    Start
-                  </Label>
 
-                  <DatePicker selected={start} onSelect={setStart} />
-                </div>
                 <div className="items-center gap-4 grid grid-cols-4">
-                  <Label htmlFor="startTime" className="text-right">
-                    Start Time
-                  </Label>
-
+                  <Label className="text-right">Start</Label>
                   <Input
-                    type="time"
-                    id="startTime"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  ></Input>
+                    type="datetime-local"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="col-span-3"
+                  />
                 </div>
-                <div className="items-center gap-4 grid grid-cols-4">
-                  <Label htmlFor="end" className="text-right">
-                    End
-                  </Label>
-                  <DatePicker selected={end} onSelect={setEnd} />
-                </div>
-                <div className="items-center gap-4 grid grid-cols-4">
-                  <Label htmlFor="endTime" className="text-right">
-                    End Time
-                  </Label>
 
+                <div className="items-center gap-4 grid grid-cols-4">
+                  <Label className="text-right">End</Label>
                   <Input
-                    id="endTime"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  ></Input>
+                    type="datetime-local"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="col-span-3"
+                  />
                 </div>
 
                 <div className="items-center gap-4 grid grid-cols-4">
-                  <Label htmlFor="color" className="text-right">
-                    Color
-                  </Label>
-
+                  <Label className="text-right">Color</Label>
                   <Input
-                    id="color"
                     type="color"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
                     className="col-span-3"
-                    required
                   />
                 </div>
+
                 <DrawerFooter>
-                  <Button type="submit">Save changes</Button>
+                  <Button type="submit" disabled={addEventMutation.isPending}>
+                    {addEventMutation.isPending ? 'Saving...' : 'Save'}
+                  </Button>
                   <DrawerClose asChild>
-                    <Button variant={'outline'}>Cancel</Button>
+                    <Button variant="outline">Cancel</Button>
                   </DrawerClose>
                 </DrawerFooter>
               </form>
             </DrawerContent>
           </Drawer>
 
-          <FloatingActionMenu
-            className="right-4 bottom-4 z-50 absolute"
-            options={[
-              {
-                label: 'Add Event',
-                Icon: <Plus className="w-4 h-4" />,
-                onClick: () => setOpen(true),
-              },
-              {
-                label: 'Month View',
-                Icon: <CalendarDays className="w-4 h-4" />,
-                onClick: handleMonthView,
-              },
-              {
-                label: 'Day View',
-                Icon: <CalendarClock className="w-4 h-4" />,
-                onClick: handleDayView,
-              },
-              {
-                label: 'Save',
-                Icon: <Save className="w-4 h-4" />,
-                onClick: () => enterCalendarEventMutation.mutate(localEvents),
-              },
-            ]}
-          />
+          {/* VIEW TOGGLE */}
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-4 h-4" />
+
+            <Switch
+              checked={isDayView}
+              onCheckedChange={(checked) => {
+                setIsDayView(checked)
+
+                if (checked) {
+                  handleDayView()
+                } else {
+                  handleMonthView()
+                }
+              }}
+            />
+
+            <CalendarClock className="w-4 h-4" />
+          </div>
         </div>
 
+        {/* NAV BUTTONS */}
         <span className="inline-flex -space-x-px bg-background shadow-sm border rounded-md overflow-hidden">
-          <Button
-            variant="outline"
-            onClick={handlePrev}
-            className="inline-block focus:relative hover:bg-gray-50 px-4 py-2 border-0 rounded-tr-none rounded-br-none font-medium text-gray-700 text-sm"
-          >
+          <Button variant="outline" onClick={handlePrev}>
             <ChevronLeft />
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleToday}
-            className="gap-1 border-0 rounded-none"
-          >
+
+          <Button variant="outline" onClick={handleToday}>
             <RotateCcw size={20} />
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleNext}
-            className="inline-block focus:relative hover:bg-gray-50 px-4 py-2 border-0 rounded-tl-none rounded-bl-none font-medium text-gray-700 text-sm"
-          >
+
+          <Button variant="outline" onClick={handleNext}>
             <ChevronRight />
           </Button>
         </span>
       </div>
 
+      {/* CALENDAR */}
       <div className="flex flex-col h-full">
         {error && (
-          <div
-            className="relative bg-red-100 mx-auto px-2 py-1 border border-red-400 rounded max-w-xs text-red-700 text-sm"
-            role="alert"
-          >
-            <strong className="font-bold">Error! </strong>
-            <span className="block sm:inline">{error.message}</span>
+          <div className="bg-red-100 px-2 py-1 border border-red-400 rounded text-red-700 text-sm">
+            {error.message}
           </div>
         )}
 
-        <div className="h-full">
-          {isLoading && (
-            <div className="flex justify-center items-center h-full">
-              <InlineLoader />
-            </div>
-          )}
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin]}
-            initialView="dayGridMonth"
-            events={localEvents}
-            // displayEventTime={false}
-            headerToolbar={{
-              left: 'title',
-              center: '',
-              right: '',
-            }}
-            height={'100%'}
-            contentHeight={'100%'}
-            eventClick={(info) => {
-              setSelectedEvent(info.event)
-              setDetailsDrawer(true)
-            }}
-          />
-        </div>
+        {isLoading && <SplashScreen />}
+
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[dayGridPlugin, timeGridPlugin]}
+          initialView="dayGridMonth"
+          events={events.map((e) => ({
+            id: e.id,
+            title: e.title,
+            start: e.startDate,
+            end: e.endDate,
+            color: e.color,
+          }))}
+          headerToolbar={{ left: 'title', center: '', right: '' }}
+          height="100%"
+          eventClick={(info) => {
+            setSelectedEvent(info.event)
+            setDetailsDrawer(true)
+          }}
+        />
       </div>
 
+      {/* DETAILS DRAWER */}
       <Drawer
-        shouldScaleBackground={true}
-        setBackgroundColorOnScale={true}
+        shouldScaleBackground={false}
+        setBackgroundColorOnScale={false}
         open={detailsDrawer}
         onOpenChange={setDetailsDrawer}
       >
         {selectedEvent && (
           <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Event Details</DrawerTitle>
-              <DrawerDescription>View event details here.</DrawerDescription>
+            <DrawerHeader className="pb-0">
+              <p className="text-muted-foreground text-xs">Event details</p>
+              <DrawerTitle className="text-xl">
+                {selectedEvent.title}
+              </DrawerTitle>
             </DrawerHeader>
-            <ul className="my-6 [&>li]:mt-2 ml-6 marker:text-primary list-disc">
-              <li>Title: {selectedEvent.title}</li>
-              <li>
-                Start Date:{' '}
-                {selectedEvent.start &&
-                  new Date(selectedEvent.start).toLocaleDateString()}
-              </li>
-              <li>
-                End Date:{' '}
-                {selectedEvent.end &&
-                  new Date(selectedEvent.end).toLocaleDateString()}
-              </li>
-            </ul>
-            <DrawerFooter className="flex justify-end gap-2">
+
+            <div className="px-4 py-5">
+              <div className="flex items-stretch gap-4">
+                {/* timeline spine */}
+                <div className="flex flex-col items-center pt-1">
+                  <div
+                    className="rounded-full w-2 h-2 shrink-0"
+                    style={{ background: selectedEvent.backgroundColor }}
+                  />
+                  <div className="flex-1 my-1.5 bg-border w-px" />
+                  <div className="border-2 border-border rounded-full w-2 h-2 shrink-0" />
+                </div>
+
+                {/* content */}
+                <div className="flex flex-col flex-1 gap-5">
+                  <div>
+                    <p className="mb-0.5 text-[11px] text-muted-foreground uppercase tracking-widest">
+                      Start
+                    </p>
+                    <p className="font-medium text-sm">
+                      {selectedEvent.start?.toLocaleDateString(undefined, {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {selectedEvent.start?.toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="mb-0.5 text-[11px] text-muted-foreground uppercase tracking-widest">
+                      End
+                      {selectedEvent.start &&
+                        selectedEvent.end &&
+                        (() => {
+                          const mins = Math.round(
+                            (selectedEvent.end.getTime() -
+                              selectedEvent.start.getTime()) /
+                              60000,
+                          )
+                          const h = Math.floor(mins / 60)
+                          const m = mins % 60
+                          const label =
+                            h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`
+                          return (
+                            <span className="ml-1 normal-case">· {label}</span>
+                          )
+                        })()}
+                    </p>
+                    <p className="font-medium text-sm">
+                      {selectedEvent.end?.toLocaleDateString(undefined, {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {selectedEvent.end?.toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DrawerFooter className="flex gap-2">
               <Button
-                variant="outline"
+                className="flex-1 bg-primary"
+                disabled={deleteEventMutation.isPending}
                 onClick={() => {
+                  deleteEventMutation.mutate(selectedEvent.id)
                   setDetailsDrawer(false)
                 }}
               >
-                Cancel
+                {deleteEventMutation.isPending ? 'Deleting...' : 'Delete'}
               </Button>
               <Button
-                onClick={() => {
-                  const calendarApi = calendarRef.current.getApi()
-                  calendarApi.getEventById(selectedEvent.id).remove()
-                  // console.log("prev event", localEvents);
-                  // console.log("selected event", selectedEvent.id);
-                  setLocalEvents((localEvents) =>
-                    localEvents.filter(
-                      (localEvents) => localEvents.id !== selectedEvent.id,
-                    ),
-                  )
-                  // console.log("event", localEvents);
-
-                  setDetailsDrawer(false)
-                }}
+                variant="outline"
+                className="flex-1"
+                onClick={() => setDetailsDrawer(false)}
               >
-                Delete Event
+                Close
               </Button>
             </DrawerFooter>
           </DrawerContent>

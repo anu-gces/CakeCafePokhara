@@ -37,14 +37,13 @@ import {
   UtensilsCrossedIcon,
 } from 'lucide-react'
 import DonutImage from '@/assets/donutImage'
-import SplashScreen from '@/components/splashscreen'
+import { SplashScreen } from '@/components/splashscreen'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
-import { useSearch } from '@tanstack/react-router'
+import { useRouteContext, useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 
 import { AnimatePresence, motion } from 'motion/react'
-import { usePocketbaseAuth } from '@/lib/usePocketbaseAuth'
 import { type MenuItemProps } from '@/lib/pocketbase/menuManagement'
 import { pb } from '@/lib/pocketbase'
 import { ClientResponseError } from 'pocketbase'
@@ -166,7 +165,8 @@ const InventoryItemCard = memo(function InventoryItemCard({
 })
 
 function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
-  const { user } = usePocketbaseAuth()
+  const { auth } = useRouteContext({ from: '/home' })
+  const user = auth.user!
   const [open, setOpen] = useState(false)
   const [adjustment, setAdjustment] = useState(0)
   const [isPending, setIsPending] = useState(false)

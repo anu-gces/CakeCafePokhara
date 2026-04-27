@@ -3,7 +3,7 @@ import { DataTable } from '@/components/ui/dataTable'
 import { createLazyFileRoute } from '@tanstack/react-router'
 
 import { useQuery } from '@tanstack/react-query'
-import SplashScreen from '@/components/splashscreen'
+import { SplashScreen } from '@/components/splashscreen'
 import { pb } from '@/lib/pocketbase'
 
 export const Route = createLazyFileRoute('/home/employee/table')({
@@ -31,7 +31,7 @@ export const Route = createLazyFileRoute('/home/employee/table')({
     // Use the user data in your component
     return (
       <div className="px-4">
-        <h1 className="font-bold text-primary text-2xl text-left">
+        <h1 className="py-4 font-bold text-primary text-2xl text-left">
           Employee Management
         </h1>
         <DataTable
