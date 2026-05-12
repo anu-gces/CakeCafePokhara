@@ -5,7 +5,7 @@ import { useState } from 'react'
 import CakeCakeLogo from '@/assets/Logob.webp'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/ui/themeToggle'
-import { Loader } from 'lucide-react'
+import { EyeIcon, EyeOffIcon, Loader } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -16,6 +16,7 @@ export function LoginForm() {
   const navigate = useNavigate()
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -78,14 +79,33 @@ export function LoginForm() {
           >
             Password
           </Label>
-          <Input
-            id="password"
-            name="password"
-            type="password"
-            required
-            className="border"
-            autoComplete="current-password"
-          />
+          {/* 2. Wrap Input in a relative div */}
+          <div className="relative">
+            <Input
+              id="password"
+              name="password"
+              // 3. Toggle type between password and text
+              type={showPassword ? 'text' : 'password'}
+              required
+              className="pr-10 border" // Add padding-right to keep text away from icon
+              autoComplete="current-password"
+            />
+            {/* 4. Add the toggle button */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="top-1/2 right-3 absolute text-muted-foreground hover:text-foreground transition-colors -translate-y-1/2"
+            >
+              {showPassword ? (
+                <EyeOffIcon className="w-4 h-4" />
+              ) : (
+                <EyeIcon className="w-4 h-4" />
+              )}
+              <span className="sr-only">
+                {showPassword ? 'Hide password' : 'Show password'}
+              </span>
+            </button>
+          </div>
         </div>
 
         <Button

@@ -116,6 +116,8 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+    allowedHosts: true,
+
     cors: {
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

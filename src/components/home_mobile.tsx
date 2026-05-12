@@ -30,6 +30,7 @@ import {
   UsersIcon,
   WifiIcon,
   WifiOffIcon,
+  PrinterIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -229,6 +230,15 @@ function AvatarDrawer() {
           >
             <DollarSignIcon className="w-5 h-5" />
             <span>Salary</span>
+          </Link>
+
+          <Link
+            to="/home/printerConfig"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <PrinterIcon className="w-5 h-5" />
+            <span>Printer Configuration</span>
           </Link>
 
           <Link
