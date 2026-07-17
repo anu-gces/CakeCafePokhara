@@ -132,4 +132,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  test: {
+    // Looks for files ending in .test.ts inside your convex folder
+    include: ['convex/**/*.test.ts'],
+    // Speeds up execution by using a node environment
+    environment: 'node',
+  },
 })

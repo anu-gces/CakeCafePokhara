@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
 import {
   ArrowLeft,
   LoaderIcon,
@@ -8,10 +8,8 @@ import {
   ClipboardListIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { motion, AnimatePresence } from 'motion/react'
-import { pb } from '@/lib/pocketbase'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import {
@@ -21,13 +19,15 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  DrawerTrigger,
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useRouteContext } from '@tanstack/react-router'
-import { handlePbError } from '@/lib/utils'
+import { api } from '../../../../convex/_generated/api'
+import { useMutation, useQuery } from 'convex/react'
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
 
-type Department = 'permanentInventory' | 'equipment'
+type Department = 'permanentInventory' | 'equipments'
 
 export const Route = createFileRoute('/home/assets/$department')({
   component: AssetsComponent,
@@ -39,48 +39,14 @@ export const Route = createFileRoute('/home/assets/$department')({
   },
 })
 
-type Asset = {
-  id: string
-  name: string
-  quantity: number
-  department: Department
-  remarks: string
-  createdBy: string
-  date: string
-  expand?: {
-    createdBy?: {
-      firstName: string
-      lastName: string
-    }
-  }
-}
-
 function AssetsComponent() {
   const navigate = useNavigate()
   const { department } = Route.useParams()
-  const queryClient = useQueryClient()
-  const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const { data: items = [], isLoading } = useQuery<Asset[]>({
-    queryKey: ['assets', department],
-    queryFn: async () => {
-      return await pb.collection('assets').getFullList({
-        filter: `department="${department}"`,
-        sort: '-date',
-        expand: 'createdBy',
-      })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => pb.collection('assets').delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['assets', department] })
-      toast.success('Asset removed')
-    },
-    onError: handlePbError,
-  })
-
+  const items =
+    useQuery(api.restaurant.assetsLedger.listassetsLedger, {
+      department: department,
+    }) ?? []
   const totalUnits = items.reduce((sum, i) => sum + i.quantity, 0)
 
   return (
@@ -96,14 +62,7 @@ function AssetsComponent() {
               <ArrowLeft size={16} />
               <span className="text-sm">Back</span>
             </Button>
-            <Button
-              onClick={() => setDrawerOpen(true)}
-              size="sm"
-              className="gap-2"
-            >
-              <PlusIcon color="white" className="w-4 h-4" />
-              Add {department} Item
-            </Button>
+            <AddAssetDrawer />
           </div>
 
           <h1 className="mb-3 font-bold text-primary text-2xl capitalize">
@@ -138,11 +97,11 @@ function AssetsComponent() {
       </div>
 
       <div className="space-y-3 mx-auto px-4 py-6 pb-24 max-w-xl">
-        {isLoading && (
+        {!items && (
           <LoaderIcon className="mx-auto w-6 h-6 text-muted-foreground animate-spin" />
         )}
 
-        {!isLoading && items.length === 0 && (
+        {items && items.length === 0 && (
           <div className="py-20 text-muted-foreground text-center">
             <ClipboardListIcon className="opacity-20 mx-auto mb-4 w-12 h-12" />
             <p>No equipment or inventory listed here.</p>
@@ -152,7 +111,7 @@ function AssetsComponent() {
         <AnimatePresence mode="popLayout">
           {items.map((item) => (
             <motion.div
-              key={item.id}
+              key={item._id}
               layout
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -169,7 +128,7 @@ function AssetsComponent() {
                     •
                   </span>
                   <p className="text-[10px] text-muted-foreground">
-                    {item.expand?.createdBy?.firstName ?? 'Staff'}
+                    {item.createdBy?.name}
                   </p>
                 </div>
                 {item.remarks && (
@@ -192,7 +151,6 @@ function AssetsComponent() {
                   variant="ghost"
                   size="icon"
                   className="w-8 h-8 text-muted-foreground hover:text-destructive"
-                  onClick={() => deleteMutation.mutate(item.id)}
                 >
                   <Trash2Icon className="w-4 h-4" />
                 </Button>
@@ -201,58 +159,48 @@ function AssetsComponent() {
           ))}
         </AnimatePresence>
       </div>
-
-      <AddAssetDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        department={department}
-        onSuccess={() =>
-          queryClient.invalidateQueries({ queryKey: ['assets', department] })
-        }
-      />
     </div>
   )
 }
 
-function AddAssetDrawer({
-  open,
-  onOpenChange,
-  department,
-  onSuccess,
-}: {
-  open: boolean
-  onOpenChange: (o: boolean) => void
-  department: Department
-  onSuccess: () => void
-}) {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
+function AddAssetDrawer() {
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ name: '', quantity: '', remarks: '' })
+  const [form, setForm] = useState({
+    name: '',
+    quantity: '',
+    remarks: '',
+    date: new Date(),
+  })
+  const { department } = useParams({ from: '/home/assets/$department' })
+  const createAsset = useMutation(api.restaurant.assetsLedger.createAsset)
 
-  const handleSubmit = async () => {
+  const handleAdd = async () => {
     setLoading(true)
     try {
-      await pb.collection('assets').create({
-        ...form,
-        department,
-        quantity: Number(form.quantity),
-        createdBy: user.id,
-        date: new Date().toISOString(),
+      await createAsset({
+        department: department as any,
+        name: form.name,
+        quantity: parseFloat(form.quantity),
+        remarks: form.remarks,
+        date: form.date.getTime(),
       })
-      toast.success('Added to inventory')
-      setForm({ name: '', quantity: '', remarks: '' })
-      onOpenChange(false)
-      onSuccess()
+      toast.success('Asset added successfully')
+      setForm({ name: '', quantity: '', remarks: '', date: new Date() })
     } catch (e) {
-      handlePbError(e)
+      toast.error('Failed to add asset')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer>
+      <DrawerTrigger asChild>
+        <Button size="sm" className="gap-2">
+          <PlusIcon className="stroke-white w-4 h-4" />
+          Add {department} Item
+        </Button>
+      </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="capitalize">
@@ -263,7 +211,7 @@ function AddAssetDrawer({
           <div className="space-y-1.5">
             <Label>Item Name</Label>
             <Input
-              placeholder="e.g. Fridge, Blender, Soup Spoons"
+              placeholder="e.g. Fridge, Blender"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
@@ -272,11 +220,17 @@ function AddAssetDrawer({
             <Label>Total Quantity</Label>
             <Input
               type="number"
-              placeholder="0"
               value={form.quantity}
               onChange={(e) =>
                 setForm((f) => ({ ...f, quantity: e.target.value }))
               }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Date</Label>
+            <DatePickerWithPresets
+              selected={form.date}
+              onSelect={(d) => d && setForm((f) => ({ ...f, date: d }))}
             />
           </div>
           <div className="space-y-1.5">
@@ -292,10 +246,14 @@ function AddAssetDrawer({
         </div>
         <DrawerFooter>
           <Button
-            onClick={handleSubmit}
             disabled={!form.name || !form.quantity || loading}
+            onClick={handleAdd}
           >
-            {loading ? <LoaderIcon className="animate-spin" /> : 'Confirm Add'}
+            {loading ? (
+              <LoaderIcon className="stroke-white animate-spin" />
+            ) : (
+              'Add'
+            )}
           </Button>
           <DrawerClose asChild>
             <Button variant="outline">Cancel</Button>

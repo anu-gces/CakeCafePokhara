@@ -5,8 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { useNavigate } from '@tanstack/react-router'
-import { DollarSign } from 'lucide-react'
+import { DollarSign, TrendingDownIcon, TrendingUpIcon } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -15,17 +14,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { format } from 'date-fns'
 import AnimatedCounter from '../ui/animatedCounter'
-import { RecentSales } from './recentsales'
-import { format, parseISO } from 'date-fns'
-import {
-  calculateTotalRevenue,
-  calculateOrderTotal,
-  calculateTotalExpenditure,
-} from './dashboard.utils'
+import type { Doc } from '../../../convex/_generated/dataModel'
 
-import type { FetchedOrder } from '../restaurant_mobile/types'
-import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
+type DailyStat = Doc<'dailyStats'>
 
 export function OverviewBarChart({
   data,
@@ -53,11 +46,11 @@ export function OverviewBarChart({
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: '#1a1a1a', // Dark gray background
-            border: '1px solid #404040', // Medium gray border
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #404040',
             borderRadius: '8px',
-            color: '#ffffff', // White text
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+            color: '#ffffff',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
           }}
         />
         <Bar
@@ -79,67 +72,27 @@ export function OverviewBarChart({
   )
 }
 
-export function Overview({
-  rawOrders,
-  expenseLedger,
-}: {
-  rawOrders: FetchedOrder[]
-  expenseLedger: ExpenseLedger[]
-}) {
-  const navigate = useNavigate()
+export function Overview({ dailyStats }: { dailyStats: DailyStat[] }) {
+  const totalRevenue = dailyStats.reduce((sum, d) => sum + d.revenue, 0)
+  const totalSales = dailyStats.reduce((sum, d) => sum + d.salesCount, 0)
 
-  const totalRevenue = calculateTotalRevenue(rawOrders)
-
-  const ordersByDay = rawOrders.reduce((acc: Record<string, number>, order) => {
-    const day = format(parseISO(order.receiptDate), 'EEEE') // Get the day of the week
-    acc[day] = (acc[day] || 0) + 1 // Increment the count for the day
+  const salesByDay = dailyStats.reduce((acc: Record<string, number>, stat) => {
+    const day = format(new Date(stat.date), 'EEEE')
+    acc[day] = (acc[day] || 0) + stat.salesCount
     return acc
   }, {})
 
-  // Handle the case when there are no orders or no data for the busiest day
-  const sortedDays = Object.entries(ordersByDay).sort((a, b) => b[1] - a[1])
+  const sortedDays = Object.entries(salesByDay).sort((a, b) => b[1] - a[1])
   const [busiestDay, busiestDaySales] =
     sortedDays.length > 0 ? sortedDays[0] : ['No data', 0]
 
-  const totalSales = rawOrders.reduce((sum, order) => {
-    const salesCount = order.items.reduce(
-      (itemSum, item) => itemSum + item.qty,
-      0,
-    )
-    return sum + salesCount
-  }, 0)
-
-  const topSellingItems = rawOrders
-    .flatMap((order) => order.items)
-    .reduce((acc: Record<string, number>, item) => {
-      acc[item.name] = (acc[item.name] || 0) + item.qty
-      return acc
-    }, {})
-
-  const sortedTopSellingItems = Object.entries(topSellingItems)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 2)
-    .map(([name]) => name)
-    .join(', ')
-
   const monthlyRevenue = Array.from({ length: 12 }, (_, index) => {
-    const monthOrders = rawOrders.filter((order) => {
-      // receiptDate is always an ISO string
-      const month = parseISO(order.receiptDate).getMonth() // 0-indexed (Jan = 0)
-      return month === index
-    })
+    const monthStats = dailyStats.filter(
+      (stat) => new Date(stat.date).getMonth() === index,
+    )
 
-    const revenue = monthOrders.reduce((sum, order) => {
-      return sum + calculateOrderTotal(order)
-    }, 0)
-
-    // Calculate expenses for this month
-    const monthExpenseLedger = expenseLedger.filter((item) => {
-      const month = parseISO(item.date).getMonth()
-      return month === index
-    })
-
-    const expense = calculateTotalExpenditure(monthExpenseLedger)
+    const revenue = monthStats.reduce((sum, s) => sum + s.revenue, 0)
+    const expense = monthStats.reduce((sum, s) => sum + s.expenses, 0)
 
     return {
       name: format(new Date(2023, index), 'MMM'),
@@ -151,7 +104,7 @@ export function Overview({
   return (
     <>
       {/* Summary Cards - 2x2 on mobile */}
-      <div className="gap-4 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
+      <div className="gap-4 grid grid-cols-1 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3">
         <Card className="w-full">
           <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">Total Revenue</CardTitle>
@@ -189,7 +142,7 @@ export function Overview({
           <CardContent>
             <div className="font-bold text-2xl">{busiestDay}</div>
             <p className="text-muted-foreground text-sm">
-              {busiestDaySales} orders were placed on this day.
+              {busiestDaySales} sales were recorded on this day.
             </p>
           </CardContent>
         </Card>
@@ -216,33 +169,7 @@ export function Overview({
               <AnimatedCounter from={0} to={totalSales} />
             </div>
             <p className="text-muted-foreground text-xs">
-              {totalSales} items sold this week
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="w-full">
-          <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
-              Top Selling Items
-            </CardTitle>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="w-4 h-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{sortedTopSellingItems}</div>
-            <p className="text-muted-foreground text-xs">
-              Based on Selected Range
+              {totalSales} sales recorded this period
             </p>
           </CardContent>
         </Card>
@@ -259,24 +186,61 @@ export function Overview({
             <OverviewBarChart data={monthlyRevenue} />
           </CardContent>
         </Card>
-        {/* RecentSales */}
-        <Card
-          className="order-2 lg:order-2 col-span-full lg:col-span-3 h-full active:scale-[0.995] transition-transform cursor-pointer"
-          onClick={() =>
-            navigate({
-              to: '/home/billing',
-            })
-          }
-        >
+        <Card className="order-2 lg:order-2 col-span-full lg:col-span-3 h-full">
           <CardHeader>
-            <CardTitle>Recent Sales</CardTitle>
-            <CardDescription>Last 10 Sales. Click for more.</CardDescription>
+            <CardTitle>Profitability</CardTitle>
+            <CardDescription>Net profit trend for the period.</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentSales income={rawOrders} />
+            <NetProfitCard dailyStats={dailyStats} />
           </CardContent>
         </Card>
       </div>
     </>
+  )
+}
+
+export function NetProfitCard({ dailyStats }: { dailyStats: DailyStat[] }) {
+  const totalProfit = dailyStats.reduce(
+    (sum, d) => sum + (d.revenue - d.expenses),
+    0,
+  )
+
+  const avgDailyProfit =
+    dailyStats.length > 0 ? totalProfit / dailyStats.length : 0
+
+  // Compare the most recent half of the range to the earlier half,
+  // just to show a directional trend — no extra data needed.
+  const sorted = [...dailyStats].sort((a, b) => a.date - b.date)
+  const mid = Math.floor(sorted.length / 2)
+  const firstHalfProfit = sorted
+    .slice(0, mid)
+    .reduce((sum, d) => sum + (d.revenue - d.expenses), 0)
+  const secondHalfProfit = sorted
+    .slice(mid)
+    .reduce((sum, d) => sum + (d.revenue - d.expenses), 0)
+
+  const isUp = secondHalfProfit >= firstHalfProfit
+
+  return (
+    <Card className="w-full">
+      <CardHeader className="flex flex-row justify-between items-center space-y-0 pb-2">
+        <CardTitle className="font-medium text-sm">Net Profit</CardTitle>
+        {isUp ? (
+          <TrendingUpIcon size={16} className="text-green-600" />
+        ) : (
+          <TrendingDownIcon size={16} className="text-red-600" />
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="font-bold text-2xl">
+          Rs.
+          <AnimatedCounter from={0} to={Math.round(totalProfit)} />
+        </div>
+        <p className="text-muted-foreground text-xs">
+          Rs.{Math.round(avgDailyProfit)} average per day
+        </p>
+      </CardContent>
+    </Card>
   )
 }

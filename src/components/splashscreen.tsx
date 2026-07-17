@@ -134,7 +134,7 @@ export const SplashScreen = () => {
 export const InlineLoader = ({ text = 'Preparing your Cake...' }) => {
   return (
     <div className="z-50 absolute inset-0 flex justify-center items-center pointer-events-none">
-      <div className="flex flex-col items-center gap-2 bg-background/70 shadow-md backdrop-blur-sm p-4 rounded-xl pointer-events-auto">
+      <div className="flex flex-col items-center gap-2 pointer-events-auto">
         <svg version="1.1" className="w-24 h-24" viewBox="0 0 108 108">
           <g id="donut-back">
             <ellipse

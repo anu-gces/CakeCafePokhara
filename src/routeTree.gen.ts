@@ -13,6 +13,7 @@ import { createFileRoute } from '@tanstack/react-router'
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as UnverifiedImport } from './routes/unverified'
 import { Route as HomeImport } from './routes/home'
 import { Route as IndexImport } from './routes/index'
 import { Route as HomeVendorsImport } from './routes/home/vendors'
@@ -37,7 +38,6 @@ import { Route as HomeEmployeeEmployeeDailyReportImport } from './routes/home/em
 import { Route as HomeEmployeeSalaryLedgerImport } from './routes/home/employee/$salaryLedger'
 import { Route as HomeAssetsDepartmentImport } from './routes/home/assets/$department'
 import { Route as HomeEmployeeEmployeeDailyReportEmployeeIdImport } from './routes/home/employee/employeeDailyReport/$employeeId'
-import { Route as HomeEmployeeEmployeeIdSalesImport } from './routes/home/employee/$employeeId/sales'
 
 // Create Virtual Routes
 
@@ -45,6 +45,7 @@ const PrinterConfigLazyImport = createFileRoute('/printerConfig')()
 const HomeSettingsLazyImport = createFileRoute('/home/settings')()
 const HomePrinterConfigLazyImport = createFileRoute('/home/printerConfig')()
 const HomeHelpLazyImport = createFileRoute('/home/help')()
+const HomeConfigurationsLazyImport = createFileRoute('/home/configurations')()
 const HomeCalendarLazyImport = createFileRoute('/home/calendar')()
 const HomeBillingLazyImport = createFileRoute('/home/billing')()
 
@@ -55,6 +56,12 @@ const PrinterConfigLazyRoute = PrinterConfigLazyImport.update({
   path: '/printerConfig',
   getParentRoute: () => rootRoute,
 } as any).lazy(() => import('./routes/printerConfig.lazy').then((d) => d.Route))
+
+const UnverifiedRoute = UnverifiedImport.update({
+  id: '/unverified',
+  path: '/unverified',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const HomeRoute = HomeImport.update({
   id: '/home',
@@ -87,6 +94,14 @@ const HomeHelpLazyRoute = HomeHelpLazyImport.update({
   path: '/help',
   getParentRoute: () => HomeRoute,
 } as any).lazy(() => import('./routes/home/help.lazy').then((d) => d.Route))
+
+const HomeConfigurationsLazyRoute = HomeConfigurationsLazyImport.update({
+  id: '/configurations',
+  path: '/configurations',
+  getParentRoute: () => HomeRoute,
+} as any).lazy(() =>
+  import('./routes/home/configurations.lazy').then((d) => d.Route),
+)
 
 const HomeCalendarLazyRoute = HomeCalendarLazyImport.update({
   id: '/calendar',
@@ -241,13 +256,6 @@ const HomeEmployeeEmployeeDailyReportEmployeeIdRoute =
     getParentRoute: () => HomeEmployeeEmployeeDailyReportRoute,
   } as any)
 
-const HomeEmployeeEmployeeIdSalesRoute =
-  HomeEmployeeEmployeeIdSalesImport.update({
-    id: '/$employeeId/sales',
-    path: '/$employeeId/sales',
-    getParentRoute: () => HomeEmployeeRoute,
-  } as any)
-
 // Populate the FileRoutesByPath interface
 
 declare module '@tanstack/react-router' {
@@ -264,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeImport
+      parentRoute: typeof rootRoute
+    }
+    '/unverified': {
+      id: '/unverified'
+      path: '/unverified'
+      fullPath: '/unverified'
+      preLoaderRoute: typeof UnverifiedImport
       parentRoute: typeof rootRoute
     }
     '/printerConfig': {
@@ -364,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeCalendarLazyImport
       parentRoute: typeof HomeImport
     }
+    '/home/configurations': {
+      id: '/home/configurations'
+      path: '/configurations'
+      fullPath: '/home/configurations'
+      preLoaderRoute: typeof HomeConfigurationsLazyImport
+      parentRoute: typeof HomeImport
+    }
     '/home/help': {
       id: '/home/help'
       path: '/help'
@@ -455,13 +477,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeVendorsVendorsAllImport
       parentRoute: typeof HomeVendorsImport
     }
-    '/home/employee/$employeeId/sales': {
-      id: '/home/employee/$employeeId/sales'
-      path: '/$employeeId/sales'
-      fullPath: '/home/employee/$employeeId/sales'
-      preLoaderRoute: typeof HomeEmployeeEmployeeIdSalesImport
-      parentRoute: typeof HomeEmployeeImport
-    }
     '/home/employee/employeeDailyReport/$employeeId': {
       id: '/home/employee/employeeDailyReport/$employeeId'
       path: '/$employeeId'
@@ -519,7 +534,6 @@ interface HomeEmployeeRouteChildren {
   HomeEmployeeSalaryLedgerRoute: typeof HomeEmployeeSalaryLedgerRoute
   HomeEmployeeEmployeeDailyReportRoute: typeof HomeEmployeeEmployeeDailyReportRouteWithChildren
   HomeEmployeeTableRoute: typeof HomeEmployeeTableRoute
-  HomeEmployeeEmployeeIdSalesRoute: typeof HomeEmployeeEmployeeIdSalesRoute
 }
 
 const HomeEmployeeRouteChildren: HomeEmployeeRouteChildren = {
@@ -527,7 +541,6 @@ const HomeEmployeeRouteChildren: HomeEmployeeRouteChildren = {
   HomeEmployeeEmployeeDailyReportRoute:
     HomeEmployeeEmployeeDailyReportRouteWithChildren,
   HomeEmployeeTableRoute: HomeEmployeeTableRoute,
-  HomeEmployeeEmployeeIdSalesRoute: HomeEmployeeEmployeeIdSalesRoute,
 }
 
 const HomeEmployeeRouteWithChildren = HomeEmployeeRoute._addFileChildren(
@@ -590,6 +603,7 @@ interface HomeRouteChildren {
   HomeVendorsRoute: typeof HomeVendorsRouteWithChildren
   HomeBillingLazyRoute: typeof HomeBillingLazyRoute
   HomeCalendarLazyRoute: typeof HomeCalendarLazyRoute
+  HomeConfigurationsLazyRoute: typeof HomeConfigurationsLazyRoute
   HomeHelpLazyRoute: typeof HomeHelpLazyRoute
   HomePrinterConfigLazyRoute: typeof HomePrinterConfigLazyRoute
   HomeSettingsLazyRoute: typeof HomeSettingsLazyRoute
@@ -609,6 +623,7 @@ const HomeRouteChildren: HomeRouteChildren = {
   HomeVendorsRoute: HomeVendorsRouteWithChildren,
   HomeBillingLazyRoute: HomeBillingLazyRoute,
   HomeCalendarLazyRoute: HomeCalendarLazyRoute,
+  HomeConfigurationsLazyRoute: HomeConfigurationsLazyRoute,
   HomeHelpLazyRoute: HomeHelpLazyRoute,
   HomePrinterConfigLazyRoute: HomePrinterConfigLazyRoute,
   HomeSettingsLazyRoute: HomeSettingsLazyRoute,
@@ -619,6 +634,7 @@ const HomeRouteWithChildren = HomeRoute._addFileChildren(HomeRouteChildren)
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/home': typeof HomeRouteWithChildren
+  '/unverified': typeof UnverifiedRoute
   '/printerConfig': typeof PrinterConfigLazyRoute
   '/home/assets': typeof HomeAssetsRouteRouteWithChildren
   '/home/expenseLedger': typeof HomeExpenseLedgerRouteRouteWithChildren
@@ -633,6 +649,7 @@ export interface FileRoutesByFullPath {
   '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
+  '/home/configurations': typeof HomeConfigurationsLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/printerConfig': typeof HomePrinterConfigLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
@@ -646,13 +663,13 @@ export interface FileRoutesByFullPath {
   '/home/payLaterCustomers/payLaterCustomersAll': typeof HomePayLaterCustomersPayLaterCustomersAllRoute
   '/home/vendors/$id': typeof HomeVendorsIdRoute
   '/home/vendors/vendorsAll': typeof HomeVendorsVendorsAllRoute
-  '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
   '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/home': typeof HomeRouteWithChildren
+  '/unverified': typeof UnverifiedRoute
   '/printerConfig': typeof PrinterConfigLazyRoute
   '/home/assets': typeof HomeAssetsRouteRouteWithChildren
   '/home/expenseLedger': typeof HomeExpenseLedgerRouteRouteWithChildren
@@ -667,6 +684,7 @@ export interface FileRoutesByTo {
   '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
+  '/home/configurations': typeof HomeConfigurationsLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/printerConfig': typeof HomePrinterConfigLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
@@ -680,7 +698,6 @@ export interface FileRoutesByTo {
   '/home/payLaterCustomers/payLaterCustomersAll': typeof HomePayLaterCustomersPayLaterCustomersAllRoute
   '/home/vendors/$id': typeof HomeVendorsIdRoute
   '/home/vendors/vendorsAll': typeof HomeVendorsVendorsAllRoute
-  '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
   '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
 
@@ -688,6 +705,7 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/home': typeof HomeRouteWithChildren
+  '/unverified': typeof UnverifiedRoute
   '/printerConfig': typeof PrinterConfigLazyRoute
   '/home/assets': typeof HomeAssetsRouteRouteWithChildren
   '/home/expenseLedger': typeof HomeExpenseLedgerRouteRouteWithChildren
@@ -702,6 +720,7 @@ export interface FileRoutesById {
   '/home/vendors': typeof HomeVendorsRouteWithChildren
   '/home/billing': typeof HomeBillingLazyRoute
   '/home/calendar': typeof HomeCalendarLazyRoute
+  '/home/configurations': typeof HomeConfigurationsLazyRoute
   '/home/help': typeof HomeHelpLazyRoute
   '/home/printerConfig': typeof HomePrinterConfigLazyRoute
   '/home/settings': typeof HomeSettingsLazyRoute
@@ -715,7 +734,6 @@ export interface FileRoutesById {
   '/home/payLaterCustomers/payLaterCustomersAll': typeof HomePayLaterCustomersPayLaterCustomersAllRoute
   '/home/vendors/$id': typeof HomeVendorsIdRoute
   '/home/vendors/vendorsAll': typeof HomeVendorsVendorsAllRoute
-  '/home/employee/$employeeId/sales': typeof HomeEmployeeEmployeeIdSalesRoute
   '/home/employee/employeeDailyReport/$employeeId': typeof HomeEmployeeEmployeeDailyReportEmployeeIdRoute
 }
 
@@ -724,6 +742,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/home'
+    | '/unverified'
     | '/printerConfig'
     | '/home/assets'
     | '/home/expenseLedger'
@@ -738,6 +757,7 @@ export interface FileRouteTypes {
     | '/home/vendors'
     | '/home/billing'
     | '/home/calendar'
+    | '/home/configurations'
     | '/home/help'
     | '/home/printerConfig'
     | '/home/settings'
@@ -751,12 +771,12 @@ export interface FileRouteTypes {
     | '/home/payLaterCustomers/payLaterCustomersAll'
     | '/home/vendors/$id'
     | '/home/vendors/vendorsAll'
-    | '/home/employee/$employeeId/sales'
     | '/home/employee/employeeDailyReport/$employeeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/home'
+    | '/unverified'
     | '/printerConfig'
     | '/home/assets'
     | '/home/expenseLedger'
@@ -771,6 +791,7 @@ export interface FileRouteTypes {
     | '/home/vendors'
     | '/home/billing'
     | '/home/calendar'
+    | '/home/configurations'
     | '/home/help'
     | '/home/printerConfig'
     | '/home/settings'
@@ -784,12 +805,12 @@ export interface FileRouteTypes {
     | '/home/payLaterCustomers/payLaterCustomersAll'
     | '/home/vendors/$id'
     | '/home/vendors/vendorsAll'
-    | '/home/employee/$employeeId/sales'
     | '/home/employee/employeeDailyReport/$employeeId'
   id:
     | '__root__'
     | '/'
     | '/home'
+    | '/unverified'
     | '/printerConfig'
     | '/home/assets'
     | '/home/expenseLedger'
@@ -804,6 +825,7 @@ export interface FileRouteTypes {
     | '/home/vendors'
     | '/home/billing'
     | '/home/calendar'
+    | '/home/configurations'
     | '/home/help'
     | '/home/printerConfig'
     | '/home/settings'
@@ -817,7 +839,6 @@ export interface FileRouteTypes {
     | '/home/payLaterCustomers/payLaterCustomersAll'
     | '/home/vendors/$id'
     | '/home/vendors/vendorsAll'
-    | '/home/employee/$employeeId/sales'
     | '/home/employee/employeeDailyReport/$employeeId'
   fileRoutesById: FileRoutesById
 }
@@ -825,12 +846,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HomeRoute: typeof HomeRouteWithChildren
+  UnverifiedRoute: typeof UnverifiedRoute
   PrinterConfigLazyRoute: typeof PrinterConfigLazyRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HomeRoute: HomeRouteWithChildren,
+  UnverifiedRoute: UnverifiedRoute,
   PrinterConfigLazyRoute: PrinterConfigLazyRoute,
 }
 
@@ -846,6 +869,7 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/home",
+        "/unverified",
         "/printerConfig"
       ]
     },
@@ -868,10 +892,14 @@ export const routeTree = rootRoute
         "/home/vendors",
         "/home/billing",
         "/home/calendar",
+        "/home/configurations",
         "/home/help",
         "/home/printerConfig",
         "/home/settings"
       ]
+    },
+    "/unverified": {
+      "filePath": "unverified.tsx"
     },
     "/printerConfig": {
       "filePath": "printerConfig.lazy.tsx"
@@ -900,8 +928,7 @@ export const routeTree = rootRoute
       "children": [
         "/home/employee/$salaryLedger",
         "/home/employee/employeeDailyReport",
-        "/home/employee/table",
-        "/home/employee/$employeeId/sales"
+        "/home/employee/table"
       ]
     },
     "/home/inventoryHistory": {
@@ -949,6 +976,10 @@ export const routeTree = rootRoute
     },
     "/home/calendar": {
       "filePath": "home/calendar.lazy.tsx",
+      "parent": "/home"
+    },
+    "/home/configurations": {
+      "filePath": "home/configurations.lazy.tsx",
       "parent": "/home"
     },
     "/home/help": {
@@ -1005,10 +1036,6 @@ export const routeTree = rootRoute
     "/home/vendors/vendorsAll": {
       "filePath": "home/vendors/vendorsAll.tsx",
       "parent": "/home/vendors"
-    },
-    "/home/employee/$employeeId/sales": {
-      "filePath": "home/employee/$employeeId/sales.tsx",
-      "parent": "/home/employee"
     },
     "/home/employee/employeeDailyReport/$employeeId": {
       "filePath": "home/employee/employeeDailyReport/$employeeId.tsx",

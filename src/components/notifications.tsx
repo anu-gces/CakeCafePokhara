@@ -1,412 +1,651 @@
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
+
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+
+import { XIcon, CheckIcon, LoaderIcon, CheckCircle2Icon } from 'lucide-react'
+import { ScrollArea } from './ui/scroll-area'
+import { ReceiptDrawer } from './restaurant_mobile/receiptDrawer'
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
   DrawerDescription,
   DrawerFooter,
-  DrawerClose,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
 } from './ui/drawer'
+import { toast } from 'sonner'
+import { ConvexError } from 'convex/values'
+import { AnimatePresence, motion } from 'motion/react'
 
-import { useEffect, useState } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+type OrderTicketWithItems = Doc<'orderTickets'> & {
+  items: Doc<'orderItems'>[]
+}
+type OrderItem = Doc<'orderItems'>
+type Branch = Doc<'branches'>
 
-import { formatDistanceToNow } from 'date-fns'
-import {
-  Clock,
-  UtensilsIcon,
-  CheckCircle2,
-  HandIcon,
-  CheckIcon,
-  XIcon,
-  LoaderIcon,
-} from 'lucide-react'
-import { Outlet, useRouteContext } from '@tanstack/react-router'
-import { Button } from './ui/button'
-import { SplashScreen } from './splashscreen'
-import AnimatedClockIcon from '@/assets/AnimatedClockIcon'
-import { pb } from '@/lib/pocketbase'
-import type { FetchedOrder } from './restaurant_mobile/types'
-import { ReceiptDrawer } from './restaurant_mobile/billing'
-import { cn } from '@/lib/utils'
-
-export function Notifications() {
-  return (
-    <div className="p-2 h-full overflow-y-auto">
-      <Outlet />
-    </div>
-  )
+function getNextItemStatus(
+  status: OrderItem['itemStatus'],
+): OrderItem['itemStatus'] | null {
+  if (status === 'cooking') return 'cooked'
+  if (status === 'cooked') return 'served'
+  return null
 }
 
-// Helper: Update Status
-const updateOrderStatus = async (id: string, status: string) => {
-  try {
-    await pb
-      .collection('orders')
-      .update(id, { status }, { requestKey: 'updateStatus' })
-  } catch (err) {
-    console.error('Failed to update status:', err)
-  }
+function formatOrderDate(timestamp: number) {
+  return new Date(timestamp).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-// Helper: Dismiss Notification
-const dismissOrderNotification = async (id: string) => {
-  try {
-    await pb
-      .collection('orders')
-      .update(id, { dismissed: true }, { requestKey: 'dismissNotification' })
-  } catch (err) {
-    console.error('Failed to dismiss:', err)
-  }
-}
+function OrderCard({ tickets }: { tickets: OrderTicketWithItems[] }) {
+  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [selectedTicket, setSelectedTicket] =
+    useState<OrderTicketWithItems | null>(null)
 
-export function OrderNotification() {
-  const [orders, setOrders] = useState<FetchedOrder[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [cancelDrawer, setCancelDrawer] = useState<{
-    open: boolean
-    id?: string
-  }>({ open: false })
-  const [cancelLoading, setCancelLoading] = useState(false)
-  const [receiptDrawer, setReceiptDrawer] = useState<{
-    open: boolean
-    order?: FetchedOrder
-  }>({ open: false })
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-
-  useEffect(() => {
-    if (!user) return
-
-    const fetchInitialData = async () => {
-      try {
-        const records = await pb
-          .collection('orders')
-          .getFullList<FetchedOrder>({
-            sort: '-created',
-            filter: 'dismissed = false',
-            expand: 'payLaterCustomerId, createdBy',
-            requestKey: 'notifications',
-          })
-        setOrders(records)
-      } catch (err) {
-        console.error('Initial fetch failed:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchInitialData()
-
-    const subscribe = async () => {
-      const unsubscribe = await pb
-        .collection('orders')
-        .subscribe<FetchedOrder>('*', (e) => {
-          setOrders((current) => {
-            if (e.action === 'create') return [e.record, ...current]
-            if (e.action === 'update') {
-              if (e.record.dismissed)
-                return current.filter((item) => item.id !== e.record.id)
-              return current.map((item) =>
-                item.id === e.record.id ? e.record : item,
-              )
-            }
-            if (e.action === 'delete')
-              return current.filter((item) => item.id !== e.record.id)
-            return current
-          })
-        })
-      return unsubscribe
-    }
-
-    const unsubscribePromise = subscribe()
-
-    return () => {
-      unsubscribePromise.then((unsub) => unsub())
-    }
-  }, [user])
-
-  if (isLoading) return <SplashScreen />
-
-  return (
-    <div className="space-y-3 p-3">
-      <div
-        className={cn(
-          'absolute inset-0 flex flex-col justify-center items-center text-center transition-opacity duration-500',
-          orders.length === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none',
-        )}
-      >
-        <div className="inline-flex bg-muted/30 mb-3 p-4 rounded-full">
-          <Clock className="w-6 h-6 text-muted-foreground" />
-        </div>
-        <p className="text-muted-foreground">No unpaid orders at the moment</p>
+  if (tickets.length === 0) {
+    return (
+      <div className="flex justify-center items-center py-16 text-muted-foreground text-sm">
+        No active orders right now.
       </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-4 pb-20">
       <AnimatePresence mode="popLayout">
-        {orders.map((order) => {
-          const {
-            id,
-            kotNumber,
-            status,
-            tableNumber,
-            items,
-            remarks,
-            receiptDate,
-            payLaterCustomerId,
-            complementary,
-          } = order
-          return (
-            <motion.div
-              key={id}
-              layout
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -100 }}
-              className="group bg-card shadow-sm p-4 border rounded-xl cursor-pointer"
-              onClick={() => setReceiptDrawer({ open: true, order })}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2">
-                  <UtensilsIcon className="w-5 h-5 text-muted-foreground" />
-                  <div className="flex flex-col leading-tight">
-                    <span className="font-medium text-sm">
-                      KOT: {kotNumber}
-                    </span>
-                    <span className="font-medium text-sm">
-                      Table {tableNumber}
-                    </span>
+        {tickets.map((ticket) => (
+          <motion.div
+            key={ticket._id}
+            layout
+            initial={{ opacity: 0, y: 15, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+            transition={{
+              type: 'spring',
+              stiffness: 500,
+              damping: 40,
+              mass: 1,
+            }}
+          >
+            <Card key={ticket._id} className="shadow-sm border-muted/60">
+              <CardHeader className="bg-muted/40 p-4 pb-3.5 border-border border-b">
+                <div className="flex justify-between items-start gap-4">
+                  {/* Left Side: Heavy Operational Identification */}
+                  <div className="flex flex-1 items-start gap-3 min-w-0">
+                    <div className="bg-primary shadow-sm px-2.5 py-1.5 rounded-md font-black text-primary-foreground text-sm uppercase tracking-wider shrink-0">
+                      KOT: {ticket.kotNumber}
+                    </div>
+
+                    {/* Location Meta using standard component states */}
+                    <div className="pt-0.5 min-w-0">
+                      {ticket.tableNumber !== undefined ? (
+                        <Badge
+                          variant="secondary"
+                          className="px-2 py-0.5 rounded font-bold text-xs tracking-tight"
+                        >
+                          Table {ticket.tableNumber}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-background px-2 py-0.5 rounded font-bold text-xs tracking-tight"
+                        >
+                          Takeaway
+                        </Badge>
+                      )}
+                      <p className="mt-1 font-medium text-[10px] text-muted-foreground tracking-normal">
+                        {formatOrderDate(ticket.orderDate)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  {status === 'pending' && (
-                    <span className="inline-flex items-center gap-1 bg-yellow-100 dark:bg-yellow-900/30 px-2 py-0.5 rounded-full font-medium text-yellow-800 dark:text-yellow-300 text-xs">
-                      <AnimatedClockIcon width={15} height={15} />
-                      Preparing
-                    </span>
-                  )}
-                  {status === 'ready_to_serve' && (
-                    <span className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full font-medium text-green-800 dark:text-green-300 text-xs">
-                      <CheckIcon className="w-3 h-3" />
-                      Ready to Serve
-                    </span>
-                  )}
-                  {status === 'ready_to_pay' && (
-                    <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full font-medium text-blue-800 dark:text-blue-300 text-xs">
-                      <HandIcon className="w-3 h-3" />
-                      Ready to Pay
-                    </span>
-                  )}
-                  {status === 'paid' && (
-                    <span className="inline-flex items-center gap-1 bg-rose-100 dark:bg-rose-900/30 px-2 py-0.5 rounded-full font-medium text-rose-800 dark:text-rose-300 text-xs">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Paid
-                    </span>
-                  )}
-                  <div className="text-[10px] text-muted-foreground">
-                    Placed{' '}
-                    {formatDistanceToNow(new Date(receiptDate), {
-                      addSuffix: true,
-                    })}
-                  </div>
-                </div>
-              </div>
 
-              <div className="mb-1 text-muted-foreground text-sm">
-                {items.map((item) => `${item.name} ×${item.qty}`).join(', ')}
-              </div>
-
-              {complementary && (
-                <span className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 mb-1 px-2 py-0.5 rounded-full font-medium text-purple-800 dark:text-purple-300 text-xs">
-                  Complementary
-                </span>
-              )}
-
-              {remarks && (
-                <div className="mb-1 text-muted-foreground text-xs italic">
-                  “{remarks}”
-                </div>
-              )}
-
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-muted-foreground group-hover:text-primary text-xs transition-colors select-none">
-                  Tap for details
-                </span>
-              </div>
-
-              <div
-                className="flex gap-2 mt-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Workflow progression buttons */}
-                {status === 'pending' &&
-                  (user.department === 'kitchen' || user.role === 'owner') && (
+                  {/* Right Side: Status Indicators & Destructive Actions */}
+                  <div className="flex items-center gap-1.5 pt-0.5 shrink-0">
                     <Button
-                      className="active:scale-95"
-                      onClick={() => updateOrderStatus(id, 'ready_to_serve')}
-                    >
-                      Mark as Prepared
-                    </Button>
-                  )}
-
-                {status === 'ready_to_serve' &&
-                  (user.department === 'waiter' || user.role === 'owner') && (
-                    <Button
-                      className="active:scale-95"
-                      onClick={() => updateOrderStatus(id, 'ready_to_pay')}
-                    >
-                      Mark as Served
-                    </Button>
-                  )}
-
-                {status === 'ready_to_pay' &&
-                  (user.department === 'operations' ||
-                    user.role === 'owner') && (
-                    <Button
-                      className="active:scale-95"
-                      onClick={async () => {
-                        if (payLaterCustomerId) {
-                          await updateOrderStatus(id, 'credited')
-                        } else {
-                          await updateOrderStatus(id, 'paid')
-                          if (
-                            !order.complementary &&
-                            order.paymentMethod === 'cash'
-                          ) {
-                            const orderTotal =
-                              order.items.reduce(
-                                (t, i) => t + i.price * i.qty,
-                                0,
-                              ) -
-                              order.discountAmount +
-                              order.taxAmount +
-                              (order.deliveryFee || 0)
-                            const dateOnly = new Date(order.receiptDate)
-                              .toISOString()
-                              .split('T')[0]
-                            await pb.collection('daily_balances').create({
-                              date: dateOnly,
-                              income: orderTotal,
-                              expenses: 0,
-                              orderId: id,
-                            })
-                          }
-                        }
+                      size="sm"
+                      variant="outline"
+                      className="px-2.5 h-7 font-semibold text-xs"
+                      onClick={() => {
+                        setSelectedTicket(ticket)
+                        setReceiptOpen(true)
                       }}
                     >
-                      {payLaterCustomerId ? 'Mark as Credited' : 'Mark as Paid'}
+                      View Receipt
                     </Button>
-                  )}
+                    <SettleOrderDrawer ticket={ticket} />
+                    <CancelWholeOrderDrawer ticket={ticket} />
+                  </div>
+                </div>
+              </CardHeader>
 
-                {/* Cancel button - only for active/in-progress orders */}
-                {(status === 'pending' ||
-                  status === 'ready_to_serve' ||
-                  status === 'ready_to_pay') &&
-                  (user.role === 'manager' ||
-                    user.role === 'owner' ||
-                    user.department === 'operations') && (
-                    <Button
-                      variant="outline"
-                      className="active:scale-95"
-                      onClick={() => setCancelDrawer({ open: true, id })}
-                    >
-                      <XIcon className="mr-1 w-4 h-4" />
-                      Cancel Order
-                    </Button>
-                  )}
+              <CardContent className="flex flex-col gap-3 p-4 pt-3">
+                {ticket.items.map((item, index) => {
+                  const nextStatus = getNextItemStatus(item.itemStatus)
 
-                {/* Clear notification - terminal states */}
-                {(status === 'paid' ||
-                  status === 'credited' ||
-                  status === 'cancelled' ||
-                  status === 'refunded') &&
-                  (user.department === 'operations' ||
-                    user.role === 'owner' ||
-                    user.role === 'manager') && (
-                    <Button
-                      className="active:scale-95"
-                      onClick={() => dismissOrderNotification(id)}
-                    >
-                      Clear Notification
-                    </Button>
-                  )}
-              </div>
-            </motion.div>
-          )
-        })}
+                  return (
+                    <div key={item._id}>
+                      {index > 0 ? (
+                        <Separator className="opacity-60 my-3" />
+                      ) : null}
+
+                      <div className="flex justify-between items-center gap-3">
+                        {/* Item Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="bg-accent px-1.5 py-0.5 rounded min-w-[24px] font-semibold text-sm text-center text-accent-foreground">
+                              {item.quantity}x
+                            </span>
+                            <span className="font-medium text-foreground text-sm truncate">
+                              {item.name}
+                            </span>
+                            {item.isComplimentary && (
+                              <Badge
+                                variant="outline"
+                                className="px-1 py-0 border-emerald-500 font-medium text-[10px] text-emerald-600"
+                              >
+                                Complementary
+                              </Badge>
+                            )}
+                          </div>
+                          {item.notes && (
+                            <p className="bg-amber-50 dark:bg-amber-950/30 mt-1 p-1.5 rounded text-amber-700 dark:text-amber-400 text-xs">
+                              Note: {item.notes}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.itemStatus !== 'cancelled' && nextStatus ? (
+                            <UpdateStatusDrawer ticket={ticket} item={item} />
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="bg-muted/20 text-muted-foreground text-xs uppercase tracking-wider"
+                            >
+                              {item.itemStatus}
+                            </Badge>
+                          )}
+
+                          {item.itemStatus !== 'cancelled' && (
+                            <VoidItemDrawer ticket={ticket} item={item} />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
       </AnimatePresence>
-
-      <CancelOrderDrawer
-        open={cancelDrawer.open}
-        onOpenChange={(open) => setCancelDrawer((prev) => ({ ...prev, open }))}
-        onConfirm={async () => {
-          if (!cancelDrawer.id) return
-          setCancelLoading(true)
-          try {
-            const order = orders?.find((o) => o.id === cancelDrawer.id)
-            if (!order) throw new Error('Order not found')
-
-            await pb
-              .collection('orders')
-              .update(cancelDrawer.id, { status: 'cancelled' })
-            setCancelDrawer({ open: false })
-          } catch (err) {
-            console.error('Cancellation failed:', err)
-          } finally {
-            setCancelLoading(false)
-          }
-        }}
-        loading={cancelLoading}
+      <ReceiptDrawer
+        data={selectedTicket}
+        receiptOpen={receiptOpen}
+        setReceiptOpen={setReceiptOpen}
       />
-
-      {receiptDrawer.order && (
-        <ReceiptDrawer
-          data={receiptDrawer.order}
-          receiptOpen={receiptDrawer.open}
-          setReceiptOpen={(open: boolean) =>
-            setReceiptDrawer((prev) => ({ ...prev, open }))
-          }
-        />
-      )}
     </div>
   )
 }
 
-function CancelOrderDrawer({
-  open,
-  onOpenChange,
-  onConfirm,
-  loading = false,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onConfirm: () => void
-  loading?: boolean
-}) {
+export function Notifications() {
+  const branches = useQuery(api.restaurant.branches.listBranches)
+  const allActiveOrders = useQuery(
+    api.restaurant.notifications.getActiveNotificationFeed,
+  )
+  const [selectedBranchId, setSelectedBranchId] = useState<
+    Id<'branches'> | undefined
+  >(undefined)
+
+  const ordersByBranch = useMemo(() => {
+    if (!allActiveOrders) return undefined
+    const map = new Map<Id<'branches'>, OrderTicketWithItems[]>()
+    for (const ticket of allActiveOrders) {
+      const existing = map.get(ticket.branchId) ?? []
+      existing.push(ticket)
+      map.set(ticket.branchId, existing)
+    }
+    return map
+  }, [allActiveOrders])
+
+  if (branches === undefined || allActiveOrders === undefined) {
+    return (
+      <div className="flex justify-center items-center py-16 text-muted-foreground text-sm">
+        Loading orders...
+      </div>
+    )
+  }
+
+  if (branches.length === 0) {
+    return (
+      <div className="flex justify-center items-center py-16 text-muted-foreground text-sm">
+        No branches found.
+      </div>
+    )
+  }
+
+  const activeTab = selectedBranchId ?? branches[0]._id
+
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Tabs
+      value={activeTab}
+      onValueChange={(value) => setSelectedBranchId(value as Id<'branches'>)}
+      className="py-4 h-full"
+    >
+      <div className="flex-shrink-0 bg-background px-4 py-2 border-b">
+        <TabsList>
+          {branches.map((branch: Branch) => (
+            <TabsTrigger key={branch._id} value={branch._id}>
+              {branch.name}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+
+      {branches.map((branch: Branch) => (
+        <TabsContent
+          key={branch._id}
+          value={branch._id}
+          className="mx-auto max-w-7xl h-full"
+        >
+          <ScrollArea className="h-full overflow-y-auto">
+            <OrderCard tickets={ordersByBranch?.get(branch._id) ?? []} />
+          </ScrollArea>
+        </TabsContent>
+      ))}
+    </Tabs>
+  )
+}
+
+export function SettleOrderDrawer({
+  ticket,
+}: {
+  ticket: OrderTicketWithItems
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
+
+  const settlePaid = useMutation(api.restaurant.notifications.markTicketAsPaid)
+  const settlePayLater = useMutation(
+    api.restaurant.notifications.markTicketAsPayLater,
+  )
+
+  // Every single item must be served or cancelled to checkout
+  const canSettle = ticket.items.every(
+    (item) => item.itemStatus === 'served' || item.itemStatus === 'cancelled',
+  )
+
+  const isPayLater = !!ticket.payLaterCustomerId
+  const actionLabel = isPayLater ? 'Pay Later' : 'Settle Paid'
+
+  const handleSettle = async () => {
+    try {
+      setIsPending(true)
+      if (isPayLater) {
+        await settlePayLater({ ticketId: ticket._id })
+        toast.success(`KOT ${ticket.kotNumber} settled to Pay Later account.`)
+      } else {
+        await settlePaid({ ticketId: ticket._id })
+        toast.success(`KOT ${ticket.kotNumber} marked as Paid.`)
+      }
+      setIsOpen(false)
+    } catch (error) {
+      console.error(error)
+      toast.error(
+        error instanceof ConvexError
+          ? (error.data as string)
+          : 'Failed to settle order',
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  return (
+    <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          size="sm"
+          className="shadow-none px-2.5 h-7 font-semibold text-[11px] uppercase tracking-wider"
+          disabled={!canSettle}
+        >
+          <CheckCircle2Icon className="stroke-white mr-1 w-3 h-3" />
+          {actionLabel}
+        </Button>
+      </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Cancel Order?</DrawerTitle>
+          <DrawerTitle className="flex flex-col gap-0.5 text-left">
+            <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+              KOT: {ticket.kotNumber}
+            </span>
+            <span className="font-bold text-lg">
+              Settle order as {actionLabel}?
+            </span>
+          </DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to cancel this order? This action cannot be
-            undone.
+            {isPayLater
+              ? "This balance will be deferred to the customer's credit ledger account."
+              : 'Confirm cash, card, or external point-of-sale receipt verification.'}
           </DrawerDescription>
         </DrawerHeader>
+
+        <OrderSummary ticket={ticket} />
+
         <DrawerFooter>
-          <Button onClick={onConfirm} disabled={loading}>
-            {loading ? (
-              <>
-                <LoaderIcon className="inline-block mr-2 w-4 h-4 animate-spin" />{' '}
-                Deleting...
-              </>
-            ) : (
-              'Yes, Cancel Order'
-            )}
-          </Button>
-          <DrawerClose asChild>
-            <Button variant="outline">No, Go Back</Button>
-          </DrawerClose>
+          <div className="flex flex-col gap-2 w-full">
+            <Button onClick={handleSettle} disabled={isPending}>
+              {isPending ? (
+                <>
+                  <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Confirm Settlement'
+              )}
+            </Button>
+            <DrawerClose asChild>
+              <Button variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DrawerClose>
+          </div>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
+  )
+}
+
+function CancelWholeOrderDrawer({ ticket }: { ticket: OrderTicketWithItems }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
+  const cancelTicket = useMutation(
+    api.restaurant.notifications.cancelWholeTicket,
+  )
+
+  const isNotActive = ticket.status !== 'active'
+  const isDisabled = isNotActive || isPending
+
+  const handleCancelTicket = async () => {
+    try {
+      setIsPending(true)
+      await cancelTicket({ ticketId: ticket._id })
+      toast.success(`KOT ${ticket.kotNumber} has been completely cancelled.`)
+      setIsOpen(false)
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? (error.data as string)
+          : 'Failed to cancel order',
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  return (
+    <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="hover:bg-destructive/10 rounded-md w-7 h-7 text-muted-foreground hover:text-destructive transition-all shrink-0"
+          title="Cancel Order"
+          disabled={isDisabled}
+        >
+          <XIcon className="w-4 h-4" />
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>
+            Are you sure you want to delete the order of KOT: {ticket.kotNumber}
+            ?
+          </DrawerTitle>
+          <DrawerDescription>This action cannot be undone.</DrawerDescription>
+        </DrawerHeader>
+        <OrderSummary ticket={ticket} />
+        <DrawerFooter>
+          <div className="flex flex-col gap-2 w-full">
+            <Button onClick={handleCancelTicket} disabled={isPending}>
+              {isPending ? (
+                <>
+                  <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                'Confirm'
+              )}
+            </Button>
+            <DrawerClose asChild>
+              <Button variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DrawerClose>
+          </div>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function VoidItemDrawer({
+  ticket,
+  item,
+}: {
+  ticket: OrderTicketWithItems
+  item: OrderItem
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
+  const cancelItem = useMutation(api.restaurant.notifications.markCancelled)
+  const isDisabled = item.itemStatus === 'served' || isPending
+
+  const handleVoidItem = async () => {
+    try {
+      setIsPending(true)
+      await cancelItem({ orderId: item._id })
+      setIsOpen(false)
+      toast.success(`${item.name} removed from KOT: ${ticket.kotNumber}`)
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? (error.data as string)
+          : 'Failed to remove item',
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+  return (
+    <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="hover:bg-destructive/10 rounded-md w-7 h-7 text-muted-foreground hover:text-destructive transition-all shrink-0"
+          title="Cancel Order"
+          disabled={isDisabled}
+        >
+          <XIcon className="w-4 h-4" />
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="font-medium text-base">
+            Cancel{' '}
+            <span className="font-bold text-foreground">{item.name}</span> from
+            KOT{' '}
+            <span className="font-bold text-primary">{ticket.kotNumber}</span>?
+          </DrawerTitle>
+          <DrawerDescription>This action cannot be undone.</DrawerDescription>
+        </DrawerHeader>
+        <OrderSummary ticket={ticket} />
+
+        <DrawerFooter>
+          <div className="flex flex-col gap-2 w-full">
+            <Button onClick={handleVoidItem} disabled={isPending}>
+              {isPending ? (
+                <>
+                  <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                'Confirm'
+              )}
+            </Button>
+            <DrawerClose asChild>
+              <Button variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DrawerClose>
+          </div>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+interface UpdateStatusDrawerProps {
+  ticket: OrderTicketWithItems
+  item: OrderItem
+}
+
+function UpdateStatusDrawer({ ticket, item }: UpdateStatusDrawerProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
+
+  const nextStatus = getNextItemStatus(item.itemStatus) ?? 'updated'
+  const actionLabel = nextStatus === 'cooked' ? 'Cooked' : 'Served'
+
+  const markCooked = useMutation(api.restaurant.notifications.markCooked)
+  const markServed = useMutation(api.restaurant.notifications.markServed)
+
+  const handleUpdateStatus = async () => {
+    try {
+      setIsPending(true)
+
+      // Select mutation based on next status target
+      if (nextStatus === 'cooked') {
+        await markCooked({ orderId: item._id })
+      } else if (nextStatus === 'served') {
+        await markServed({ orderId: item._id })
+      }
+
+      toast.success(`${item.name} marked as ${actionLabel}`)
+      setIsOpen(false)
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? (error.data as string)
+          : 'Failed to update status',
+      )
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  return (
+    <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <DrawerTrigger asChild>
+        <Button size="sm" variant="outline" disabled={isPending}>
+          <CheckIcon className="mr-1 w-3.5 h-3.5" />
+          Mark as {actionLabel}
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle className="flex flex-col gap-0.5 text-left">
+            <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+              KOT: {ticket.kotNumber}
+            </span>
+            <span className="font-bold text-lg">
+              Mark {item.name} as {actionLabel}?
+            </span>
+          </DrawerTitle>
+          <DrawerDescription>This action cannot be undone.</DrawerDescription>
+        </DrawerHeader>
+
+        <OrderSummary ticket={ticket} />
+
+        <DrawerFooter>
+          <div className="flex flex-col gap-2 w-full">
+            <Button onClick={handleUpdateStatus} disabled={isPending}>
+              {isPending ? (
+                <>
+                  <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Confirm'
+              )}
+            </Button>
+            <DrawerClose asChild>
+              <Button variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DrawerClose>
+          </div>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+export function OrderSummary({ ticket }: { ticket: OrderTicketWithItems }) {
+  if (!ticket?.items || ticket.items.length === 0) return null
+
+  return (
+    <div className="px-4 py-2">
+      <div className="bg-muted/40 p-3 border border-muted/80 rounded-lg max-h-[40vh] overflow-y-auto">
+        <p className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+          Order Summary ({ticket.items.length} items)
+        </p>
+        <div className="flex flex-col gap-2">
+          {ticket.items.map((item) => (
+            <div key={item._id} className="flex flex-col gap-0.5">
+              <div className="flex justify-between items-center text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-bold text-muted-foreground shrink-0">
+                    {item.quantity}x
+                  </span>
+                  <span className="font-medium text-foreground truncate">
+                    {item.name}
+                  </span>
+                  {item.isComplimentary && (
+                    <span className="bg-emerald-50 dark:bg-emerald-950/30 px-1 border border-emerald-200 dark:border-emerald-900 rounded font-medium text-[10px] text-emerald-600">
+                      Comp
+                    </span>
+                  )}
+                </div>
+                <Badge
+                  variant="outline"
+                  className="bg-background px-1.5 h-5 text-[10px] uppercase tracking-wider select-none shrink-0"
+                >
+                  {item.itemStatus}
+                </Badge>
+              </div>
+              {item.notes && (
+                <p className="pl-7 text-amber-600 dark:text-amber-400 text-xs italic">
+                  Note: {item.notes}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   )
 }

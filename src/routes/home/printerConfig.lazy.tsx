@@ -74,6 +74,16 @@ function PrinterConfigComponent() {
 
       const server = await selectedDevice.gatt?.connect()
       if (!server) throw new Error('GATT connection failed')
+      const services = await server.getPrimaryServices()
+
+      for (const service of services) {
+        console.log(service.uuid)
+
+        const chars = await service.getCharacteristics()
+        for (const c of chars) {
+          console.log(c.uuid, c.properties)
+        }
+      }
 
       setDevice(selectedDevice)
       setStatus('connected')
@@ -215,6 +225,8 @@ function PrinterConfigComponent() {
           <Button className="w-full" onClick={connectPrinter}>
             {status === 'connecting' ? 'Searching...' : 'Scan for Printer'}
           </Button>
+          <PrinterModeToggle device={device} onError={setError} />
+          <TSPLCardPrinter device={device} onError={setError} />
           <Button className="w-full" variant="outline" onClick={printTest}>
             Print Test Page
           </Button>
@@ -228,5 +240,161 @@ function PrinterConfigComponent() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+interface PrinterModeToggleProps {
+  device: BluetoothDevice | null
+  onError: (message: string | null) => void
+}
+
+export function PrinterModeToggle({ device, onError }: PrinterModeToggleProps) {
+  const [isChanging, setIsChanging] = useState(false)
+
+  const sendHexCommand = async (hexString: string) => {
+    if (!device) {
+      onError('No printer selected. Please connect first.')
+      return
+    }
+
+    try {
+      setIsChanging(true)
+      onError(null)
+
+      // Ensure we are connected
+      if (!device.gatt?.connected) {
+        await device.gatt?.connect()
+      }
+
+      const server = device.gatt
+      if (!server) throw new Error('Failed to communicate with printer')
+
+      const service = await server.getPrimaryService(
+        '000018f0-0000-1000-8000-00805f9b34fb',
+      )
+      const characteristic = await service.getCharacteristic(
+        '00002af1-0000-1000-8000-00805f9b34fb',
+      )
+
+      // Convert your space-separated hex commands into bytes
+      const hexArray = hexString.trim().split(' ')
+      const bytes = new Uint8Array(hexArray.map((hex) => parseInt(hex, 16)))
+
+      // Write in chunks of 100 bytes
+      const chunkSize = 100
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize)
+        await characteristic.writeValue(chunk)
+      }
+
+      console.log('Command sent successfully')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      onError(`Failed to change mode: ${message}`)
+    } finally {
+      setIsChanging(false)
+    }
+  }
+
+  const isDisabled = !device || isChanging
+
+  return (
+    <div className="flex gap-2 mt-2 w-full">
+      <Button
+        className="flex-1 text-xs"
+        disabled={isDisabled}
+        onClick={() => sendHexCommand('1F 1B 1F 02 20 31 0D 0A')}
+      >
+        {isChanging ? 'Setting...' : 'Thermal Receipt Mode'}
+      </Button>
+      <Button
+        className="flex-1 text-xs"
+        disabled={isDisabled}
+        onClick={() => sendHexCommand('1F 1B 1F 02 20 30 0D 0A')}
+      >
+        {isChanging ? 'Setting...' : 'Barcode Label Mode'}
+      </Button>
+    </div>
+  )
+}
+
+interface TSPLCardProps {
+  device: BluetoothDevice | null
+  onError: (message: string | null) => void
+}
+
+export function TSPLCardPrinter({ device, onError }: TSPLCardProps) {
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  const generateTsplLabel = (item: string, price: string, barcode: string) => {
+    const command =
+      `SIZE 58 mm,40 mm\r\n` +
+      `GAP 3 mm,0 mm\r\n` +
+      `CLS\r\n` +
+      `BOX 10,10,400,300,4\r\n` + // Draws a border box frame
+      `TEXT 30,40,"4",0,1,1,"${item}"\r\n` +
+      `TEXT 30,100,"3",0,1,1,"PRICE: ${price}"\r\n` +
+      `BARCODE 30,160,"128",60,1,0,2,2,"${barcode}"\r\n` + // Hardware generated barcode
+      `PRINT 1,1\r\n`
+
+    return new TextEncoder().encode(command)
+  }
+
+  const handlePrint = async () => {
+    if (!device) {
+      onError('Connect the printer first.')
+      return
+    }
+
+    try {
+      setIsPrinting(true)
+      onError(null)
+
+      if (!device.gatt?.connected) {
+        await device.gatt?.connect()
+      }
+
+      const server = device.gatt
+      if (!server) throw new Error('Failed to connect to printer')
+
+      const service = await server.getPrimaryService(
+        '000018f0-0000-1000-8000-00805f9b34fb',
+      )
+      const characteristic = await service.getCharacteristic(
+        '00002af1-0000-1000-8000-00805f9b34fb',
+      )
+
+      // Generate the raw TSPL label payload bytes
+      const bytes = generateTsplLabel(
+        'Latte & Croissant',
+        'Rs 480',
+        'CAFE-480X',
+      )
+
+      // Stream the raw layout buffer down the wire in chunks
+      const chunkSize = 100
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize)
+        await characteristic.writeValue(chunk)
+      }
+
+      console.log('TSPL barcode label sent successfully')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      onError(`TSPL Error: ${message}`)
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
+  return (
+    <Button
+      className="w-full text-xs"
+      variant="outline"
+      disabled={!device || isPrinting}
+      onClick={handlePrint}
+    >
+      {isPrinting ? 'Printing Label...' : 'Print Custom TSPL Label'}
+    </Button>
   )
 }

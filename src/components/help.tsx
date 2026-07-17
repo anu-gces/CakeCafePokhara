@@ -35,7 +35,7 @@ export function Help() {
                 <li>Ensure your internet connection is stable.</li>
                 <li>Use valid date formats (YYYY-MM-DD).</li>
                 <li>
-                  If data seems missing, check the Firebase console directly.
+                  If data seems missing, check the Convex console directly.
                 </li>
               </ul>
             }

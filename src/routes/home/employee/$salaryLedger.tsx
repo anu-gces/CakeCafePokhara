@@ -1,277 +1,282 @@
-import { createFileRoute, Link, useRouteContext } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   ArrowLeft,
   LoaderIcon,
   PlusIcon,
+  ReceiptIcon,
   Trash2Icon,
-  WalletIcon,
+  UserXIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
-import * as Yup from 'yup'
-import { Formik, Form, Field, ErrorMessage } from 'formik'
+import { format, startOfDay } from 'date-fns'
 import { motion, AnimatePresence } from 'motion/react'
+import { toast } from 'sonner'
+import { DatePickerWithPresets } from '@/components/ui/datepicker'
+import { useState } from 'react'
+
+import { api } from '../../../../convex/_generated/api'
+import { useMutation, useQuery } from 'convex/react'
+import type { FunctionArgs } from 'convex/server'
+import type { Id } from '../../../../convex/_generated/dataModel'
+import z from 'zod'
+import { useForm } from '@tanstack/react-form'
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
   DrawerDescription,
   DrawerFooter,
-  DrawerClose,
+  DrawerHeader,
+  DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+
 import { Textarea } from '@/components/ui/textarea'
-import { DatePickerWithPresets } from '@/components/ui/datepicker'
-import { toast } from 'sonner'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ScrollArea } from '@radix-ui/react-scroll-area'
-import { pb } from '@/lib/pocketbase'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { format } from 'date-fns'
-import type { User } from '@/lib/auth'
+import { SplashScreen } from '@/components/splashscreen'
 
 export const Route = createFileRoute('/home/employee/$salaryLedger')({
   component: RouteComponent,
 })
 
-type SalaryLedgerData = {
-  id: string
-  userId: string
-  amountPaid: number
-  datePaid: string
-  paidBy: string
-  paymentMethod?: string
-  reference?: string
-  notes?: string
-  created: string
-}
-
 function RouteComponent() {
   const { salaryLedger } = Route.useParams()
-  const { auth } = useRouteContext({ from: '/home' })
-  const loggedInUser = auth.user!
+  const navigate = useNavigate()
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    () => new Date(),
+  )
 
-  const { data: employeeData, isLoading: isEmployeeLoading } = useQuery<User>({
-    queryKey: ['user', salaryLedger],
-    queryFn: async () => pb.collection('users').getOne(salaryLedger),
-    enabled: !!salaryLedger,
+  const targetUser = useQuery(api.users.getUserById, {
+    id: salaryLedger as Id<'users'>,
   })
 
-  const { data: salaryLedgerData = [], isLoading: isSalaryLoading } = useQuery({
-    queryKey: ['salaryLedger', salaryLedger],
-    queryFn: async () =>
-      pb.collection('salaryLedger').getFullList<SalaryLedgerData>({
-        sort: '-created',
-        filter: `userId = "${salaryLedger}"`,
-      }),
-  })
+  const entries =
+    useQuery(api.salaryLedger.salaryLedger.listSalaryLedger, {
+      id: salaryLedger as Id<'users'>,
+      date: startOfDay(selectedDate!).getTime(),
+    }) ?? []
 
-  const isLoading = isEmployeeLoading || isSalaryLoading
+  if (targetUser === undefined) {
+    return <SplashScreen />
+  }
 
-  const totalPaid = salaryLedgerData.reduce(
-    (sum, p) => sum + Number(p.amountPaid),
+  if (targetUser === null) {
+    return (
+      <div className="flex flex-col justify-center items-center gap-2 p-8 h-full text-zinc-400 text-center">
+        <UserXIcon className="w-5 h-5 text-zinc-500" />
+        <span className="font-medium text-zinc-200 text-sm">
+          Staff member not found
+        </span>
+        <button
+          onClick={() => window.history.back()}
+          className="mt-2 text-zinc-500 hover:text-zinc-300 text-xs underline"
+        >
+          Go back
+        </button>
+      </div>
+    )
+  }
+
+  const totalBasePay = entries.reduce((sum, e) => sum + e.basePay, 0)
+  const totalBonus = entries.reduce((sum, e) => sum + e.tipsAndBonus, 0)
+  const totalDeductions = entries.reduce((sum, e) => sum + e.deductions, 0)
+  const totalNetPay = entries.reduce(
+    (sum, e) => sum + e.basePay + e.tipsAndBonus - e.deductions,
     0,
   )
 
-  const initials = employeeData
-    ? `${employeeData.firstName?.[0] ?? ''}${employeeData.lastName?.[0] ?? ''}`.toUpperCase()
-    : '??'
-
   return (
     <div className="h-full overflow-y-auto">
-      {/* Sticky header */}
+      {/* Sticky Header */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-4 pt-4 pb-4 max-w-xl">
-          {/* Back */}
-          <Link
-            to="/home/employee/table"
-            className="inline-flex items-center gap-1 mb-4 text-muted-foreground"
-            viewTransition={{ types: ['slide-right'] }}
-          >
-            <ArrowLeft size={16} />
-            <span className="text-xs">Back</span>
-          </Link>
+          <div className="flex justify-between items-center mb-4">
+            <Button
+              onClick={() =>
+                navigate({
+                  to: '/home/takeOrder',
+                  search: { category: 'appetizers' },
+                  viewTransition: { types: ['slide-right'] },
+                })
+              }
+              variant="ghost"
+              className="flex items-center gap-1.5 px-0 text-muted-foreground"
+            >
+              <ArrowLeft size={16} />
+              <span className="text-sm">Back</span>
+            </Button>
 
-          {/* Profile card */}
-          <div className="bg-card mb-3 border border-border rounded-xl overflow-hidden">
-            <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-              <Avatar className="w-12 h-12 shrink-0">
-                <AvatarImage
-                  src={
-                    employeeData
-                      ? pb.files.getURL(employeeData, employeeData.avatar)
-                      : undefined
-                  }
-                  alt={
-                    employeeData
-                      ? `${employeeData.firstName} ${employeeData.lastName}`
-                      : ''
-                  }
-                />
-                <AvatarFallback className="bg-violet-100 dark:bg-violet-900/40 font-semibold text-violet-700 dark:text-violet-300 text-sm">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+            <CreateSalaryLedgerDrawer />
+          </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-foreground text-base truncate leading-tight">
-                  {employeeData
-                    ? `${employeeData.firstName} ${employeeData.lastName}`
-                    : '...'}
-                </div>
-                <div className="mt-0.5 text-[10px] text-muted-foreground capitalize">
-                  {employeeData?.role}
-                  {employeeData?.department
-                    ? ` · ${employeeData.department}`
-                    : ''}
-                </div>
-                {employeeData?.email && (
-                  <div className="text-[10px] text-muted-foreground truncate">
-                    {employeeData.email}
-                  </div>
-                )}
+          <h1 className="mb-3 font-bold text-primary text-2xl capitalize">
+            {targetUser.name} Salary Ledger
+          </h1>
+
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="flex justify-between items-center px-4 py-3">
+              <div className="flex items-center gap-2">
+                <ReceiptIcon className="w-4 h-4 text-primary" />
+                <span className="font-medium text-primary text-sm">
+                  Net Salary
+                </span>
               </div>
-
-              <div className="text-right shrink-0">
-                <div className="mb-0.5 text-[10px] text-muted-foreground">
-                  base salary
-                </div>
-                <div className="font-semibold text-foreground text-base leading-tight">
-                  Rs. {(employeeData?.salary ?? 0).toLocaleString()}
-                </div>
-                {employeeData?.created && (
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">
-                    since {format(new Date(employeeData.created), 'MMM yyyy')}
-                  </div>
-                )}
-              </div>
+              <span className="font-bold text-primary text-lg">
+                Rs. {totalNetPay.toFixed(2)}
+              </span>
             </div>
 
-            {/* Stats row */}
-            <div className="grid grid-cols-3 border-border border-t">
+            <div className="grid grid-cols-4 border-border border-t">
               <div className="px-4 py-2.5 border-border border-r">
                 <div className="mb-0.5 text-[10px] text-muted-foreground">
-                  Payments
+                  Entries
                 </div>
                 <div className="font-semibold text-foreground text-lg">
-                  {salaryLedgerData.length}
+                  {entries.length}
                 </div>
               </div>
+
               <div className="px-4 py-2.5 border-border border-r">
                 <div className="mb-0.5 text-[10px] text-muted-foreground">
-                  Total paid
+                  Base
                 </div>
-                <div className="font-semibold text-green-600 dark:text-green-400 text-base">
-                  Rs. {totalPaid.toLocaleString()}
+                <div className="font-semibold text-foreground text-lg">
+                  Rs. {totalBasePay.toFixed(2)}
                 </div>
               </div>
-              <div className="px-4 py-2.5">
+
+              <div className="px-4 py-2.5 border-border border-r">
                 <div className="mb-0.5 text-[10px] text-muted-foreground">
-                  Last paid
+                  Bonus
                 </div>
-                <div className="font-semibold text-foreground text-sm">
-                  {salaryLedgerData[0]
-                    ? format(new Date(salaryLedgerData[0].datePaid), 'dd MMM')
-                    : '—'}
+                <div className="font-semibold text-green-600 dark:text-green-400 text-lg">
+                  Rs. {totalBonus.toFixed(2)}
+                </div>
+              </div>
+
+              <div className="px-4 py-2.5 border-border border-r">
+                <div className="mb-0.5 text-[10px] text-muted-foreground">
+                  Deduct
+                </div>
+                <div className="font-semibold text-red-600 dark:text-red-400 text-lg">
+                  Rs. {totalDeductions.toFixed(2)}
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Add button for non-employees */}
-          {loggedInUser?.role !== 'employee' && (
-            <LedgerDrawer salary={employeeData?.salary || 0} />
-          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="mx-auto px-4 py-3 pb-20 max-w-xl">
-        <div className="flex items-center gap-1.5 mb-3">
-          <span className="text-muted-foreground text-xs">
-            {salaryLedgerData.length} payments
-          </span>
-          {isLoading && (
-            <LoaderIcon className="w-3 h-3 text-muted-foreground animate-spin" />
-          )}
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground text-xs">
+              {entries.length} entries
+            </span>
+            {!entries && (
+              <LoaderIcon className="w-3 h-3 text-muted-foreground animate-spin" />
+            )}
+          </div>
+
+          <DatePickerWithPresets
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+          />
         </div>
 
         <div className="space-y-2">
-          {!isLoading && salaryLedgerData.length === 0 ? (
+          {entries.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-muted-foreground text-center">
-              <WalletIcon className="opacity-30 mb-3 w-10 h-10" />
-              <p className="text-sm">No payments recorded yet.</p>
+              <ReceiptIcon className="opacity-30 mb-3 w-10 h-10" />
+              <p className="text-sm">No salary records for this date.</p>
             </div>
           ) : (
             <AnimatePresence>
-              {salaryLedgerData.map((payment, i) => (
+              {entries.map((entry, i) => (
                 <motion.div
-                  key={payment.id}
+                  key={entry._id}
                   layout
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -60 }}
+                  exit={{ opacity: 0, x: -40 }}
                   transition={{ duration: 0.2, delay: i * 0.03 }}
                   className="relative"
                 >
-                  {/* Timeline dot */}
-                  <div className="top-5 -left-3.5 absolute bg-primary border-2 border-white dark:border-zinc-900 rounded-full w-2.5 h-2.5" />
-                  {/* Timeline line */}
-                  {i !== salaryLedgerData.length - 1 && (
+                  <div className="top-5 -left-3.5 absolute bg-primary border-2 rounded-full w-2.5 h-2.5" />
+
+                  {i !== entries.length - 1 && (
                     <div className="top-8 -left-[9px] absolute dark:bg-zinc-700 bg-border w-px h-[calc(100%-1.5rem)]" />
                   )}
 
-                  <div className="relative bg-card border border-border rounded-xl overflow-hidden">
-                    {/* Main row */}
-                    <div className="flex justify-between items-start gap-3 px-4 pt-3 pb-2.5">
+                  <div className="bg-card border border-border rounded-xl overflow-hidden">
+                    {/* Header */}
+                    <div className="flex justify-between items-start gap-2 px-4 pt-3 pb-2.5">
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-foreground text-base">
-                          Rs. {Number(payment.amountPaid).toLocaleString()}
-                          <div className="mt-0.5 text-[10px] text-muted-foreground capitalize">
-                            {payment.paymentMethod}
-                          </div>
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-muted-foreground">
-                          Paid by {payment.paidBy}
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
                         <div className="font-medium text-foreground text-sm">
-                          {format(new Date(payment.datePaid), 'dd MMM yyyy')}
+                          Salary Entry
+                        </div>
+
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">
+                          {format(
+                            new Date(entry.paidAt ?? entry._creationTime),
+                            'dd MMM yyyy, hh:mm a',
+                          )}
                         </div>
                       </div>
-                      {loggedInUser?.role !== 'employee' && (
-                        <div className="">
-                          <DeletePaymentDrawer paymentId={payment.id} />
-                        </div>
-                      )}
+
+                      <DeleteSalaryLedgerDrawer id={entry._id} />
                     </div>
 
-                    {/* Footer row */}
-                    {(payment.reference || payment.notes) && (
-                      <div className="flex justify-between items-center px-4 py-2 border-border border-t">
-                        {payment.reference && (
-                          <span className="text-[10px] text-muted-foreground">
-                            Ref: {payment.reference}
-                          </span>
-                        )}
-                        {payment.notes && (
-                          <span className="max-w-[180px] text-[10px] text-muted-foreground truncate italic">
-                            "{payment.notes}"
-                          </span>
-                        )}
+                    {/* Details */}
+                    <div className="gap-x-4 gap-y-2 grid grid-cols-2 px-4 py-3 border-border border-t text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Base Pay</span>
+                        <div className="font-medium text-foreground">
+                          Rs. {entry.basePay.toFixed(2)}
+                        </div>
                       </div>
-                    )}
+
+                      <div>
+                        <span className="text-muted-foreground">
+                          Tips & Bonus
+                        </span>
+                        <div className="font-medium text-green-600 dark:text-green-400">
+                          Rs. {entry.tipsAndBonus.toFixed(2)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-muted-foreground">
+                          Deductions
+                        </span>
+                        <div className="font-medium text-red-600 dark:text-red-400">
+                          Rs. {entry.deductions.toFixed(2)}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-muted-foreground">
+                          Net Salary
+                        </span>
+                        <div className="font-semibold text-primary">
+                          Rs.{' '}
+                          {(
+                            entry.basePay +
+                            entry.tipsAndBonus -
+                            entry.deductions
+                          ).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex justify-between items-center px-4 py-2.5 border-border border-t">
+                      <span className="text-[10px] text-muted-foreground italic">
+                        {entry.remarks ? `"${entry.remarks}"` : ''}
+                      </span>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -283,54 +288,258 @@ function RouteComponent() {
   )
 }
 
-const DeletePaymentDrawer = ({ paymentId }: { paymentId: string }) => {
+type SalaryLedger = FunctionArgs<
+  typeof api.salaryLedger.salaryLedger.createSalaryLedger
+>
+
+type CreateSalaryLedger = Omit<
+  SalaryLedger,
+  'paidAt' | 'basePay' | 'tipsAndBonus' | 'deductions' | 'userId'
+> & { paidAt: Date; basePay: string; tipsAndBonus: string; deductions: string }
+
+const defaultExpenseValues: CreateSalaryLedger = {
+  basePay: '',
+  tipsAndBonus: '',
+  deductions: '',
+  paidAt: new Date(),
+  remarks: '',
+}
+
+const amount = z.string().regex(/^[0-9]*$/, 'Only digits are allowed')
+
+const addExpenseSchema = z.object({
+  basePay: amount,
+  tipsAndBonus: amount,
+  deductions: amount,
+  paidAt: z.date(),
+  remarks: z.string().optional(),
+})
+
+function CreateSalaryLedgerDrawer() {
   const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
   const { salaryLedger } = Route.useParams()
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return await pb.collection('salaryLedger').delete(id)
-    },
+  const createLedger = useMutation(
+    api.salaryLedger.salaryLedger.createSalaryLedger,
+  )
 
-    onError: (error) => {
-      toast.error(`Error deleting payment: ${error.message}`)
+  const form = useForm({
+    defaultValues: defaultExpenseValues,
+    validators: { onChange: addExpenseSchema },
+    onSubmit: async ({ value }) => {
+      try {
+        await createLedger({
+          userId: salaryLedger as Id<'users'>,
+          basePay: Number(value.basePay),
+          tipsAndBonus: Number(value.tipsAndBonus),
+          deductions: Number(value.deductions),
+          paidAt: value.paidAt.getTime(),
+          remarks: value.remarks || '',
+        })
+
+        toast.success('Salary entry added')
+        form.reset()
+        setOpen(false)
+      } catch {
+        toast.error('Failed to add salary entry')
+      }
     },
   })
+
   return (
     <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger>
-        <Trash2Icon className="w-5 h-5" />
+      <DrawerTrigger asChild>
+        <Button className="flex items-center gap-2" size="sm">
+          <PlusIcon color="white" className="w-4 h-4" />
+          Add Entry
+        </Button>
       </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Delete Payment</DrawerTitle>
+          <DrawerTitle>Add Expense</DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to delete this payment?
+            Add a new entry to the Salary ledger.
+          </DrawerDescription>
+        </DrawerHeader>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            form.handleSubmit()
+          }}
+          className="space-y-4 px-4 pb-2"
+        >
+          <div className="gap-3 grid grid-cols-1">
+            <form.Field name="basePay">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Base Pay</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={field.state.value}
+                    onChange={(e) => {
+                      const value = e.target.value
+
+                      if (!/^[0-9]*$/.test(value)) return
+
+                      field.handleChange(value)
+                    }}
+                    onBlur={field.handleBlur}
+                  />
+                </div>
+              )}
+            </form.Field>
+
+            <form.Field name="tipsAndBonus">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Tips and Bonus</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={field.state.value}
+                    onChange={(e) => {
+                      const value = e.target.value
+
+                      if (!/^[0-9]*$/.test(value)) return
+
+                      field.handleChange(value)
+                    }}
+                    onBlur={field.handleBlur}
+                  />
+                </div>
+              )}
+            </form.Field>
+          </div>
+
+          <div className="gap-3 grid grid-cols-2">
+            <form.Field name="deductions">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label htmlFor={field.name}>Deductions</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={field.state.value}
+                    onChange={(e) => {
+                      const value = e.target.value
+
+                      if (!/^[0-9]*$/.test(value)) return
+
+                      field.handleChange(value)
+                    }}
+                    onBlur={field.handleBlur}
+                  />
+                </div>
+              )}
+            </form.Field>
+
+            <form.Field name="paidAt">
+              {(field) => (
+                <div className="space-y-2">
+                  <Label>Date Paid</Label>
+                  <DatePickerWithPresets
+                    className="w-48 h-10"
+                    selected={field.state.value}
+                    onSelect={(d) => d && field.handleChange(d)}
+                  />
+                </div>
+              )}
+            </form.Field>
+          </div>
+
+          <form.Field name="remarks">
+            {(field) => (
+              <div className="space-y-2">
+                <Label htmlFor={field.name}>Remarks</Label>
+                <Textarea
+                  id={field.name}
+                  rows={2}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Optional notes..."
+                />
+              </div>
+            )}
+          </form.Field>
+        </form>
+
+        <DrawerFooter>
+          <form.Subscribe
+            selector={(state) => [state.canSubmit, state.isSubmitting]}
+          >
+            {([canSubmit, isSubmitting]) => (
+              <Button
+                onClick={() => form.handleSubmit()}
+                disabled={!canSubmit || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Entry'
+                )}
+              </Button>
+            )}
+          </form.Subscribe>
+          <DrawerClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function DeleteSalaryLedgerDrawer({ id }: { id: Id<'salaryLedger'> }) {
+  const [open, setOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const deleteLedger = useMutation(
+    api.salaryLedger.salaryLedger.deleteSalaryLedger,
+  )
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteLedger({ id })
+      toast.success('Entry deleted')
+      setOpen(false)
+    } catch {
+      toast.error('Failed to delete entry')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-7 h-7 text-muted-foreground hover:text-destructive"
+        >
+          <Trash2Icon className="w-3.5 h-3.5" />
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Delete entry?</DrawerTitle>
+          <DrawerDescription>
+            This will permanently remove this ledger entry. This can't be
+            undone.
           </DrawerDescription>
         </DrawerHeader>
         <DrawerFooter>
-          <Button
-            className="bg-primary"
-            onClick={() =>
-              deleteMutation.mutate(paymentId, {
-                onSuccess: () => {
-                  queryClient.invalidateQueries({
-                    queryKey: ['salaryLedger', salaryLedger],
-                  })
-                  setOpen(false)
-                  toast.success('Record deleted successfully!')
-                },
-              })
-            }
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending ? (
+          <Button onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? (
               <>
-                <LoaderIcon
-                  color="white"
-                  className="mr-2 w-4 h-4 animate-spin"
-                />
+                <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
                 Deleting...
               </>
             ) : (
@@ -341,210 +550,6 @@ const DeletePaymentDrawer = ({ paymentId }: { paymentId: string }) => {
             <Button variant="outline">Cancel</Button>
           </DrawerClose>
         </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
-  )
-}
-
-const LedgerSchema = Yup.object().shape({
-  amountPaid: Yup.number()
-    .transform((value, originalValue) =>
-      typeof originalValue === 'string' && isNaN(Number(originalValue))
-        ? NaN
-        : value,
-    )
-    .strict(true) // disables type coercion
-    .typeError('must be a number')
-    .positive('Amount must be greater than zero')
-    .required(`must be a number and can't be empty`),
-  datePaid: Yup.string().required('Required'),
-  paidBy: Yup.string().required('Required'),
-  paymentMethod: Yup.string(),
-  reference: Yup.string(),
-  notes: Yup.string(),
-})
-
-function LedgerDrawer({ salary }: { salary: number }) {
-  const [open, setOpen] = useState(false)
-  const { salaryLedger } = Route.useParams()
-
-  const queryClient = useQueryClient()
-
-  const enterPaymentMutation = useMutation({
-    mutationFn: async (values: any) => {
-      return await pb.collection('salaryLedger').create({
-        userId: salaryLedger,
-        amountPaid: values.amountPaid,
-        datePaid: values.datePaid,
-        paidBy: values.paidBy,
-        paymentMethod: values.paymentMethod,
-        reference: values.reference,
-        notes: values.notes,
-      })
-    },
-
-    onError: (error) => {
-      toast.error(`Error adding record: ${error.message}`)
-    },
-  })
-
-  return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <Button variant="default">
-          <PlusIcon color="white" /> Add Entry
-        </Button>
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Add Salary Entry</DrawerTitle>
-          <DrawerDescription>
-            Enter details for the new salary payment.
-          </DrawerDescription>
-        </DrawerHeader>
-        <Formik
-          initialValues={{
-            amountPaid: salary,
-            datePaid: '',
-            paidBy: '',
-            paymentMethod: 'cash',
-            reference: '',
-            notes: '',
-          }}
-          validationSchema={LedgerSchema}
-          onSubmit={(values, { resetForm }) => {
-            enterPaymentMutation.mutate(
-              {
-                ...values,
-                userUid: salaryLedger,
-              },
-              {
-                onSuccess: () => {
-                  queryClient.invalidateQueries({
-                    queryKey: ['salaryLedger', salaryLedger],
-                  })
-                  setOpen(false)
-                  resetForm()
-                  toast.success('Record added successfully!')
-                },
-              },
-            )
-          }}
-        >
-          {({ setFieldValue, values }) => (
-            <Form>
-              <ScrollArea className="space-y-2 p-4 max-h-64 overflow-y-auto">
-                <div className="space-y-2">
-                  <Label htmlFor="amountPaid">Amount</Label>
-                  <Field
-                    as={Input}
-                    id="amountPaid"
-                    name="amountPaid"
-                    type="number"
-                    required
-                  />
-                  <ErrorMessage
-                    name="amountPaid"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="datePaid">Date</Label>
-                  <DatePickerWithPresets
-                    selected={
-                      values.datePaid ? new Date(values.datePaid) : undefined
-                    }
-                    onSelect={(date) =>
-                      setFieldValue(
-                        'datePaid',
-                        date ? date.toLocaleDateString('en-CA') : '',
-                      )
-                    }
-                  />
-                  <ErrorMessage
-                    name="datePaid"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="paidBy">Paid By</Label>
-                  <Field as={Input} id="paidBy" name="paidBy" required />
-                  <ErrorMessage
-                    name="paidBy"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="paymentMethod">Payment Method</Label>
-
-                  <Select
-                    value={values.paymentMethod}
-                    onValueChange={(value) =>
-                      setFieldValue('paymentMethod', value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="esewa">eSewa</SelectItem>
-                      <SelectItem value="bank">Bank</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <ErrorMessage
-                    name="paymentMethod"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="reference">Reference</Label>
-                  <Field as={Input} id="reference" name="reference" />
-                  <ErrorMessage
-                    name="reference"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Field as={Textarea} id="notes" name="notes" />
-                  <ErrorMessage
-                    name="notes"
-                    component="div"
-                    className="text-red-500 text-xs"
-                  />
-                </div>
-              </ScrollArea>
-              <DrawerFooter>
-                <Button type="submit" disabled={enterPaymentMutation.isPending}>
-                  {enterPaymentMutation.isPending ? (
-                    <>
-                      <LoaderIcon
-                        color="white"
-                        className="mr-2 w-4 h-4 animate-spin"
-                      />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
-                <DrawerClose asChild>
-                  <Button variant="outline" type="button">
-                    Cancel
-                  </Button>
-                </DrawerClose>
-              </DrawerFooter>
-            </Form>
-          )}
-        </Formik>
       </DrawerContent>
     </Drawer>
   )

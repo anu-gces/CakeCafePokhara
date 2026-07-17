@@ -1,7 +1,8 @@
 import {
   createFileRoute,
+  useLoaderData,
   useNavigate,
-  useRouteContext,
+  useParams,
 } from '@tanstack/react-router'
 import {
   ArrowLeft,
@@ -11,31 +12,39 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { endOfDay, format, startOfDay } from 'date-fns'
+import { format, startOfDay } from 'date-fns'
 import { motion, AnimatePresence } from 'motion/react'
-import { pb } from '@/lib/pocketbase'
 import { toast } from 'sonner'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+
+import { api } from '../../../../convex/_generated/api'
+import { useMutation, useQuery } from 'convex/react'
+import type { FunctionArgs } from 'convex/server'
+import type { Id } from '../../../../convex/_generated/dataModel'
+import z from 'zod'
+import { useForm } from '@tanstack/react-form'
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
+  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  DrawerTrigger,
 } from '@/components/ui/drawer'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { handlePbError } from '@/lib/utils'
-import { Select } from '@radix-ui/react-select'
+import { Input } from '@/components/ui/input'
 import {
+  Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export const Route = createFileRoute('/home/expenseLedger/$department')({
   component: RouteComponent,
@@ -49,92 +58,31 @@ export const Route = createFileRoute('/home/expenseLedger/$department')({
 
 type Department = 'kitchen' | 'bakery' | 'utility' | 'barista'
 
-export type ExpenseLedger = {
-  id: string
-  department: Department
-  name: string
-  quantity: number
-  price: number
-  remarks: string
-  status: 'paid' | 'credited'
-  createdBy: string
-  date: string
-  expand?: {
-    createdBy?: {
-      id: string
-      firstName: string
-      lastName: string
-    }
-    vendorId?: {
-      id: string
-      name: string
-    }
-  }
-}
-
 function RouteComponent() {
   const navigate = useNavigate()
+  const { branches } = useLoaderData({ from: '/home/expenseLedger' })
   const { department } = Route.useParams()
-  const queryClient = useQueryClient()
+  const [selectedBranch, setSelectedBranch] = useState<string>(
+    () => branches[0]?._id ?? '',
+  )
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     () => new Date(),
   )
-  const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const {
-    data: entries = [],
-    isLoading,
-    error,
-  } = useQuery<ExpenseLedger[]>({
-    queryKey: ['expenseLedger', department, selectedDate],
-    queryFn: async () => {
-      const date = selectedDate ?? new Date()
-
-      // 1. Get the local start and end of the chosen day (Nepal Time)
-      const localStart = startOfDay(date)
-      const localEnd = endOfDay(date)
-
-      // 2. Convert to ISO and replace 'T' with ' ' for PocketBase string comparison
-      const startStr = localStart.toISOString().replace('T', ' ')
-      const endStr = localEnd.toISOString().replace('T', ' ')
-
-      return await pb.collection('expenseLedger').getFullList({
-        filter: `department="${department}" && date >= "${startStr}" && date <= "${endStr}"`,
-        sort: '-date',
-        expand: 'createdBy, vendorId',
-      })
-    },
-    enabled: !!department,
-  })
+  const entries =
+    useQuery(api.restaurant.expenseLedger.listLedger, {
+      department,
+      date: startOfDay(selectedDate!).getTime(),
+    }) ?? []
 
   const creditedTotal = entries
     .filter((e) => e.status === 'credited')
     .reduce((sum, e) => sum + e.price * e.quantity, 0)
 
-  const deleteEntryMutation = useMutation({
-    mutationFn: async (entryId: string) => {
-      return await pb.collection('expenseLedger').delete(entryId)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenseLedger', department] })
-      toast.success('Entry deleted.')
-    },
-    onError: handlePbError,
-  })
-
-  const markAsPaidMutation = useMutation({
-    mutationFn: async (entryId: string) => {
-      return await pb
-        .collection('expenseLedger')
-        .update(entryId, { status: 'paid' })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenseLedger', department] })
-      toast.success('Marked as paid!')
-    },
-    onError: handlePbError,
-  })
+  const filteredEntries = useMemo(() => {
+    return entries.filter((e) => e.branchId === selectedBranch)
+  }, [entries, selectedBranch])
 
   return (
     <div className="h-full overflow-y-auto">
@@ -155,19 +103,30 @@ function RouteComponent() {
               <ArrowLeft size={16} />
               <span className="text-sm">Back</span>
             </Button>
-            <Button
-              onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-2"
-              size="sm"
-            >
-              <PlusIcon color="white" className="w-4 h-4" />
-              Add Entry
-            </Button>
+            <AddExpenseDrawer />
           </div>
 
           <h1 className="mb-3 font-bold text-primary text-2xl capitalize">
             {department} Ledger
           </h1>
+
+          <Tabs
+            value={selectedBranch}
+            onValueChange={setSelectedBranch}
+            className="mb-3"
+          >
+            <TabsList className="w-full">
+              {branches.map((branch) => (
+                <TabsTrigger
+                  key={branch._id}
+                  value={branch._id}
+                  className="flex-1"
+                >
+                  {branch.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
           {/* Summary card */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -196,7 +155,10 @@ function RouteComponent() {
                   Credited
                 </div>
                 <div className="font-semibold text-amber-600 dark:text-amber-400 text-lg">
-                  {entries.filter((e) => e.status === 'credited').length}
+                  {
+                    filteredEntries.filter((e) => e.status === 'credited')
+                      .length
+                  }
                 </div>
               </div>
             </div>
@@ -210,9 +172,9 @@ function RouteComponent() {
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground text-xs">
-              {entries.length} entries
+              {filteredEntries.length} entries
             </span>
-            {isLoading && (
+            {!filteredEntries && (
               <LoaderIcon className="w-3 h-3 text-muted-foreground animate-spin" />
             )}
           </div>
@@ -222,23 +184,17 @@ function RouteComponent() {
           />
         </div>
 
-        {error && (
-          <div className="py-4 text-red-500 text-sm text-center">
-            Error loading entries: {(error as Error).message}
-          </div>
-        )}
-
         <div className="space-y-2">
-          {!isLoading && entries.length === 0 ? (
+          {filteredEntries && filteredEntries.length === 0 ? (
             <div className="flex flex-col items-center py-16 text-muted-foreground text-center">
               <ReceiptIcon className="opacity-30 mb-3 w-10 h-10" />
               <p className="text-sm">No entries for this date.</p>
             </div>
           ) : (
             <AnimatePresence>
-              {entries.map((entry, i) => (
+              {filteredEntries.map((entry, i) => (
                 <motion.div
-                  key={entry.id}
+                  key={entry._id}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -248,7 +204,7 @@ function RouteComponent() {
                 >
                   {/* Timeline dot */}
                   <div className="top-5 -left-3.5 absolute bg-primary border-2 rounded-full w-2.5 h-2.5" />
-                  {i !== entries.length - 1 && (
+                  {i !== filteredEntries.length - 1 && (
                     <div className="top-8 -left-[9px] absolute dark:bg-zinc-700 bg-border w-px h-[calc(100%-1.5rem)]" />
                   )}
 
@@ -265,16 +221,12 @@ function RouteComponent() {
                         <div className="mt-0.5 text-[10px] text-muted-foreground">
                           created by{' '}
                           <span className="font-medium text-foreground">
-                            {entry.expand?.createdBy
-                              ? `${entry.expand.createdBy.firstName} ${entry.expand.createdBy.lastName}`
-                              : 'Unknown'}
+                            {entry.createdBy?.name}
                           </span>
                           <div className="mt-0.5 text-[10px] text-muted-foreground">
                             Vendor{' '}
                             <span className="font-medium text-foreground">
-                              {entry.expand?.vendorId
-                                ? `${entry.expand.vendorId.name}`
-                                : 'Unknown'}
+                              {entry.vendor?.name}
                             </span>
                           </div>
                         </div>
@@ -289,14 +241,7 @@ function RouteComponent() {
                         >
                           {entry.status === 'paid' ? 'Paid' : 'Credited'}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-7 h-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteEntryMutation.mutate(entry.id)}
-                        >
-                          <Trash2Icon className="w-3.5 h-3.5" />
-                        </Button>
+                        <DeleteExpenseDrawer id={entry._id} />
                       </div>
                     </div>
 
@@ -328,14 +273,7 @@ function RouteComponent() {
                         {entry.remarks ? `"${entry.remarks}"` : ''}
                       </span>
                       {entry.status === 'credited' && (
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs active:scale-95"
-                          onClick={() => markAsPaidMutation.mutate(entry.id)}
-                          disabled={markAsPaidMutation.isPending}
-                        >
-                          Mark as Paid
-                        </Button>
+                        <MarkAsPaidDrawer id={entry._id} />
                       )}
                     </div>
                   </div>
@@ -345,212 +283,399 @@ function RouteComponent() {
           )}
         </div>
       </div>
-
-      <AddEntryDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        department={department}
-        onSuccess={() =>
-          queryClient.invalidateQueries({
-            queryKey: ['expenseLedger', department],
-          })
-        }
-      />
     </div>
   )
 }
 
-type ExpenseForm = {
-  name: string
-  quantity: string
-  price: string
-  remarks: string
-  vendorId?: string
-  status: 'paid' | 'credited'
-  date: Date | undefined
+type AddExpenseConvex = FunctionArgs<
+  typeof api.restaurant.expenseLedger.createLedger
+>
+
+type AddExpense = Omit<AddExpenseConvex, 'date' | 'branchId'> & {
+  date: Date
+  branchId: Id<'branches'> | undefined
 }
 
-const emptyForm: ExpenseForm = {
+const defaultExpenseValues: AddExpense = {
+  department: 'kitchen' as AddExpense['department'],
   name: '',
-  quantity: '',
-  price: '',
-  remarks: '',
   vendorId: undefined,
-  status: 'paid',
+  branchId: undefined,
+  quantity: 1,
+  price: 0,
+  status: 'credited',
   date: new Date(),
+  remarks: undefined,
 }
 
-function AddEntryDrawer({
-  open,
-  onOpenChange,
-  department,
-  onSuccess,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  department: Department
-  onSuccess: () => void
-}) {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-  const [form, setForm] = useState<ExpenseForm>(emptyForm)
+const addExpenseSchema = z.object({
+  department: z.enum(['kitchen', 'bakery', 'utility', 'barista']),
+  name: z.string().min(1, 'Name is required'),
+  vendorId: z.custom<Id<'vendors'> | undefined>((val) => {
+    return val === undefined || typeof val === 'string'
+  }),
+  branchId: z.custom<Id<'branches'>>((val) => typeof val === 'string', {
+    message: 'Branch is required',
+  }),
+  quantity: z.number().min(1, 'Must be at least 1'),
+  price: z.number().min(0, 'Must be a positive number'),
+  status: z.enum(['paid', 'credited']),
+  date: z.date(),
+  remarks: z.string().optional(),
+})
 
-  const { data: vendors } = useQuery({
-    queryKey: ['vendors'],
-    queryFn: async () => pb.collection('vendors').getFullList(),
-    enabled: !!department,
-  })
+export function AddExpenseDrawer() {
+  const [open, setOpen] = useState(false)
+  const { branches } = useLoaderData({ from: '/home/expenseLedger' })
+  const { department } = useParams({ from: '/home/expenseLedger/$department' })
 
-  const addEntryMutation = useMutation({
-    mutationFn: async (form: ExpenseForm) => {
-      return await pb.collection('expenseLedger').create({
-        department,
-        vendorId: form.vendorId,
-        name: form.name,
-        quantity: Number(form.quantity),
-        price: Number(form.price),
-        remarks: form.remarks,
-        status: form.status,
-        createdBy: user.id,
-        date: form.date ? form.date : new Date(),
-      })
+  const vendors = useQuery(api.restaurant.vendors.listVendors) ?? []
+
+  const createLedger = useMutation(api.restaurant.expenseLedger.createLedger)
+
+  const form = useForm({
+    defaultValues: defaultExpenseValues,
+    validators: { onChange: addExpenseSchema },
+    onSubmit: async ({ value }) => {
+      try {
+        await createLedger({
+          department: department,
+          name: value.name,
+          vendorId: (value.vendorId as Id<'vendors'>) ?? undefined,
+          branchId: value.branchId as Id<'branches'>,
+          quantity: value.quantity,
+          price: value.price,
+          status: value.status,
+          date: value.date.getTime(),
+          remarks: value.remarks || '',
+        })
+        toast.success('Entry added')
+        form.reset()
+        setOpen(false)
+      } catch {
+        toast.error('Failed to add entry')
+      }
     },
-    onSuccess: () => {
-      toast.success('Entry added!')
-      setForm(emptyForm)
-      onOpenChange(false)
-      onSuccess()
-    },
-    onError: handlePbError,
   })
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
+        <Button className="flex items-center gap-2" size="sm">
+          <PlusIcon color="white" className="w-4 h-4" />
+          Add Entry
+        </Button>
+      </DrawerTrigger>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle className="capitalize">
-            Add {department} expense
-          </DrawerTitle>
+          <DrawerTitle>Add Expense</DrawerTitle>
+          <DrawerDescription>
+            Add a new entry to the {department} ledger.
+          </DrawerDescription>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 px-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="name">Item name</Label>
-            <Input
-              id="name"
-              placeholder="e.g. Flour, Meat, Milk"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            />
-          </div>
-          <div className="flex gap-4">
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                inputMode="decimal"
-                placeholder="e.g. 5"
-                value={form.quantity}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, quantity: e.target.value }))
-                }
-              />
-            </div>
-            <div className="flex-1 space-y-1.5">
-              <Label htmlFor="price">Price (Rs.)</Label>
-              <Input
-                id="price"
-                type="number"
-                inputMode="decimal"
-                placeholder="e.g. 500"
-                value={form.price}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, price: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Date</Label>
-            <DatePickerWithPresets
-              selected={form.date}
-              onSelect={(d) => setForm((f) => ({ ...f, date: d }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vendor</Label>
-            <Select
-              value={form.vendorId}
-              onValueChange={(value) =>
-                setForm((f) => ({ ...f, vendorId: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendors?.map((vendor) => (
-                  <SelectItem key={vendor.id} value={vendor.id}>
-                    {vendor.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Status</Label>
-            <Select
-              defaultValue="paid"
-              value={form.status}
-              onValueChange={(value) =>
-                setForm((f) => ({
-                  ...f,
-                  status: value as 'paid' | 'credited',
-                }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="credited">Credited</SelectItem>
-              </SelectContent>
-            </Select>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            form.handleSubmit()
+          }}
+          className="space-y-4 px-4 pb-2"
+        >
+          <form.Field name="name">
+            {(field) => (
+              <div className="space-y-1.5">
+                <Label htmlFor={field.name}>Name</Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="e.g. Gas cylinder"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-xs">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field
+            name="vendorId"
+            children={(field) => (
+              <div className="space-y-1.5">
+                <Label>Vendor</Label>
+                <Select
+                  value={field.state.value}
+                  // Wrap the handler here:
+                  onValueChange={(value) =>
+                    field.handleChange(value as Id<'vendors'>)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.map((vendor) => (
+                      <SelectItem key={vendor._id} value={vendor._id}>
+                        {vendor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          />
+          <form.Field
+            name="branchId"
+            children={(field) => (
+              <div className="space-y-1.5">
+                <Label>Branch</Label>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(value) =>
+                    field.handleChange(value as Id<'branches'>)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch._id} value={branch._id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-xs">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          />
+
+          <div className="gap-3 grid grid-cols-2">
+            <form.Field name="quantity">
+              {(field) => (
+                <div className="space-y-1.5">
+                  <Label htmlFor={field.name}>Quantity</Label>
+                  <Input
+                    id={field.name}
+                    type="number"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(Number(e.target.value))}
+                    onBlur={field.handleBlur}
+                  />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-destructive text-xs">
+                      {field.state.meta.errors[0]?.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </form.Field>
+
+            <form.Field name="price">
+              {(field) => (
+                <div className="space-y-1.5">
+                  <Label htmlFor={field.name}>Price (Rs.)</Label>
+                  <Input
+                    id={field.name}
+                    type="number"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(Number(e.target.value))}
+                    onBlur={field.handleBlur}
+                  />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-destructive text-xs">
+                      {field.state.meta.errors[0]?.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </form.Field>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="remarks">Remarks</Label>
-            <Input
-              id="remarks"
-              placeholder="Optional notes"
-              value={form.remarks}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, remarks: e.target.value }))
-              }
-            />
+          <div className="gap-3 grid grid-cols-2">
+            <form.Field name="status">
+              {(field) => (
+                <div className="space-y-1.5">
+                  <Label htmlFor={field.name}>Status</Label>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) =>
+                      field.handleChange(v as 'paid' | 'credited')
+                    }
+                  >
+                    <SelectTrigger id={field.name}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="credited">Credited</SelectItem>
+                      <SelectItem value="paid">Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </form.Field>
+
+            <form.Field name="date">
+              {(field) => (
+                <div className="space-y-1.5">
+                  <Label>Date</Label>
+                  <DatePickerWithPresets
+                    selected={field.state.value}
+                    onSelect={(d) => d && field.handleChange(d)}
+                  />
+                </div>
+              )}
+            </form.Field>
           </div>
-        </div>
-        <DrawerFooter>
-          <Button
-            onClick={() => addEntryMutation.mutate(form)}
-            disabled={
-              !form.name ||
-              !form.quantity ||
-              !form.price ||
-              addEntryMutation.isPending
-            }
-          >
-            {addEntryMutation.isPending ? (
-              <>
-                <LoaderIcon
-                  color="white"
-                  className="mr-2 w-4 h-4 animate-spin"
+
+          <form.Field name="remarks">
+            {(field) => (
+              <div className="space-y-1.5">
+                <Label htmlFor={field.name}>Remarks (optional)</Label>
+                <Textarea
+                  id={field.name}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  rows={2}
                 />
-                Adding...
+              </div>
+            )}
+          </form.Field>
+        </form>
+
+        <DrawerFooter>
+          <form.Subscribe
+            selector={(state) => [state.canSubmit, state.isSubmitting]}
+          >
+            {([canSubmit, isSubmitting]) => (
+              <Button
+                onClick={() => form.handleSubmit()}
+                disabled={!canSubmit || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Entry'
+                )}
+              </Button>
+            )}
+          </form.Subscribe>
+          <DrawerClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+export function MarkAsPaidDrawer({ id }: { id: Id<'expenseLedger'> }) {
+  const [open, setOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const markAsPaidLedger = useMutation(api.restaurant.expenseLedger.markAsPaid)
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await markAsPaidLedger({ id })
+      toast.success('Succesfully Marked as Paid')
+      setOpen(false)
+    } catch {
+      toast.error('Failed to mark as Paid')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
+        <Button>Mark as Paid</Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Mark as Paid?</DrawerTitle>
+          <DrawerDescription>This action can't be undone.</DrawerDescription>
+        </DrawerHeader>
+        <DrawerFooter>
+          <Button onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? (
+              <>
+                <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                Marking...
               </>
             ) : (
-              'Add Entry'
+              'Mark as Paid'
+            )}
+          </Button>
+          <DrawerClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DrawerClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function DeleteExpenseDrawer({ id }: { id: Id<'expenseLedger'> }) {
+  const [open, setOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const deleteLedger = useMutation(api.restaurant.expenseLedger.deleteLedger)
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await deleteLedger({ id })
+      toast.success('Entry deleted')
+      setOpen(false)
+    } catch {
+      toast.error('Failed to delete entry')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-7 h-7 text-muted-foreground hover:text-destructive"
+        >
+          <Trash2Icon className="w-3.5 h-3.5" />
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerHeader>
+          <DrawerTitle>Delete entry?</DrawerTitle>
+          <DrawerDescription>
+            This will permanently remove this ledger entry. This can't be
+            undone.
+          </DrawerDescription>
+        </DrawerHeader>
+        <DrawerFooter>
+          <Button onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? (
+              <>
+                <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              'Delete'
             )}
           </Button>
           <DrawerClose asChild>

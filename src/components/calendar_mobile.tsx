@@ -9,70 +9,36 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
-
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from './ui/switch'
+import { SplashScreen } from './splashscreen'
 
 import type { EventApi } from '@fullcalendar/core/index.js'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import FullCalendar from '@fullcalendar/react'
 import timeGridPlugin from '@fullcalendar/timegrid'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import type { Doc } from '../../convex/_generated/dataModel'
+
 import {
   CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  LoaderIcon,
   Plus,
   RotateCcw,
 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { SplashScreen } from './splashscreen'
-import { pb } from '@/lib/pocketbase'
-import { handlePbError } from '@/lib/utils'
-import { Switch } from './ui/switch'
-
-export type CalendarEventProps = {
-  id: string
-  title: string
-  startDate: string
-  endDate: string
-  color: string
-}
 
 export function Calendar() {
-  const queryClient = useQueryClient()
-
-  const {
-    data: events = [],
-    isLoading,
-    error,
-  } = useQuery<CalendarEventProps[]>({
-    queryKey: ['calendarEvents'],
-    queryFn: () => pb.collection('calendarEvents').getFullList(),
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
-  })
-
-  const addEventMutation = useMutation({
-    mutationFn: (event: Omit<CalendarEventProps, 'id'>) =>
-      pb.collection('calendarEvents').create(event),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendarEvents'] })
-      toast('Event added!')
-    },
-    onError: handlePbError,
-  })
-
-  const deleteEventMutation = useMutation({
-    mutationFn: (id: string) => pb.collection('calendarEvents').delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendarEvents'] })
-      toast('Event deleted!')
-    },
-    onError: handlePbError,
-  })
+  // 1. Convex Queries & Mutations
+  const events = useQuery(api.calendar.calendar.listEvents)
+  const createEvent = useMutation(api.calendar.calendar.createEvent)
+  const deleteEvent = useMutation(api.calendar.calendar.deleteEvent)
 
   const [title, setTitle] = useState('')
   const [startDate, setStartDate] = useState('')
@@ -82,6 +48,8 @@ export function Calendar() {
   const [selectedEvent, setSelectedEvent] = useState<EventApi | null>(null)
   const [detailsDrawer, setDetailsDrawer] = useState(false)
   const [isDayView, setIsDayView] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const calendarRef = useRef<any>(null)
 
   const handleNext = () => calendarRef.current.getApi().next()
@@ -90,30 +58,53 @@ export function Calendar() {
 
   const handleDayView = () =>
     calendarRef.current.getApi().changeView('timeGridDay')
-
   const handleMonthView = () =>
     calendarRef.current.getApi().changeView('dayGridMonth')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (new Date(startDate) > new Date(endDate)) {
+    const startMs = new Date(startDate).getTime()
+    const endMs = new Date(endDate).getTime()
+
+    if (startMs > endMs) {
       alert('End date must be after start date')
       return
     }
 
-    addEventMutation.mutate({
-      title,
-      startDate: new Date(startDate).toISOString(),
-      endDate: new Date(endDate).toISOString(),
-      color,
-    })
+    try {
+      setIsSubmitting(true)
+      await createEvent({
+        title,
+        startDate: startMs,
+        endDate: endMs,
+        color,
+      })
 
-    setTitle('')
-    setStartDate('')
-    setEndDate('')
-    setColor('#e11d48')
-    setOpen(false)
+      toast.success('Event added!')
+      setTitle('')
+      setStartDate('')
+      setEndDate('')
+      setColor('#e11d48')
+      setOpen(false)
+    } catch {
+      toast.error('Failed to create event')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (id: any) => {
+    try {
+      setIsDeleting(true)
+      await deleteEvent({ id })
+      toast.success('Event deleted!')
+      setDetailsDrawer(false)
+    } catch {
+      toast.error('Failed to delete event')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   return (
@@ -122,7 +113,6 @@ export function Calendar() {
       <div className="flex justify-between items-center py-2">
         {/* LEFT CONTROLS */}
         <div className="flex items-center gap-2">
-          {/* Drawer Trigger */}
           <Drawer
             shouldScaleBackground={false}
             setBackgroundColorOnScale={false}
@@ -151,6 +141,7 @@ export function Calendar() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="col-span-3"
+                    required
                   />
                 </div>
 
@@ -161,6 +152,7 @@ export function Calendar() {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     className="col-span-3"
+                    required
                   />
                 </div>
 
@@ -171,6 +163,7 @@ export function Calendar() {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="col-span-3"
+                    required
                   />
                 </div>
 
@@ -185,8 +178,15 @@ export function Calendar() {
                 </div>
 
                 <DrawerFooter>
-                  <Button type="submit" disabled={addEventMutation.isPending}>
-                    {addEventMutation.isPending ? 'Saving...' : 'Save'}
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save'
+                    )}
                   </Button>
                   <DrawerClose asChild>
                     <Button variant="outline">Cancel</Button>
@@ -199,20 +199,14 @@ export function Calendar() {
           {/* VIEW TOGGLE */}
           <div className="flex items-center gap-2">
             <CalendarDays className="w-4 h-4" />
-
             <Switch
               checked={isDayView}
               onCheckedChange={(checked) => {
                 setIsDayView(checked)
-
-                if (checked) {
-                  handleDayView()
-                } else {
-                  handleMonthView()
-                }
+                if (checked) handleDayView()
+                else handleMonthView()
               }}
             />
-
             <CalendarClock className="w-4 h-4" />
           </div>
         </div>
@@ -222,11 +216,9 @@ export function Calendar() {
           <Button variant="outline" onClick={handlePrev}>
             <ChevronLeft />
           </Button>
-
           <Button variant="outline" onClick={handleToday}>
             <RotateCcw size={20} />
           </Button>
-
           <Button variant="outline" onClick={handleNext}>
             <ChevronRight />
           </Button>
@@ -235,32 +227,28 @@ export function Calendar() {
 
       {/* CALENDAR */}
       <div className="flex flex-col h-full">
-        {error && (
-          <div className="bg-red-100 px-2 py-1 border border-red-400 rounded text-red-700 text-sm">
-            {error.message}
-          </div>
+        {events === undefined && <SplashScreen />}
+
+        {events !== undefined && (
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin]}
+            initialView="dayGridMonth"
+            events={events.map((e: Doc<'calendarEvents'>) => ({
+              id: e._id,
+              title: e.title,
+              start: new Date(e.startDate).toISOString(),
+              end: new Date(e.endDate).toISOString(),
+              color: e.color,
+            }))}
+            headerToolbar={{ left: 'title', center: '', right: '' }}
+            height="100%"
+            eventClick={(info) => {
+              setSelectedEvent(info.event)
+              setDetailsDrawer(true)
+            }}
+          />
         )}
-
-        {isLoading && <SplashScreen />}
-
-        <FullCalendar
-          ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin]}
-          initialView="dayGridMonth"
-          events={events.map((e) => ({
-            id: e.id,
-            title: e.title,
-            start: e.startDate,
-            end: e.endDate,
-            color: e.color,
-          }))}
-          headerToolbar={{ left: 'title', center: '', right: '' }}
-          height="100%"
-          eventClick={(info) => {
-            setSelectedEvent(info.event)
-            setDetailsDrawer(true)
-          }}
-        />
       </div>
 
       {/* DETAILS DRAWER */}
@@ -281,7 +269,6 @@ export function Calendar() {
 
             <div className="px-4 py-5">
               <div className="flex items-stretch gap-4">
-                {/* timeline spine */}
                 <div className="flex flex-col items-center pt-1">
                   <div
                     className="rounded-full w-2 h-2 shrink-0"
@@ -291,7 +278,6 @@ export function Calendar() {
                   <div className="border-2 border-border rounded-full w-2 h-2 shrink-0" />
                 </div>
 
-                {/* content */}
                 <div className="flex flex-col flex-1 gap-5">
                   <div>
                     <p className="mb-0.5 text-[11px] text-muted-foreground uppercase tracking-widest">
@@ -325,10 +311,10 @@ export function Calendar() {
                           )
                           const h = Math.floor(mins / 60)
                           const m = mins % 60
-                          const label =
-                            h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`
                           return (
-                            <span className="ml-1 normal-case">· {label}</span>
+                            <span className="ml-1 normal-case">
+                              · {h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`}
+                            </span>
                           )
                         })()}
                     </p>
@@ -352,14 +338,17 @@ export function Calendar() {
 
             <DrawerFooter className="flex gap-2">
               <Button
-                className="flex-1 bg-primary"
-                disabled={deleteEventMutation.isPending}
-                onClick={() => {
-                  deleteEventMutation.mutate(selectedEvent.id)
-                  setDetailsDrawer(false)
-                }}
+                disabled={isDeleting}
+                onClick={() => handleDelete(selectedEvent.id)}
               >
-                {deleteEventMutation.isPending ? 'Deleting...' : 'Delete'}
+                {isDeleting ? (
+                  <>
+                    <LoaderIcon className="stroke-white mr-2 w-4 h-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
               </Button>
               <Button
                 variant="outline"

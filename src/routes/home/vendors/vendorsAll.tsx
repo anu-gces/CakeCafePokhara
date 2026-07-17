@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  useNavigate,
-  useRouteContext,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import {
   Drawer,
@@ -28,82 +24,64 @@ import {
 import { type PanInfo, useMotionValue, motion } from 'motion/react'
 import { handleSwipeSnap } from '@/lib/swipeGestures'
 import { toast } from 'sonner'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { pb } from '@/lib/pocketbase'
+import { api } from '../../../../convex/_generated/api'
+import { useMutation, useQuery } from 'convex/react'
+import type { Doc } from '../../../../convex/_generated/dataModel'
+import { InlineLoader } from '@/components/splashscreen'
+import { useForm } from '@tanstack/react-form'
+import { z } from 'zod'
 
 export const Route = createFileRoute('/home/vendors/vendorsAll')({
   component: RouteComponent,
 })
 
-type Vendors = {
-  id: string
-  name: string
-  remarks?: string
-}
+type Vendor = Doc<'vendors'>
 
-async function getAllVendors(): Promise<Vendors[]> {
-  return await pb.collection('vendors').getFullList({ sort: '-created' })
-}
-
-async function createPayLaterCustomer(
-  data: Omit<Vendors, 'id'>,
-): Promise<Vendors> {
-  return await pb.collection('vendors').create(data)
-}
-
-async function updatePayLaterCustomer(customer: Vendors): Promise<Vendors> {
-  return await pb.collection('vendors').update(customer.id, customer)
-}
-
-async function deletePayLaterCustomer(customer: Vendors): Promise<void> {
-  await pb.collection('vendors').delete(customer.id)
-}
+const customerSchema = z.object({
+  name: z.string().min(1, 'Name is required.'),
+  remarks: z.string(),
+})
 
 function RouteComponent() {
-  const [name, setName] = useState('')
-  const [remarks, setRemarks] = useState('')
+  const [isPending, setIsPending] = useState(false)
 
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-  const isEmployee = user.role === 'employee'
+  const user = useQuery(api.users.currentUser)
+  const isEmployee = user?.role === 'employee'
 
   const navigate = useNavigate({ from: '/home/vendors' })
-  const queryClient = useQueryClient()
+  const vendors = useQuery(api.restaurant.vendors.listVendors)
+  const addNewVendor = useMutation(api.restaurant.vendors.AddNewVendor)
 
-  const { data: vendors = [] } = useQuery<Vendors[]>({
-    queryKey: ['vendors'],
-    queryFn: getAllVendors,
-  })
-
-  const addVendorsMutation = useMutation({
-    mutationFn: createPayLaterCustomer,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendors'] })
+  // 2. Initialize the TanStack Form instance
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      remarks: '',
+    },
+    validators: {
+      onChange: customerSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setIsPending(true)
+      try {
+        await addNewVendor({
+          name: value.name,
+          remarks: value.remarks,
+        })
+        form.reset()
+        toast.success(`Customer added successfully!`)
+      } catch (error) {
+        console.error(error)
+        const errMsg =
+          error instanceof Error ? error.message : 'Unknown error occurred.'
+        toast.error('Failed to add customer.', {
+          description: errMsg,
+        })
+      } finally {
+        setIsPending(false)
+      }
     },
   })
-
-  const handleAddVendors = () => {
-    if (!name) {
-      toast.warning('Name is required.')
-      return
-    }
-
-    addVendorsMutation.mutate(
-      { name, remarks },
-      {
-        onSuccess: () => {
-          setName('')
-          setRemarks('')
-          toast.success('Customer added successfully!', {
-            description: name,
-          })
-        },
-        onError: () => {
-          toast.error('Failed to add customer.')
-        },
-      },
-    )
-  }
 
   return (
     <div className="space-y-6 pt-6">
@@ -126,63 +104,116 @@ function RouteComponent() {
               <DrawerHeader>
                 <h2 className="font-medium text-xl">New Customer</h2>
               </DrawerHeader>
-              <div className="space-y-2">
-                <Input
-                  placeholder="Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <Input
-                  placeholder="Remarks (optional)"
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                />
-              </div>
-              <DrawerFooter>
-                <Button
-                  className="flex items-center gap-2 w-full"
-                  onClick={handleAddVendors}
-                  disabled={addVendorsMutation.isPending}
-                >
-                  {addVendorsMutation.isPending && (
-                    <LoaderIcon className="w-4 h-4 animate-spin" />
-                  )}
-                  Save
-                </Button>
-                <DrawerClose asChild>
-                  <Button type="button" variant="outline" className="w-full">
-                    Cancel
-                  </Button>
-                </DrawerClose>
-              </DrawerFooter>
+
+              {/* 3. Wrap everything inside form.handleSubmit */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  form.handleSubmit()
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-3">
+                  {/* Name Field */}
+                  <form.Field
+                    name="name"
+                    children={(field) => (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Name"
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          disabled={isPending}
+                        />
+                        {field.state.meta.errors.length > 0 && (
+                          <p className="text-destructive text-sm">
+                            {field.state.meta.errors[0]?.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  />
+
+                  {/* Remarks Field */}
+                  <form.Field
+                    name="remarks"
+                    children={(field) => (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Remarks (optional)"
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          disabled={isPending}
+                        />
+                      </div>
+                    )}
+                  />
+                </div>
+
+                <DrawerFooter className="px-0">
+                  <form.Subscribe
+                    selector={(state) => [state.canSubmit, state.isSubmitting]}
+                    children={([canSubmit]) => (
+                      <Button
+                        type="submit"
+                        className="flex items-center gap-2 w-full"
+                        disabled={!canSubmit || isPending}
+                      >
+                        {isPending && (
+                          <LoaderIcon className="stroke-white w-4 h-4 animate-spin" />
+                        )}
+                        Save
+                      </Button>
+                    )}
+                  />
+                  <DrawerClose asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={isPending}
+                    >
+                      Cancel
+                    </Button>
+                  </DrawerClose>
+                </DrawerFooter>
+              </form>
             </DrawerContent>
           </Drawer>
         )}
       </div>
 
       <div>
-        {vendors.map((payLaterCustomer) => (
-          <VendorsCard
-            key={payLaterCustomer.id}
-            payLaterCustomer={payLaterCustomer}
-            navigate={navigate}
-          />
-        ))}
+        {vendors === undefined ? (
+          <InlineLoader />
+        ) : (
+          <div>
+            {vendors.map((vendor) => (
+              <VendorsCard
+                key={vendor._id}
+                vendor={vendor}
+                navigate={navigate}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 function VendorsCard({
-  payLaterCustomer,
+  vendor,
   navigate,
 }: {
-  payLaterCustomer: Vendors
+  vendor: Vendor
   navigate: ReturnType<typeof useNavigate>
 }) {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-  const isEmployee = user.role === 'employee'
+  const user = useQuery(api.users.currentUser)
+  const isEmployee = user?.role === 'employee'
   const x = useMotionValue(0)
   const snapState = useRef<'center' | 'left' | 'right'>('center')
 
@@ -198,20 +229,20 @@ function VendorsCard({
         <>
           <div className="top-0 left-0 z-0 absolute flex items-center h-full">
             <div className="flex justify-center items-center border w-full h-full">
-              <EditDrawer payLaterCustomer={payLaterCustomer} />
-              <DeleteDrawer payLaterCustomer={payLaterCustomer} />
+              <EditDrawer vendor={vendor} />
+              <DeleteDrawer vendor={vendor} />
             </div>
           </div>
           <div className="top-0 right-0 z-0 absolute flex items-center h-full">
             <div className="flex justify-center items-center border w-full h-full">
-              <EditDrawer payLaterCustomer={payLaterCustomer} />
-              <DeleteDrawer payLaterCustomer={payLaterCustomer} />
+              <EditDrawer vendor={vendor} />
+              <DeleteDrawer vendor={vendor} />
             </div>
           </div>
         </>
       )}
       <motion.div
-        key={payLaterCustomer.id}
+        key={vendor._id}
         className="z-10 relative gap-0 grid grid-cols-1"
         drag={isEmployee ? false : 'x'}
         dragDirectionLock
@@ -220,26 +251,24 @@ function VendorsCard({
         style={{ x }}
         dragElastic={0.2}
         onDragEnd={handleDragEnd}
+        onTap={() =>
+          navigate({
+            to: `/home/vendors/${vendor._id}`,
+            viewTransition: { types: ['slide-left'] },
+          })
+        }
       >
-        <Card
-          onClick={() =>
-            navigate({
-              to: `/home/vendors/${payLaterCustomer.id}`,
-              viewTransition: { types: ['slide-left'] },
-            })
-          }
-          className="z-20 flex items-stretch bg-background hover:bg-muted shadow-none border-b last:border-b-0 rounded-none transition-colors"
-        >
+        <Card className="z-20 flex items-stretch bg-background hover:bg-muted shadow-none border-b last:border-b-0 rounded-none transition-colors">
           <div className="flex flex-shrink-0 justify-center items-center rounded-none w-16 min-w-16 h-full">
             <User2 className="w-10 h-10 text-primary" />
           </div>
           <CardContent className="flex flex-col flex-1 justify-center px-0 py-3 min-w-0">
             <div className="text-muted-foreground text-sm truncate">
-              {payLaterCustomer.name}
+              {vendor.name}
             </div>
-            {payLaterCustomer.remarks && (
+            {vendor.remarks && (
               <div className="text-muted-foreground text-xs truncate italic">
-                {payLaterCustomer.remarks}
+                {vendor.remarks}
               </div>
             )}
           </CardContent>
@@ -252,31 +281,42 @@ function VendorsCard({
   )
 }
 
-function EditDrawer({ payLaterCustomer }: { payLaterCustomer: Vendors }) {
+function EditDrawer({ vendor }: { vendor: Doc<'vendors'> }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState(payLaterCustomer.name)
-  const [remarks, setRemarks] = useState(payLaterCustomer.remarks ?? '')
-  const queryClient = useQueryClient()
+  const [isPending, setIsPending] = useState(false)
 
-  const updateMutation = useMutation({
-    mutationFn: updatePayLaterCustomer,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendors'] })
-      setOpen(false)
-      toast.success('Customer updated!')
+  const updateVendor = useMutation(api.restaurant.vendors.UpdateVendor)
+
+  const form = useForm({
+    defaultValues: {
+      name: vendor.name,
+      remarks: vendor.remarks ?? '',
     },
-    onError: () => {
-      toast.error('Failed to update customer.')
+    validators: {
+      onChange: customerSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setIsPending(true)
+      try {
+        await updateVendor({
+          id: vendor._id,
+          name: value.name,
+          remarks: value.remarks,
+        })
+        setOpen(false)
+        toast.success('Edited Successfully!')
+      } catch (error) {
+        console.error(error)
+        const errMsg =
+          error instanceof Error ? error.message : 'Unknown error occurred.'
+        toast.error('Failed to add customer.', {
+          description: errMsg,
+        })
+      } finally {
+        setIsPending(false)
+      }
     },
   })
-
-  const handleSave = () => {
-    if (!name) {
-      toast.warning('Name is required.')
-      return
-    }
-    updateMutation.mutate({ id: payLaterCustomer.id, name, remarks })
-  }
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
@@ -289,63 +329,107 @@ function EditDrawer({ payLaterCustomer }: { payLaterCustomer: Vendors }) {
         <DrawerHeader>
           <DrawerTitle>Edit Customer</DrawerTitle>
         </DrawerHeader>
-        <div className="space-y-2 px-6">
-          <Input
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={updateMutation.isPending}
-          />
-          <Input
-            placeholder="Remarks (optional)"
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            disabled={updateMutation.isPending}
-          />
-        </div>
-        <DrawerFooter>
-          <Button
-            className="flex items-center gap-2 text-white"
-            type="button"
-            onClick={handleSave}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending && (
-              <LoaderIcon color="white" className="w-4 h-4 animate-spin" />
-            )}
-            Save Changes
-          </Button>
-          <DrawerClose asChild>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={updateMutation.isPending}
-            >
-              Cancel
-            </Button>
-          </DrawerClose>
-        </DrawerFooter>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            form.handleSubmit()
+          }}
+          className="space-y-4 px-6"
+        >
+          <div className="space-y-3">
+            {/* Name Field */}
+            <form.Field
+              name="name"
+              children={(field) => (
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Name"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    disabled={isPending}
+                  />
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="text-destructive text-sm">
+                      {field.state.meta.errors[0]?.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            />
+
+            {/* Remarks Field */}
+            <form.Field
+              name="remarks"
+              children={(field) => (
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Remarks (optional)"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+              )}
+            />
+          </div>
+
+          <DrawerFooter className="px-0">
+            <form.Subscribe
+              selector={(state) => [state.canSubmit]}
+              children={([canSubmit]) => (
+                <Button
+                  type="submit"
+                  className="flex items-center gap-2 w-full text-white"
+                  disabled={!canSubmit || isPending}
+                >
+                  {isPending && (
+                    <LoaderIcon className="stroke-white w-4 h-4 animate-spin" />
+                  )}
+                  Save Changes
+                </Button>
+              )}
+            />
+            <DrawerClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+            </DrawerClose>
+          </DrawerFooter>
+        </form>
       </DrawerContent>
     </Drawer>
   )
 }
 
-function DeleteDrawer({ payLaterCustomer }: { payLaterCustomer: Vendors }) {
+function DeleteDrawer({ vendor }: { vendor: Doc<'vendors'> }) {
   const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
+  const [isPending, setIsPending] = useState(false)
 
-  const deleteMutation = useMutation({
-    mutationFn: deletePayLaterCustomer,
+  const deleteVendor = useMutation(api.restaurant.vendors.DeleteVendor)
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendors'] })
+  const handleDelete = async () => {
+    setIsPending(true)
+    try {
+      await deleteVendor({ id: vendor._id })
+
       setOpen(false)
-      toast.success('Customer deleted!')
-    },
-    onError: () => {
-      toast.error('Failed to delete customer.')
-    },
-  })
+      toast.success(`Customer deleted successfully`)
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to delete customer')
+    } finally {
+      setIsPending(false)
+    }
+  }
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
@@ -358,27 +442,20 @@ function DeleteDrawer({ payLaterCustomer }: { payLaterCustomer: Vendors }) {
         <DrawerHeader>
           <DrawerTitle>Delete Customer</DrawerTitle>
           <DrawerDescription>
-            Are you sure you want to delete this customer?
+            Are you sure you want to delete {vendor.name}? This action cannot be
+            undone.
           </DrawerDescription>
         </DrawerHeader>
+
         <DrawerFooter>
-          <Button
-            className="flex items-center gap-2 text-white"
-            type="button"
-            onClick={() => deleteMutation.mutate(payLaterCustomer)}
-            disabled={deleteMutation.isPending}
-          >
-            {deleteMutation.isPending && (
+          <Button type="button" onClick={handleDelete} disabled={isPending}>
+            {isPending && (
               <LoaderIcon color="white" className="w-4 h-4 animate-spin" />
             )}
             Delete
           </Button>
           <DrawerClose asChild>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={deleteMutation.isPending}
-            >
+            <Button type="button" variant="outline" disabled={isPending}>
               Cancel
             </Button>
           </DrawerClose>

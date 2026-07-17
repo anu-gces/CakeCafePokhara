@@ -225,6 +225,20 @@ function PrinterConfigComponent() {
           >
             Disconnect
           </Button>
+          <Button
+            className="w-full"
+            variant="ghost"
+            onClick={() => setDevice(null)}
+          >
+            Disconnect
+          </Button>
+          <Button
+            className="w-full"
+            variant="ghost"
+            onClick={() => setDevice(null)}
+          >
+            Disconnect
+          </Button>
         </CardFooter>
       </Card>
     </div>

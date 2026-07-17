@@ -134,6 +134,7 @@ export const CalendarDateRangePicker = React.memo(
               disabled={{ before: new Date('2025-06-01'), after: new Date() }}
               fromMonth={new Date('2025-06-01')}
               toMonth={new Date()}
+              showOutsideDays={false}
             />
           </PopoverContent>
         </Popover>

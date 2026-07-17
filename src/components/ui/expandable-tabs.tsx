@@ -1,14 +1,10 @@
 import { cn } from '@/lib/utils'
-import {
-  useLocation,
-  useNavigate,
-  useRouteContext,
-} from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
 import type { LucideIcon } from 'lucide-react'
-import { pb } from '@/lib/pocketbase'
 import { useEffect, useState } from 'react'
-import type { FetchedOrder } from '../restaurant_mobile/types'
+import { api } from '../../../convex/_generated/api'
+import { useQuery } from 'convex/react'
 
 interface Tab {
   title: string
@@ -51,7 +47,12 @@ const spanVariants = {
   exit: { width: 0, opacity: 0 },
 }
 
-const transition = { delay: 0.1, type: 'spring', bounce: 0, duration: 0.6 }
+const transition = {
+  delay: 0.1,
+  type: 'spring',
+  bounce: 0,
+  duration: 0.6,
+} as const
 
 export function ExpandableTabs({
   tabs,
@@ -60,20 +61,20 @@ export function ExpandableTabs({
   onChange,
 }: ExpandableTabsProps) {
   const [selected, setSelected] = useState<number | null>(null)
-  const [notificationCount, setNotificationCount] = useState(0)
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-
-  const navigate = useNavigate({ from: '/home' })
+  const navigate = useNavigate()
   const currentLocation = useLocation()
+  const notificationCount = useQuery(
+    api.restaurant.notifications.getActiveNotificationCount,
+  )
 
   const handleSelect = (index: number) => {
     setSelected(index)
     onChange?.(index)
   }
 
+  // Synchronize route pathways with active tabs UI
   useEffect(() => {
-    const currentPath = currentLocation.pathname // Get the current path from useLocation
+    const currentPath = currentLocation.pathname
 
     const selectedIndex = tabs.findIndex((tab) => {
       if ('to' in tab && typeof tab.to === 'string') {
@@ -84,71 +85,11 @@ export function ExpandableTabs({
     })
 
     if (selectedIndex !== -1) {
-      setSelected(selectedIndex) // Update the selected tab index
+      setSelected(selectedIndex)
     }
   }, [tabs, currentLocation])
 
-  useEffect(() => {
-    if (!user) return
-
-    const setupNotifications = async () => {
-      // 2. Initial Fetch
-      const resultList = await pb
-        .collection<FetchedOrder>('orders')
-        .getList(1, 1, {
-          filter:
-            'status != "paid" && status != "credited" && dismissed = false',
-          requestKey: 'notificationsCount', // Keeps this request unique
-        })
-
-      setNotificationCount(resultList.totalItems)
-    }
-
-    const subscribe = async () => {
-      const unsubscribe = await pb
-        .collection('orders')
-        .subscribe<FetchedOrder>('*', (e) => {
-          const { record, action } = e
-
-          if (action === 'create') {
-            setNotificationCount((c) => c + 1)
-            return
-          }
-
-          if (action === 'update') {
-            const isTerminal =
-              record.status === 'paid' ||
-              record.status === 'credited' ||
-              record.dismissed
-
-            const isCancelled = record.status === 'cancelled'
-            const isRefunded = record.status === 'refunded'
-
-            if (isTerminal || isCancelled || isRefunded) {
-              setNotificationCount((c) => Math.max(0, c - 1))
-            }
-            return
-          }
-
-          if (action === 'delete') {
-            setNotificationCount((c) => Math.max(0, c - 1))
-          }
-        })
-
-      return unsubscribe
-    }
-
-    const unsubscribePromise = subscribe()
-
-    setupNotifications()
-
-    // 4. The Cleanup
-    return () => {
-      unsubscribePromise.then((unsub) => unsub())
-    }
-  }, [user])
-
-  const Separator = () => (
+  const SeparatorComponent = () => (
     <div className="mx-1 bg-border w-[1.2px] h-[24px]" aria-hidden="true" />
   )
 
@@ -161,10 +102,13 @@ export function ExpandableTabs({
     >
       {tabs.map((tab, index) => {
         if (tab.type === 'separator') {
-          return <Separator key={`separator-${index}`} />
+          return <SeparatorComponent key={`separator-${index}`} />
         }
 
         const Icon = tab.icon
+        const isNotificationsTab =
+          tab.title === 'Notifications' && (notificationCount ?? 0) > 0
+
         return (
           <motion.button
             key={tab.title}
@@ -185,23 +129,17 @@ export function ExpandableTabs({
             )}
           >
             <div className="relative">
-              {tab.title === 'Notifications' && (
+              {isNotificationsTab && (
                 <>
-                  <span
-                    className="-top-1 -left-2 absolute bg-rose-400 opacity-75 rounded-full w-4 h-4 animate-ping"
-                    style={{ opacity: notificationCount > 0 ? 1 : 0 }}
-                  ></span>
-
-                  <div
-                    style={{ opacity: notificationCount > 0 ? 1 : 0 }}
-                    className="-top-1 -left-2 absolute flex justify-center items-center bg-rose-500 rounded-full w-4 h-4 text-white text-xs"
-                  >
-                    {notificationCount}
+                  <span className="-top-1 -left-2 absolute bg-rose-400 rounded-full w-4 h-4 animate-ping" />
+                  <div className="-top-1 -left-2 absolute flex justify-center items-center bg-rose-500 rounded-full w-4 h-4 text-[10px] text-white">
+                    {notificationCount ?? 0}
                   </div>
                 </>
               )}
               <Icon className="size-3 tiny:size-5" />
             </div>
+
             <AnimatePresence initial={false}>
               {selected === index && (
                 <motion.span

@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,14 +39,16 @@ import {
 import DonutImage from '@/assets/donutImage'
 import { SplashScreen } from '@/components/splashscreen'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
-import { useRouteContext, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 
 import { AnimatePresence, motion } from 'motion/react'
-import { type MenuItemProps } from '@/lib/pocketbase/menuManagement'
-import { pb } from '@/lib/pocketbase'
-import { ClientResponseError } from 'pocketbase'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
+
+type MenuItemProps =
+  (typeof api.restaurant.menuItems.listMenuItems._returnType)[number]
 
 function CategoryTabs() {
   return (
@@ -121,17 +123,17 @@ const InventoryItemCard = memo(function InventoryItemCard({
       <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
       <div className="flex flex-col gap-2">
         {menuItems.map((menuItem) => {
-          const stockStatus = getStockStatus(menuItem.currentStockCount || 0)
+          const stockStatus = getStockStatus(menuItem.stockCount || 0)
           return (
             <div
-              key={menuItem.id}
+              key={menuItem._id}
               className="flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors"
             >
               <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
                 {menuItem.photoURL ? (
                   <img
                     alt={menuItem.name}
-                    src={pb.files.getURL(menuItem, menuItem.photoURL)}
+                    src={menuItem.photoURL}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
@@ -146,11 +148,11 @@ const InventoryItemCard = memo(function InventoryItemCard({
                     className={cn('rounded-full w-2 h-2', stockStatus.color)}
                   />
                 </div>
+                <p className="text-muted-foreground text-sm">
+                  Rs. {menuItem.price}
+                </p>
                 <div className="flex items-center gap-4 text-muted-foreground text-sm">
-                  <span>Stock: {menuItem.currentStockCount ?? 0}</span>
-                  <span className="text-xs">
-                    (was: {menuItem.lastStockCount ?? 0})
-                  </span>
+                  <span>Stock: {menuItem.stockCount ?? 0}</span>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -164,48 +166,41 @@ const InventoryItemCard = memo(function InventoryItemCard({
   )
 })
 
-function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
+export function StockAdjustmentDrawer({
+  menuItem,
+}: {
+  menuItem: MenuItemProps
+}) {
   const [open, setOpen] = useState(false)
   const [adjustment, setAdjustment] = useState(0)
   const [isPending, setIsPending] = useState(false)
-  const [Error, setError] = useState<string | null>(null)
   const [reason, setReason] = useState<
-    'restock' | 'sale' | 'waste' | 'correction'
+    'restock' | 'sale' | 'waste' | 'correction' | 'damage'
   >('restock')
 
-  const currentStock = menuItem.currentStockCount ?? 0
+  // Hook up your updated, atomic mutation
+  const adjustStock = useMutation(
+    api.restaurant.menuItems.editMenuItemStockCount,
+  )
+
+  const currentStock = menuItem.stockCount ?? 0
   const newStock = currentStock + adjustment
 
   const handleAdjustment = async () => {
     setIsPending(true)
-    setError(null)
     try {
-      const updatedData = {
-        lastStockCount: currentStock,
-        currentStockCount: newStock,
+      await adjustStock({
+        id: menuItem._id,
+        stockCount: newStock,
         reasonForStockEdit: reason,
-        editedStockBy: user.id,
-      }
+      })
 
-      await pb.collection('menuItems').update(menuItem.id, updatedData)
-
-      // await pb.collection('inventoryHistory').create<InventoryHistoryProps>({
-      //   name: menuItem.name,
-      //   lastStockCount: currentStock,
-      //   currentStockCount: newStock,
-      //   reasonForStockEdit: reason,
-      //   editedStockBy: user.id,
-      // })
-
-      toast.success('Inventory updated')
+      toast.success('Inventory updated & history logged')
+      setAdjustment(0) // Reset input
       setOpen(false)
-    } catch (error) {
-      if (error instanceof ClientResponseError) {
-        setError(error.message || 'Update failed')
-      }
-      toast.error('Updated Failed', { description: Error })
+    } catch (err: any) {
+      const errMsg = err instanceof Error ? err.message : 'Update failed'
+      toast.error('Update Failed', { description: errMsg })
     } finally {
       setIsPending(false)
     }
@@ -236,7 +231,7 @@ function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
               id="adjustment"
               type="number"
               placeholder="Enter positive or negative number"
-              value={adjustment}
+              value={adjustment || ''}
               onChange={(e) => setAdjustment(Number(e.target.value))}
             />
             <div className="bg-muted/50 p-2 rounded text-sm">
@@ -258,7 +253,14 @@ function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
             <Select
               value={reason}
               onValueChange={(value) =>
-                setReason(value as 'restock' | 'sale' | 'waste' | 'correction')
+                setReason(
+                  value as
+                    | 'restock'
+                    | 'sale'
+                    | 'waste'
+                    | 'correction'
+                    | 'damage',
+                )
               }
               required
             >
@@ -270,6 +272,7 @@ function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
                 <SelectItem value="sale">Sale</SelectItem>
                 <SelectItem value="waste">Waste</SelectItem>
                 <SelectItem value="correction">Correction</SelectItem>
+                <SelectItem value="damage">Damage</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -299,60 +302,22 @@ function StockAdjustmentDrawer({ menuItem }: { menuItem: MenuItemProps }) {
 }
 
 export function InventoryManagement() {
-  const [menuItems, setMenuItems] = useState<MenuItemProps[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    // 1. Initial Fetch
-    const fetchInitialData = async () => {
-      try {
-        const records = await pb
-          .collection('menuItems')
-          .getFullList<MenuItemProps>({
-            sort: '-created',
-          })
-        setMenuItems(records)
-      } catch (err) {
-        console.error('Initial fetch failed:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchInitialData()
-
-    // 2. Real-time Subscription
-    pb.collection('menuItems').subscribe<MenuItemProps>('*', (e) => {
-      setMenuItems((current) => {
-        if (e.action === 'create') {
-          return [e.record, ...current]
-        }
-        if (e.action === 'update') {
-          return current.map((item) =>
-            item.id === e.record.id ? e.record : item,
-          )
-        }
-        if (e.action === 'delete') {
-          return current.filter((item) => item.id !== e.record.id)
-        }
-        return current
-      })
-    })
-
-    return () => {
-      pb.collection('menuItems').unsubscribe('*')
-    }
-  }, [])
+  // 1. Fetch live data from Convex
+  const menuItems = useQuery(api.restaurant.menuItems.listMenuItems)
 
   const { category: selectedCategory = '' } = useSearch({
     from: '/home/inventoryManagement',
   })
 
-  const [search, setSearch] = useState('')
-
-  if (isLoading) {
+  // 2. Handle Loading State (Convex returns undefined while loading)
+  if (menuItems === undefined) {
     return <SplashScreen />
   }
+
+  // Handle fallback if query returns null or empty arrays safely
+  const safeMenuItems = menuItems ?? []
 
   return (
     <div className="flex flex-col bg-background h-full overflow-y-auto">
@@ -411,7 +376,7 @@ export function InventoryManagement() {
         <div className="space-y-0 p-4">
           <AnimatePresence>
             {Object.values(
-              menuItems
+              safeMenuItems
                 .filter((menuItem) => {
                   if (search.trim()) {
                     const searchLower = search.toLowerCase()
@@ -429,12 +394,16 @@ export function InventoryManagement() {
                     )
                   }
                 })
-                .reduce<Record<string, MenuItemProps[]>>((acc, menuItem) => {
-                  const groupKey = menuItem.type ?? menuItem.name.toLowerCase()
-                  if (!acc[groupKey]) acc[groupKey] = []
-                  acc[groupKey].push(menuItem)
-                  return acc
-                }, {}),
+                .reduce<Record<string, typeof safeMenuItems>>(
+                  (acc, menuItem) => {
+                    const groupKey =
+                      menuItem.type ?? menuItem.name.toLowerCase()
+                    if (!acc[groupKey]) acc[groupKey] = []
+                    acc[groupKey].push(menuItem)
+                    return acc
+                  },
+                  {},
+                ),
             ).map((menuItemsOfType) => (
               <motion.div
                 key={`${menuItemsOfType[0].type ?? menuItemsOfType[0].name}-${menuItemsOfType.length}`}
@@ -449,8 +418,10 @@ export function InventoryManagement() {
             ))}
           </AnimatePresence>
         </div>
-        {menuItems.filter((menuItem) => {
-          if (!search.trim()) return false // Only show empty state if search is active and no results
+
+        {/* Empty Search State */}
+        {safeMenuItems.filter((menuItem) => {
+          if (!search.trim()) return false
           const searchLower = search.toLowerCase()
           const inName = menuItem.name.toLowerCase().includes(searchLower)
           const inCategory = menuItem.mainCategory

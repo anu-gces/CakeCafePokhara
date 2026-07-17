@@ -19,11 +19,13 @@ import {
 import { cn } from '@/lib/utils'
 
 interface DatePickerWithPresetsProps {
+  className?: string
   selected: Date | undefined
   onSelect: (date: Date | undefined) => void
 }
 
 export function DatePickerWithPresets({
+  className,
   selected,
   onSelect,
 }: DatePickerWithPresetsProps) {
@@ -46,8 +48,9 @@ export function DatePickerWithPresets({
         <Button
           variant={'outline'}
           className={cn(
-            'justify-start w-[280px] font-normal text-left',
+            'justify-start font-normal text-left',
             !date && 'text-muted-foreground',
+            className,
           )}
         >
           <CalendarIcon className="mr-2 w-4 h-4" />

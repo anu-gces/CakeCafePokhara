@@ -1,47 +1,7 @@
-import { Link, useRouteContext, useSearch } from '@tanstack/react-router'
-import { useEffect, useState, useRef } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
-import { toast } from 'sonner'
+import { memo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { createPortal } from 'react-dom'
-import {
-  Drawer,
-  DrawerClose,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  TransitioningDrawerContent,
-} from '@/components/ui/drawer'
-import {
-  ShoppingCartIcon,
-  PlusIcon,
-  DonutIcon,
-  MinusIcon,
-  SandwichIcon,
-  PizzaIcon,
-  IceCreamIcon,
-  CoffeeIcon,
-  BeerIcon,
-  SparklesIcon,
-  UtensilsCrossedIcon,
-  RotateCwIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  LoaderIcon,
-  SearchIcon,
-  SquarePenIcon,
-  PartyPopperIcon,
-  Trash2Icon,
-  MoveIcon,
-} from 'lucide-react'
-import { useQuery, useMutation } from '@tanstack/react-query'
-
-import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
-import DonutImage from '@/assets/donutImage'
-import { SplashScreen } from '@/components/splashscreen'
-import { cn, handlePbError } from '@/lib/utils'
-import { SeatingPlan } from '@/components/restaurant_mobile/seatingPlan'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -49,972 +9,77 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { DatePickerWithPresets } from '@/components/ui/datepicker'
-import * as Yup from 'yup'
-import { Switch } from '../ui/switch'
-import { pb } from '@/lib/pocketbase'
-import type { MenuItemProps } from '@/lib/pocketbase/menuManagement'
-import type {
-  CartItem,
-  AddToCart,
-  ProcessedCartItem,
-  ProcessedOrder,
-} from './types'
 
-// Menu Card Component
-function MenuCard({
-  menuItems,
-  addToCart,
-  handleAddToCart,
-}: {
-  menuItems: MenuItemProps[]
-  addToCart: AddToCart
-  handleAddToCart: (food: MenuItemProps) => void
-}) {
-  // All foods have the same type, so use the first item's type or name as the heading
-  const type =
-    menuItems[0]?.type?.toUpperCase() || menuItems[0]?.name.toUpperCase()
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerTrigger,
+} from '@/components/ui/drawer'
+import {
+  PlusIcon,
+  LoaderIcon,
+  SandwichIcon,
+  PizzaIcon,
+  DonutIcon,
+  IceCreamIcon,
+  CoffeeIcon,
+  BeerIcon,
+  SparklesIcon,
+  UtensilsCrossedIcon,
+  SearchIcon,
+  PartyPopperIcon,
+  PackageIcon,
+  ShoppingCartIcon,
+  RotateCcwIcon,
+  MinusIcon,
+  ShoppingBagIcon,
+  SquarePenIcon,
+  AlertCircleIcon,
+} from 'lucide-react'
 
-  const getRemainingStock = (id: string, currentStock?: number) => {
-    const cartItem = addToCart.items.find((item) => item.menuItemId === id)
-    const qtyInCart = cartItem?.qty ?? 0 // 0 if not in cart
-    return (currentStock ?? 0) - qtyInCart
-  }
+import DonutImage from '@/assets/donutImage'
+import { SplashScreen } from '@/components/splashscreen'
+import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
+import { useSearch } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
+import { AnimatePresence, motion } from 'motion/react'
+import { api } from '../../../convex/_generated/api'
+import { useMutation, useQuery } from 'convex/react'
+import Stepper, { Step } from '@/components/Stepper'
+import {
+  addItem,
+  AddNote,
+  clearCart,
+  decrementItem,
+  toggleComplimentary,
+  useCartStore,
+} from './takeOrderStore'
+import { Badge } from '@/components/ui/badge'
+import { z } from 'zod'
+import { DatePickerWithPresets } from '../ui/datepicker'
+import { cn } from '@/lib/utils'
+import type { FunctionArgs } from 'convex/server'
+import type { Id } from '../../../convex/_generated/dataModel'
+import { useAppForm, withForm } from './takeOrderForm'
+import { useStore } from '@tanstack/react-form'
+import { ReceiptPreview } from './receiptPreview'
+import { toast } from 'sonner'
+import { ConvexError } from 'convex/values'
 
-  return (
-    <div className="mb-8 p-4 border rounded-xl">
-      <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
-      <div className="flex flex-col gap-2">
-        {menuItems.map((menuItem) => {
-          const isDisabled =
-            getRemainingStock(menuItem.id, menuItem.currentStockCount) <= 0
-          return (
-            <div
-              key={menuItem.id}
-              className={cn(
-                'flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors',
-                isDisabled && 'opacity-50 cursor-not-allowed ',
-              )}
-              onClick={() => {
-                if (!isDisabled) handleAddToCart(menuItem)
-              }}
-              role="button"
-              aria-disabled={isDisabled}
-              tabIndex={isDisabled ? -1 : 0}
-            >
-              <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
-                {menuItem.photoURL ? (
-                  <img
-                    alt={menuItem.name}
-                    src={pb.files.getURL(menuItem, menuItem.photoURL)}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <DonutImage />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-medium">{menuItem.name}</h3>
-                <p className="text-muted-foreground text-sm">
-                  Rs. {menuItem.price}
-                </p>
-                {menuItem.currentStockCount ? (
-                  <span
-                    className={cn(
-                      'inline-block mt-1 px-2 py-0.5 rounded-full font-medium text-xs',
-                      menuItem.currentStockCount === 0
-                        ? 'bg-red-100 text-red-700'
-                        : menuItem.currentStockCount < 10
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-green-100 text-green-700',
-                    )}
-                  >
-                    {menuItem.currentStockCount === 0
-                      ? 'Out of Stock'
-                      : menuItem.currentStockCount < 10
-                        ? `Low Stock (${getRemainingStock(menuItem.id, menuItem.currentStockCount)})`
-                        : `In Stock (${getRemainingStock(menuItem.id, menuItem.currentStockCount)})`}
-                  </span>
-                ) : (
-                  <span
-                    className={
-                      'inline-block mt-1 px-2 py-0.5 rounded-full font-medium text-xs bg-red-100 text-red-700'
-                    }
-                  >
-                    Out of Stock
-                  </span>
-                )}
-              </div>
-              {/* Edit and Delete Buttons */}
-              <div className="flex gap-2">
-                <PlusIcon />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+type MenuItemProps =
+  (typeof api.restaurant.menuItems.listMenuItems._returnType)[number]
 
-// Cart Preview Component
-
-function CartPreview({ cart }: { cart: AddToCart }) {
-  const cardRef = useRef<HTMLDivElement>(null)
-
-  return createPortal(
-    <AnimatePresence>
-      {cart.items.length > 0 && (
-        <>
-          <motion.div
-            key="cart-preview"
-            ref={cardRef}
-            initial={{ opacity: 0, y: 40 }}
-            drag="y"
-            dragConstraints={{ top: -500, bottom: 0 }} // adjust as needed
-            dragElastic={0.2}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            exit={{ opacity: 0, y: 40 }}
-            transition={{
-              type: 'spring',
-              stiffness: 200, // higher = snappier
-              damping: 15, // lower = more bouncy
-              mass: 1, // lower = faster
-            }}
-            className="right-4 bottom-16 left-4 z-50 fixed bg-background/50 shadow-lg backdrop-blur-md p-4 border rounded-xl cursor-grab active:cursor-grabbing"
-          >
-            {/* Header with centered arrows */}
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium">Cart Preview</h3>
-              <MoveIcon className="w-4 h-4 text-muted-foreground cursor-grab" />
-              {/* Right spacer for balance */}
-              <div className="w-[72px]"></div>
-            </div>
-            <ScrollArea
-              type="always"
-              className="px-4 py-2 border rounded-md max-h-32 overflow-auto"
-            >
-              <div className="space-y-1">
-                {cart.items.map((item, index) => (
-                  <div
-                    key={item.menuItemId}
-                    className="flex justify-between text-sm"
-                  >
-                    <span>
-                      {/* this dot is for 1. 2. 3. etc */}
-                      {index + 1}. {item.qty}x {item.name}
-                      {item.type && (
-                        <span className="text-muted-foreground">
-                          ({item.type})
-                        </span>
-                      )}
-                    </span>
-                    <span>Rs. {(item.price * item.qty).toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-            <div className="mt-2 pt-2 border-t">
-              <div className="flex justify-between font-medium">
-                <span>
-                  Total: {cart.items.reduce((sum, item) => sum + item.qty, 0)}{' '}
-                  items
-                </span>
-                <span>
-                  Rs.{' '}
-                  {cart.items
-                    .reduce((sum, item) => sum + item.price * item.qty, 0)
-                    .toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body, // Portal target - renders directly in document.body
-  )
-}
-
-// Validation schema - only KOT number is mandatory
-const orderValidationSchema = Yup.object().shape({
-  kotNumber: Yup.string()
-    .required('KOT number is required')
-    .min(1, 'KOT number cannot be empty'),
-})
-
-// Cart Drawer Component
-function CartDrawer({
-  cart,
-  isOpen,
-  onOpenChange,
-  onUpdateQuantity,
-  onRemoveItem,
-  onClearCart,
-  selectedTable,
-  setSelectedTable,
-  kotNumber,
-  setKotNumber,
-  discountAmount,
-  setDiscountAmount,
-  taxAmount,
-  setTaxAmount,
-  deliveryFee,
-  setDeliveryFee,
-  isComplementary,
-  setIsComplementary,
-  remarks,
-  setRemarks,
-  selectedPayLaterCustomerId,
-  setSelectedPayLaterCustomerId,
-  selectedPaymentMethod,
-  setSelectedPaymentMethod,
-  step,
-  setStep,
-  receiptDate,
-  setReceiptDate,
-}: {
-  cart: AddToCart
-  isOpen: boolean
-  onOpenChange: (open: boolean) => void
-  onUpdateQuantity: (index: number, newQty: number) => void
-  onRemoveItem: (index: number) => void
-  onClearCart: () => void
-  selectedTable: number
-  setSelectedTable: (table: number) => void
-  kotNumber: string
-  setKotNumber: (number: string) => void
-  discountAmount: number
-  setDiscountAmount: (a: number) => void
-  taxAmount: number
-  setTaxAmount: (a: number) => void
-  deliveryFee: number
-  setDeliveryFee: (fee: number) => void
-  isComplementary: boolean
-  setIsComplementary: (v: boolean) => void
-  remarks: string
-  setRemarks: (v: string) => void
-  selectedPayLaterCustomerId: string
-  setSelectedPayLaterCustomerId: (v: string) => void
-  selectedPaymentMethod: 'cash' | 'esewa' | 'bank'
-  setSelectedPaymentMethod: (v: 'cash' | 'esewa' | 'bank') => void
-  step: boolean
-  setStep: (v: boolean) => void
-  receiptDate: Date | undefined
-  setReceiptDate: (d: Date | undefined) => void
-}) {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-
-  const { data: payLaterCustomers = [] } = useQuery({
-    queryKey: ['payLaterCustomers'],
-    queryFn: async () => {
-      return await pb.collection('payLaterCustomers').getFullList()
-    },
-  })
-
-  // Validation state
-  const [validationErrors, setValidationErrors] = useState<
-    Record<string, string>
-  >({})
-  const [isFormValid, setIsFormValid] = useState(false)
-
-  // Validate form whenever kotNumber changes
-  useEffect(() => {
-    const validateForm = async () => {
-      try {
-        await orderValidationSchema.validate(
-          { kotNumber },
-          { abortEarly: false },
-        )
-        setValidationErrors({})
-        setIsFormValid(true)
-      } catch (error) {
-        if (error instanceof Yup.ValidationError) {
-          const errors: Record<string, string> = {}
-          error.inner.forEach((err) => {
-            if (err.path) {
-              errors[err.path] = err.message
-            }
-          })
-          setValidationErrors(errors)
-          setIsFormValid(false)
-        }
-      }
-    }
-    validateForm()
-  }, [kotNumber])
-
-  const enterOrderMutation = useMutation({
-    mutationFn: async (addToCart: AddToCart) => {
-      const processedOrder: ProcessedOrder = {
-        kotNumber: addToCart.kotNumber,
-
-        items: addToCart.items.map(
-          (item): ProcessedCartItem => ({
-            menuItemId: item.menuItemId,
-            name: item.name,
-            price: item.price,
-            qty: item.qty,
-          }),
-        ),
-
-        tableNumber: addToCart.tableNumber,
-        discountAmount: addToCart.discountAmount,
-        taxAmount: addToCart.taxAmount,
-        complementary: addToCart.complementary,
-        remarks: addToCart.remarks,
-        receiptDate: addToCart.receiptDate,
-        paymentMethod: addToCart.paymentMethod,
-        deliveryFee: addToCart.deliveryFee,
-        payLaterCustomerId: addToCart.payLaterCustomerId ?? null,
-        status: addToCart.status,
-        dismissed: addToCart.dismissed ?? false,
-        createdBy: user.id,
-      }
-      console.log(processedOrder)
-      return await pb.collection('orders').create(processedOrder)
-    },
-    onSuccess: async (_, addToCart) => {
-      toast.success('Order placed successfully!')
-      setStep(false)
-      // If you have a Drawer open state, close it here (setOpen(false))
-
-      // --- Send FCM notification to kitchen department ---
-      try {
-        // get all kitchen department users
-        const kitchenUsers = await pb.collection('users').getFullList({
-          filter: 'department = "kitchen"',
-          fields: 'id',
-          requestKey: null,
-        })
-
-        if (kitchenUsers.length === 0) {
-          toast.info('No kitchen staff to notify')
-        } else {
-          const userIds = kitchenUsers
-            .map((u) => `userId = "${u.id}"`)
-            .join(' || ')
-          const tokenRecords = await pb.collection('fcm_tokens').getFullList({
-            filter: userIds,
-            requestKey: null,
-          })
-          const tokensOnly = tokenRecords.map((t) => t.token)
-
-          const response = await fetch('https://great-zebra-28.deno.dev', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tokens: tokensOnly,
-              title: 'New Order',
-              body: `New order placed at Table ${addToCart.tableNumber}`,
-            }),
-          })
-          const { invalidTokens } = await response.json()
-
-          for (const record of tokenRecords) {
-            if (invalidTokens.includes(record.token)) {
-              await pb.collection('fcm_tokens').delete(record.id)
-            }
-          }
-          toast.success('Kitchen notification sent successfully!')
-        }
-      } catch (err) {
-        toast.error('Failed to send kitchen notification')
-      }
-      onClearCart()
-    },
-    onError: handlePbError,
-  })
-
-  const totalItems = cart.items.reduce((sum, item) => sum + item.qty, 0)
-  const subtotal = cart.items.reduce(
-    (sum, item) => sum + item.price * item.qty,
-    0,
-  )
-  // Calculate discount and tax
-  // discountAmount and taxAmount are now absolute values
-  // Final total includes manual rounding and delivery fee
-  const totalAmount = subtotal - discountAmount + taxAmount + deliveryFee
-
-  // Submit handler
-  const handleSubmit = () => {
-    const addToCart = {
-      items: cart.items,
-      kotNumber,
-      discountAmount,
-      taxAmount,
-      tableNumber: selectedTable,
-      complementary: isComplementary,
-      remarks,
-      deliveryFee: deliveryFee || 0,
-      receiptDate: receiptDate
-        ? receiptDate.toISOString()
-        : new Date().toISOString(),
-      paymentMethod: selectedPaymentMethod,
-      payLaterCustomerId: selectedPayLaterCustomerId || null,
-      status: 'pending' as const,
-      dismissed: false, // Set dismissed to false by default for notification purposes
-    }
-
-    enterOrderMutation.mutate(addToCart)
-  }
-
-  const [discountInput, setDiscountInput] = useState(discountAmount.toString())
-  const [taxInput, setTaxInput] = useState(taxAmount.toString())
-  const [deliveryFeeInput, setDeliveryFeeInput] = useState(
-    deliveryFee ? deliveryFee.toString() : '0',
-  )
-
-  useEffect(() => {
-    setDiscountInput(discountAmount.toString())
-  }, [discountAmount])
-  useEffect(() => {
-    setTaxInput(taxAmount.toString())
-  }, [taxAmount])
-  useEffect(() => {
-    setDeliveryFeeInput(deliveryFee.toString())
-  }, [deliveryFee])
-
-  return (
-    <Drawer open={isOpen} onOpenChange={onOpenChange}>
-      <TransitioningDrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>
-            <div className="flex justify-between items-center gap-4">
-              <span>Your Order</span>
-              <Button variant="outline" onClick={onClearCart}>
-                <RotateCwIcon />
-                Clear Cart
-              </Button>
-            </div>
-          </DrawerTitle>
-          <DrawerDescription>
-            <span className="font-semibold text-primary text-base">
-              <>
-                <span className="bg-yellow-100 mr-1 px-2 py-0.5 rounded text-yellow-800">
-                  {totalItems} item in your cart
-                </span>
-                • Rs. {totalAmount.toFixed(2)}
-              </>
-            </span>
-          </DrawerDescription>
-        </DrawerHeader>
-
-        {/* Stepper Animation */}
-        {step === false ? (
-          <motion.div
-            layout
-            key="cart-step"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="px-4 pb-4 max-h-96 overflow-y-auto">
-              {cart.items.length === 0 ? (
-                <div className="flex flex-col justify-center items-center py-8 text-muted-foreground">
-                  <div className="mb-2 text-4xl">
-                    <ShoppingCartIcon />
-                  </div>
-                  <span className="text-sm">Your cart is empty</span>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-card p-4 border border-border rounded-xl">
-                    <Label
-                      htmlFor="kotNumber"
-                      className="block mb-2 font-medium text-foreground text-sm"
-                    >
-                      KOT Number *
-                    </Label>
-                    <Input
-                      id="kotNumber"
-                      type="text"
-                      placeholder="Enter KOT number"
-                      value={kotNumber}
-                      onChange={(e) => setKotNumber(e.target.value)}
-                      className={cn(
-                        'bg-background border-border',
-                        validationErrors.kotNumber &&
-                          'border-destructive focus:ring-destructive',
-                      )}
-                      required
-                    />
-                    {validationErrors.kotNumber && (
-                      <p className="mt-2 text-destructive text-xs">
-                        {validationErrors.kotNumber}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    {cart.items.map((item, index) => (
-                      <div
-                        key={index}
-                        className="bg-card shadow-xs p-4 border border-border rounded-xl"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-shrink-0 justify-center items-center rounded w-10 h-10 overflow-hidden">
-                            {item.photoURL ? (
-                              <img
-                                // why this part not have image? url shows empty
-                                src={pb.files.getURL(
-                                  {
-                                    id: item.menuItemId, // The record ID
-                                    collectionName: 'menuItems', // Hardcoded string
-                                  },
-                                  item.photoURL,
-                                )}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <DonutImage className="w-6 h-6" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-foreground truncate">
-                              {item.name}
-                            </h4>
-                            <p className="text-muted-foreground text-xs">
-                              {item.qty} × Rs. {item.price.toFixed(2)}
-                            </p>
-                          </div>
-                          <div className="ml-2 font-bold text-foreground">
-                            Rs. {(item.price * item.qty).toFixed(2)}
-                          </div>
-
-                          <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="hover:bg-background w-8 h-8"
-                              onClick={() => {
-                                onUpdateQuantity(
-                                  index,
-                                  Math.max(0, item.qty - 1),
-                                )
-                              }}
-                            >
-                              <MinusIcon className="w-4 h-4" />
-                            </Button>
-
-                            <span className="w-8 font-semibold text-sm text-center">
-                              {item.qty}
-                            </span>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="hover:bg-background w-8 h-8"
-                              disabled={
-                                item.qty >= (item.currentStockCount ?? 0)
-                              }
-                              onClick={() => {
-                                onUpdateQuantity(index, item.qty + 1)
-                              }}
-                            >
-                              <PlusIcon className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="hover:bg-background w-10 h-10"
-                            onClick={() => {
-                              onRemoveItem(index)
-                            }}
-                          >
-                            <Trash2Icon className="w-4 h-4" />
-                          </Button>
-                          <div className="flex flex-col justify-center h-full text-right">
-                            <div className="font-bold text-foreground">
-                              Rs. {(item.price * item.qty).toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-4 bg-card p-4 border border-border rounded-xl">
-                    <Label className="mb-3 font-semibold text-foreground">
-                      Billing Adjustments (Not in Percent)
-                    </Label>
-
-                    <div className="flex justify-between items-center">
-                      <Label className="font-medium text-foreground">
-                        Discount Amount
-                      </Label>
-                      <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() =>
-                            setDiscountAmount(Math.max(0, discountAmount - 1))
-                          }
-                        >
-                          <MinusIcon className="w-4 h-4" />
-                        </Button>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          className="bg-background border-0 w-32 h-8 text-sm text-center"
-                          value={discountInput}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            if (/^\d*$/.test(val) || val === '')
-                              setDiscountInput(val)
-                          }}
-                          onBlur={() => {
-                            if (
-                              discountInput === '' ||
-                              isNaN(Number(discountInput))
-                            ) {
-                              setDiscountInput('0')
-                              setDiscountAmount(0)
-                            } else {
-                              setDiscountAmount(Number(discountInput))
-                            }
-                          }}
-                          min="0"
-                          step="1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() => setDiscountAmount(discountAmount + 1)}
-                        >
-                          <PlusIcon className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <Label className="font-medium text-foreground">
-                        Tax Amount
-                      </Label>
-                      <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() =>
-                            setTaxAmount(Math.max(0, taxAmount - 1))
-                          }
-                        >
-                          <MinusIcon className="w-4 h-4" />
-                        </Button>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          className="bg-background border-0 w-32 h-8 text-sm text-center"
-                          value={taxInput}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            if (/^\d*$/.test(val) || val === '')
-                              setTaxInput(val)
-                          }}
-                          onBlur={() => {
-                            if (taxInput === '' || isNaN(Number(taxInput))) {
-                              setTaxInput('0')
-                              setTaxAmount(0)
-                            } else {
-                              setTaxAmount(Number(taxInput))
-                            }
-                          }}
-                          min="0"
-                          step="1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() => setTaxAmount(taxAmount + 1)}
-                        >
-                          <PlusIcon className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <Label className="font-medium text-foreground">
-                        Delivery Fee
-                      </Label>
-                      <div className="flex items-center gap-2 bg-muted p-1 rounded-lg">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() =>
-                            setDeliveryFee(Math.max(0, deliveryFee - 1))
-                          }
-                        >
-                          <MinusIcon className="w-4 h-4" />
-                        </Button>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          className="bg-background border-0 w-32 h-8 text-sm text-center"
-                          value={deliveryFeeInput}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            if (/^\d*$/.test(val) || val === '')
-                              setDeliveryFeeInput(val)
-                          }}
-                          onBlur={() => {
-                            if (
-                              deliveryFeeInput === '' ||
-                              isNaN(Number(deliveryFeeInput))
-                            ) {
-                              setDeliveryFeeInput('0')
-                              setDeliveryFee(0)
-                            } else {
-                              setDeliveryFee(Number(deliveryFeeInput))
-                            }
-                          }}
-                          min="0"
-                          step="1"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-8 h-8"
-                          onClick={() => setDeliveryFee(deliveryFee + 1)}
-                        >
-                          <PlusIcon className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 bg-card p-4 border border-border rounded-xl">
-                    <Label className="mb-3 font-semibold text-foreground">
-                      Order Options
-                    </Label>
-                    <div className="flex justify-between items-center">
-                      <Label className="font-medium text-foreground">
-                        Complementary
-                      </Label>
-                      <Switch
-                        checked={isComplementary}
-                        onCheckedChange={setIsComplementary}
-                        aria-label="Toggle complementary order"
-                        className="ml-2"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-medium text-foreground text-sm">
-                        Pay Later Customer (Optional)
-                      </Label>
-                      <Select
-                        value={selectedPayLaterCustomerId}
-                        onValueChange={setSelectedPayLaterCustomerId}
-                      >
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue placeholder="Choose a Pay Later Customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {payLaterCustomers.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-medium text-foreground text-sm">
-                        Payment Method
-                      </Label>
-                      <Select
-                        value={selectedPaymentMethod}
-                        onValueChange={setSelectedPaymentMethod}
-                      >
-                        <SelectTrigger className="bg-background border-border">
-                          <SelectValue placeholder="Choose payment method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="esewa">eSewa</SelectItem>
-                          <SelectItem value="bank">Bank</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-medium text-foreground text-sm">
-                        Date (Optional)
-                      </Label>
-                      <DatePickerWithPresets
-                        selected={receiptDate}
-                        onSelect={setReceiptDate}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="remarks"
-                        className="font-medium text-foreground text-sm"
-                      >
-                        Remarks
-                      </Label>
-                      <Input
-                        id="remarks"
-                        type="text"
-                        placeholder="Add any remarks (optional)"
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                        className="bg-background border-border"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-r from-card to-card/50 p-4 border border-border rounded-xl">
-                    <Label className="mb-3 font-semibold text-foreground">
-                      Bill Summary
-                    </Label>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Subtotal</span>
-                        <span className="font-medium">
-                          Rs. {subtotal.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Discount</span>
-                        <span className="font-medium text-destructive">
-                          - Rs. {discountAmount.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tax</span>
-                        <span className="font-medium">
-                          + Rs. {taxAmount.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Delivery Fee
-                        </span>
-                        <span className="font-medium">
-                          + Rs. {deliveryFee.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="mt-3 pt-2 border-border border-t">
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-lg">Total</span>
-                          <span className="font-bold text-primary text-xl">
-                            Rs. {totalAmount.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="final-step"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <SeatingPlan
-              selectedTable={selectedTable}
-              setSelectedTable={setSelectedTable}
-            />
-          </motion.div>
-        )}
-
-        <DrawerFooter>
-          {cart.items.length > 0 && (
-            <>
-              <div className="flex justify-between items-center bg-gray-50 dark:bg-muted p-4 rounded-lg">
-                <span className="font-semibold">Total</span>
-                <span className="font-bold text-lg">
-                  Rs. {totalAmount.toFixed(2)}
-                </span>
-              </div>
-              <motion.button
-                className={cn(
-                  'flex justify-center items-center gap-2 bg-primary hover:bg-primary/90 px-4 py-2 rounded-md w-full text-white transition-colors',
-                )}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                onClick={() => {
-                  if (isFormValid || step === true) {
-                    setStep(!step)
-                  }
-                }}
-              >
-                {step ? (
-                  <motion.span
-                    key="back"
-                    initial={{ x: -5, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 5, opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="flex items-center gap-2"
-                  >
-                    <ArrowLeftIcon className="w-4 h-4" color="white" />
-                    Back
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="next"
-                    initial={{ x: 5, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -5, opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="flex items-center gap-2 p-0"
-                  >
-                    Next
-                    <ArrowRightIcon className="w-4 h-4" color="white" />
-                  </motion.span>
-                )}
-              </motion.button>
-
-              <Button
-                onClick={handleSubmit}
-                disabled={
-                  cart.items.length === 0 ||
-                  step === false ||
-                  enterOrderMutation.isPending
-                }
-              >
-                {enterOrderMutation.isPending ? (
-                  <>
-                    <LoaderIcon
-                      color="white"
-                      className="mr-2 w-4 h-4 text-white animate-spin"
-                    />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit Order'
-                )}
-              </Button>
-            </>
-          )}
-          <DrawerClose asChild>
-            <Button variant="outline">Close</Button>
-          </DrawerClose>
-        </DrawerFooter>
-      </TransitioningDrawerContent>
-    </Drawer>
-  )
-}
+export const MAIN_CATEGORIES = [
+  'appetizers',
+  'main_courses',
+  'bakery',
+  'desserts',
+  'beverages',
+  'hard_drinks',
+  'specials',
+  'others',
+] as const
 
 function CategoryTabs() {
   return (
@@ -1031,7 +96,7 @@ function CategoryTabs() {
             { title: 'Specials', icon: SparklesIcon, search: 'specials' },
             { title: 'Others', icon: PartyPopperIcon, search: 'others' },
           ]}
-          to="/home/takeOrder"
+          to="/home/menuManagement"
           className="min-w-full"
         />
       </div>
@@ -1039,253 +104,199 @@ function CategoryTabs() {
   )
 }
 
-const emptyCart: AddToCart = {
-  kotNumber: '',
-  items: [],
-  discountAmount: 0,
-  taxAmount: 0,
-  tableNumber: -1,
-  complementary: false,
-  remarks: '',
-  receiptDate: new Date().toISOString(),
-  paymentMethod: 'cash',
-  deliveryFee: 0,
-  payLaterCustomerId: null,
-  status: 'pending',
+// Menu Item Card Component
+const MenuItemCard = memo(function MenuItemCard({
+  menuItems,
+}: {
+  menuItems: MenuItemProps[]
+}) {
+  // All foods have the same type, so use the first item's type or name as the heading
+  const type =
+    menuItems[0]?.type?.toUpperCase() || menuItems[0]?.name.toUpperCase()
+
+  return (
+    <div className="mb-8 p-4 border rounded-xl">
+      <h2 className="mb-3 font-bold text-xl tracking-wide">{type}</h2>
+      <div className="flex flex-col gap-2">
+        {menuItems.map((menuItem) => {
+          const cartItem = useCartStore((state) =>
+            state.cart.find((i) => i.itemId === menuItem._id),
+          )
+          const currentQty = cartItem ? cartItem.quantity : 0
+          const isMaxedOut = currentQty >= menuItem.stockCount
+          return (
+            <div
+              onClick={() => {
+                // Prevent adding if stock is 0 OR if we've reached max stock limit
+                if (menuItem.stockCount !== 0 && !isMaxedOut) {
+                  addItem(menuItem)
+                }
+              }}
+              key={menuItem._id}
+              className={cn(
+                'flex items-center gap-3 p-4 border rounded-xl transition-colors',
+                menuItem.stockCount === 0
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'active:bg-accent',
+              )}
+            >
+              <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
+                {menuItem.photoURL ? (
+                  <img
+                    alt={menuItem.name}
+                    src={menuItem.photoURL}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <DonutImage />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium select-none">{menuItem.name}</h3>
+                <p className="text-muted-foreground text-sm">
+                  Rs. {menuItem.price}
+                </p>
+                <p className="text-muted-foreground text-sm select-none">
+                  <StockBadge
+                    itemId={menuItem._id}
+                    stockCount={menuItem.stockCount}
+                  />
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+})
+
+export function StockBadge({
+  itemId,
+  stockCount,
+}: {
+  itemId: Id<'menuItems'>
+  stockCount: number
+}) {
+  // Completely reactive selector — tracks only this item
+  const cartItem = useCartStore((state) =>
+    state.cart.find((item) => item.itemId === itemId),
+  )
+
+  const quantityInCart = cartItem ? cartItem.quantity : 0
+
+  // Calculate true available stock remaining on the shelves
+  const availableStock = Math.max(0, stockCount - quantityInCart)
+
+  const dotColor =
+    availableStock === 0
+      ? 'bg-red-500'
+      : availableStock <= 5
+        ? 'bg-amber-500 animate-pulse'
+        : 'bg-emerald-500'
+
+  const label =
+    availableStock === 0
+      ? 'Out of stock'
+      : availableStock <= 5
+        ? `Only ${availableStock} left`
+        : `${availableStock} available`
+
+  return (
+    <Badge variant="outline" className="gap-1.5 font-normal">
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
+      {label}
+    </Badge>
+  )
 }
 
-// Main TakeOrder Component
+// Main Take Order Component
 export function TakeOrder() {
-  const [menuItems, setMenuItems] = useState<MenuItemProps[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const menuItems = useQuery(api.restaurant.menuItems.listMenuItems)
+  const currentUser = useQuery(api.users.currentUser)
+  // const user = useQuery(api.users.currentUser)
 
-  useEffect(() => {
-    // 1. Initial Fetch
-    const fetchInitialData = async () => {
-      try {
-        const records = await pb
-          .collection('menuItems')
-          .getFullList<MenuItemProps>({
-            sort: '-created',
-          })
-        setMenuItems(records)
-      } catch (err) {
-        console.error('Initial fetch failed:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  const { category: selectedCategory } = useSearch({
+    from: '/home/takeOrder',
+  })
 
-    fetchInitialData()
-
-    // 2. Real-time Subscription
-    pb.collection('menuItems').subscribe<MenuItemProps>('*', (e) => {
-      setMenuItems((current) => {
-        if (e.action === 'create') {
-          return [e.record, ...current]
-        }
-        if (e.action === 'update') {
-          return current.map((item) =>
-            item.id === e.record.id ? e.record : item,
-          )
-        }
-        if (e.action === 'delete') {
-          return current.filter((item) => item.id !== e.record.id)
-        }
-        return current
-      })
-    })
-
-    return () => {
-      pb.collection('menuItems').unsubscribe('*')
-    }
-  }, [])
-
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-  const [cart, setCart] = useState<AddToCart>(emptyCart)
-  const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
-  const { category: selectedCategory } = useSearch({ from: '/home/takeOrder' })
-
-  // SeatingPlan state
-  const [selectedTable, setSelectedTable] = useState<number>(-1)
-
-  // Move all order-related state to parent
-  const [kotNumber, setKotNumber] = useState<string>('')
-  const [discountAmount, setDiscountAmount] = useState<number>(0)
-  const [taxAmount, setTaxAmount] = useState<number>(0)
-  const [deliveryFee, setDeliveryFee] = useState<number>(0)
-  const [isComplementary, setIsComplementary] = useState(false)
-  const [remarks, setRemarks] = useState('')
-  const [selectedPayLaterCustomerId, setSelectedPayLaterCustomerId] =
-    useState<string>('')
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
-    'cash' | 'esewa' | 'bank'
-  >('cash')
-  const [step, setStep] = useState(false) // Move step state to parent
   const [search, setSearch] = useState('')
-  const [receiptDate, setReceiptDate] = useState<Date | undefined>(undefined)
 
-  const totalItems = cart.items.reduce((sum, item) => sum + item.qty, 0)
-
-  const handleAddToCart = (menuItem: MenuItemProps) => {
-    setCart((prev) => {
-      const existingIndex = prev.items.findIndex(
-        (item) => item.menuItemId === menuItem.id,
-      )
-
-      const cartItem: CartItem = {
-        menuItemId: menuItem.id,
-        name: menuItem.name,
-        price: menuItem.price,
-        qty: 1,
-        type: menuItem.type,
-        mainCategory: menuItem.mainCategory,
-        photoURL: menuItem.photoURL,
-        currentStockCount: menuItem.currentStockCount,
-      }
-
-      let newItems
-      if (existingIndex !== -1) {
-        newItems = prev.items.map((item, idx) =>
-          idx === existingIndex ? { ...item, qty: item.qty + 1 } : item,
-        )
-      } else {
-        newItems = [...prev.items, cartItem]
-      }
-
-      return { ...prev, items: newItems }
-    })
-  }
-
-  const updateCartQuantity = (index: number, newQty: number) => {
-    setCart((prev) => {
-      if (newQty === 0) {
-        // Remove the item if qty is 0
-        return {
-          ...prev,
-          items: prev.items.filter((_, i) => i !== index),
-        }
-      }
-      // Update the quantity for the item at the given index
-      return {
-        ...prev,
-        items: prev.items.map((item, i) =>
-          i === index ? { ...item, qty: newQty } : item,
-        ),
-      }
-    })
-  }
-
-  const removeCartItem = (index: number) => {
-    setCart((prev) => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }))
-    toast.info('Item removed from cart')
-  }
-
-  // Enhanced clearCart: resets all order state
-  const clearCart = () => {
-    setCart(emptyCart)
-    setSelectedTable(-1)
-    setKotNumber('')
-    setDiscountAmount(0)
-    setTaxAmount(0)
-    setDeliveryFee(0)
-    setIsComplementary(false)
-    setRemarks('')
-    setSelectedPayLaterCustomerId('')
-    setSelectedPaymentMethod('cash')
-    setStep(false) // Reset stepper
-    setCartDrawerOpen(false)
-    setReceiptDate(undefined)
-  }
-
-  if (isLoading) {
+  if (menuItems === undefined) {
     return <SplashScreen />
   }
 
   return (
-    <div className="bg-background h-full overflow-y-auto">
-      {/* Header with Cart Summary */}
-      <div className="top-0 z-50 sticky bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur">
+    <div className="flex flex-col bg-background h-full overflow-y-auto">
+      {/* Header */}
+      <div className="top-0 z-50 sticky bg-transparent backdrop-blur">
         <div className="flex justify-between items-center p-4">
           <div>
-            {(user.role === 'manager' || user.role === 'owner') && (
+            <h1 className="font-bold text-xl">Take Order</h1>
+            <p className="text-muted-foreground text-sm">
+              Create Orders from here
+            </p>
+          </div>
+          <div className="flex sm:flex-row flex-col items-center gap-2">
+            <AddToCartDrawer />
+            <Button
+              onClick={() => {
+                clearCart()
+              }}
+              variant={'outline'}
+              className="flex gap-2"
+            >
+              <RotateCcwIcon />
+              Clear Cart
+            </Button>
+            <Link
+              to="/home/inventoryManagement"
+              search={{ category: 'appetizers' }}
+              viewTransition={{ types: ['slide-left'] }}
+              className="inline-flex items-center gap-1 p-2 border rounded-lg text-muted-foreground hover:text-primary transition-colors"
+              title="Go to Inventory"
+            >
+              <PackageIcon className="w-5 h-5" />
+              <span className="font-medium text-sm">Go To Inventory</span>
+            </Link>
+            {(currentUser?.role === 'manager' ||
+              currentUser?.role === 'owner') && (
               <Link
                 to="/home/menuManagement"
                 search={{ category: 'appetizers' }}
                 viewTransition={{ types: ['slide-left'] }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded text-muted-foreground hover:text-primary transition-colors"
-                title="Go to Orders"
+                className="inline-flex items-center gap-1 p-2 border rounded-lg text-muted-foreground hover:text-primary transition-colors"
+                title="Go to Edit Menu"
               >
+                <SquarePenIcon className="w-5 h-5" />
                 <span className="font-medium text-sm">Edit Menu</span>
-                <SquarePenIcon className="size-4" />
               </Link>
             )}
-            <h1 className="font-bold text-xl">Order System</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="relative bg-transparent p-6"
-              onClick={() => setCartDrawerOpen(true)}
-            >
-              <ShoppingCartIcon className="mr-2 w-4 h-4" />
-              <div className="text-right">
-                <div className="text-sm">
-                  {cart.items.reduce((sum, item) => sum + item.qty, 0)} items
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  Rs.{' '}
-                  {cart.items
-                    .reduce((sum, item) => sum + item.price * item.qty, 0)
-                    .toFixed(2)}
-                </div>
-              </div>
-              {totalItems > 0 && (
-                <span className="-top-2 -right-2 absolute flex justify-center items-center bg-red-500 rounded-full w-5 h-5 text-white text-xs">
-                  {totalItems}
-                </span>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              className="bg-transparent p-6"
-              onClick={clearCart}
-            >
-              <RotateCwIcon />
-              Clear
-            </Button>
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <div className="">
-          <CategoryTabs />
-          <div className="top-[48px] z-10 sticky py-2">
-            <SearchIcon className="top-1/2 left-4 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
-            <Input
-              type="text"
-              placeholder="Search food..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 border-x-0 rounded-none"
-            />
-          </div>
-          {search !== '' && (
-            <p className="mb-2 ml-4 text-gray-500 text-xs italic">
-              Showing results across all categories
-            </p>
-          )}
+        <CategoryTabs />
+        <div className="top-[48px] z-10 sticky py-2">
+          <SearchIcon className="top-1/2 left-4 absolute w-5 h-5 text-muted-foreground -translate-y-1/2" />
+          <Input
+            type="text"
+            placeholder="Search food..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 border-x-0 rounded-none"
+          />
         </div>
+        {search !== '' && (
+          <p className="mb-2 ml-4 text-gray-500 text-sm italic">
+            Showing results across all categories
+          </p>
+        )}
       </div>
 
-      {/* Menu Items */}
+      {/* Menu Items List */}
       <div className="pb-32">
-        <div className="space-y-0 px-4">
+        <div className="px-4">
           <AnimatePresence>
             {Object.values(
               menuItems
@@ -1321,11 +332,7 @@ export function TakeOrder() {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.25 }}
               >
-                <MenuCard
-                  addToCart={cart}
-                  handleAddToCart={handleAddToCart}
-                  menuItems={menuItemsOfType}
-                />
+                <MenuItemCard menuItems={menuItemsOfType} />
               </motion.div>
             ))}
           </AnimatePresence>
@@ -1347,47 +354,727 @@ export function TakeOrder() {
                 <UtensilsCrossedIcon />
               </div>
               <span className="text-sm">No items match your search</span>
-              <span className="mt-1 text-[10px] tiny:text-xs">
+              <span className="mt-1 text-[10px] tiny:text-sm">
                 Try a different search term or add a new item using the + button
               </span>
             </div>
           )}
       </div>
-
-      {/* Cart Preview */}
-      <CartPreview cart={cart} />
-
-      {/* Cart Drawer */}
-      <CartDrawer
-        cart={cart}
-        isOpen={cartDrawerOpen}
-        onOpenChange={setCartDrawerOpen}
-        onUpdateQuantity={updateCartQuantity}
-        onRemoveItem={removeCartItem}
-        onClearCart={clearCart}
-        selectedTable={selectedTable}
-        setSelectedTable={setSelectedTable}
-        kotNumber={kotNumber}
-        setKotNumber={setKotNumber}
-        discountAmount={discountAmount ?? 0}
-        setDiscountAmount={setDiscountAmount}
-        taxAmount={taxAmount ?? 0}
-        setTaxAmount={setTaxAmount}
-        deliveryFee={deliveryFee}
-        setDeliveryFee={setDeliveryFee}
-        isComplementary={isComplementary}
-        setIsComplementary={setIsComplementary}
-        remarks={remarks}
-        setRemarks={setRemarks}
-        selectedPayLaterCustomerId={selectedPayLaterCustomerId}
-        setSelectedPayLaterCustomerId={setSelectedPayLaterCustomerId}
-        selectedPaymentMethod={selectedPaymentMethod}
-        setSelectedPaymentMethod={setSelectedPaymentMethod}
-        step={step}
-        setStep={setStep}
-        receiptDate={receiptDate}
-        setReceiptDate={setReceiptDate}
-      />
     </div>
   )
 }
+
+type OrderMeta = FunctionArgs<
+  typeof api.restaurant.orderTickets.createOrderTicket
+>
+
+const defaultOrderMetaValues: OrderMeta = {
+  branchId: '' as Id<'branches'>,
+  payLaterCustomerId: '' as Id<'payLaterCustomers'>,
+  kotNumber: '',
+  tableNumber: undefined,
+  deliveryCharge: 0,
+  orderType: 'dine-in',
+  totalDiscount: 0,
+  taxAmount: 0,
+  orderDate: Date.now(),
+  status: 'active',
+  paymentMethod: 'cash',
+  items: [],
+}
+
+const orderMetaSchema = z.object({
+  branchId: z.string().min(1, 'Please select a branch') as any,
+  payLaterCustomerId: z.string().optional() as any,
+  kotNumber: z.string().min(1, 'KOT number is required'),
+  tableNumber: z.number().optional(),
+  deliveryCharge: z.number().min(0),
+  orderType: z.enum(['dine-in', 'takeaway', 'delivery']),
+  totalDiscount: z.number().min(0),
+  taxAmount: z.number().min(0),
+  orderDate: z.number(),
+  status: z.enum(['active', 'paid', 'cancelled']),
+  paymentMethod: z.enum(['cash', 'esewa', 'bank']),
+  items: z.array(
+    z.object({
+      itemId: z.string() as any,
+      quantity: z.number().min(1, 'Quantity must be at least 1'),
+      isComplimentary: z.boolean(),
+      notes: z.string().optional(),
+    }),
+  ),
+})
+
+export function AddToCartDrawer() {
+  const [open, setOpen] = useState(false)
+  const [currentStep, setCurrentStep] = useState(1)
+  const menuItems = useQuery(api.restaurant.menuItems.listMenuItems)
+  const cart = useCartStore((state) => state.cart)
+  const totalCount = cart.reduce((acc, item) => acc + item.quantity, 0)
+  const createOrderTicket = useMutation(
+    api.restaurant.orderTickets.createOrderTicket,
+  )
+
+  const form = useAppForm({
+    defaultValues: defaultOrderMetaValues,
+    validators: {
+      onSubmit: orderMetaSchema,
+      onChange: orderMetaSchema,
+      onMount: orderMetaSchema,
+    },
+    onSubmit: async ({ value }) => {
+      // Clean up cart items,remove photoURL and stuff
+      const cleanItems = cart.map((cartItem) => ({
+        itemId: cartItem.itemId,
+        quantity: cartItem.quantity,
+        isComplimentary: cartItem.isComplimentary,
+        notes: cartItem.notes || undefined, // Convert blank/null text fields cleanly to undefined
+      }))
+
+      // Clear out empty optional metadata strings
+      const finalPayload = {
+        ...value,
+        items: cleanItems,
+
+        // Convert empty string relations or undefined tokens
+        payLaterCustomerId:
+          value.payLaterCustomerId !== ''
+            ? value.payLaterCustomerId
+            : undefined,
+        tableNumber:
+          value.tableNumber !== undefined ? value.tableNumber : undefined,
+        deliveryCharge:
+          value.deliveryCharge !== undefined ? value.deliveryCharge : undefined,
+      }
+
+      try {
+        const response = await createOrderTicket(finalPayload)
+        console.log('Ticket successfully created in Convex with ID:', response)
+
+        toast.success('Order Created Successfully!', {
+          description: `Ticket ID: ${response}`,
+        })
+
+        setOpen(false)
+        clearCart()
+        form.reset()
+      } catch (error: any) {
+        toast.error('Failed to Create Order', {
+          description:
+            error instanceof ConvexError
+              ? typeof error.data === 'string'
+                ? error.data
+                : error.data?.message
+              : 'Unknown error',
+        })
+      }
+    },
+  })
+
+  const isFormValid = useStore(form.store, (state) => state.canSubmit)
+
+  // Stepwise Validation
+  let shouldDisableNext = false
+
+  if (currentStep === 1) {
+    const isCartEmpty = cart.length === 0
+    const hasOversoldItem = cart.some((cartItem) => {
+      const dbItem = menuItems?.find((item) => item._id === cartItem.itemId)
+      return !dbItem || cartItem.quantity > dbItem.stockCount
+    })
+    shouldDisableNext = isCartEmpty || hasOversoldItem
+  }
+
+  if (currentStep === 2) {
+    shouldDisableNext = !isFormValid
+  }
+  // ------------------------------------------
+
+  return (
+    <Drawer shouldScaleBackground open={open} onOpenChange={setOpen} modal>
+      <DrawerTrigger asChild className="relative">
+        <Button variant="outline" className="flex items-center gap-2">
+          {totalCount > 0 && (
+            <span className="-top-2 -right-2 absolute flex justify-center items-center bg-primary shadow-sm p-1 rounded-full min-w-5 h-5 font-bold tabular-nums text-[10px] text-primary-foreground antialiased select-none">
+              {totalCount}
+            </span>
+          )}
+
+          <ShoppingCartIcon className="w-5 h-5" />
+          <span className="font-medium text-sm">Cart</span>
+        </Button>
+      </DrawerTrigger>
+
+      <DrawerContent className="h-[95svh]">
+        <div className="flex flex-col h-full overflow-hidden">
+          <Stepper
+            initialStep={1}
+            onStepChange={(step) => setCurrentStep(step)}
+            onFinalStepCompleted={async () => {
+              form.handleSubmit()
+            }}
+            backButtonText="Previous"
+            nextButtonText="Next"
+            nextButtonProps={{
+              disabled: shouldDisableNext,
+              className: cn(
+                'flex flex-row gap-2 bg-primary px-2 py-1 rounded-md text-white transition-colors duration-200', // base styles if needed
+                shouldDisableNext
+                  ? 'opacity-40 cursor-not-allowed pointer-events-none'
+                  : 'active:scale-[0.98]',
+              ),
+            }}
+            className="flex flex-col flex-1 mx-auto w-full max-w-6xl h-full min-h-0"
+            stepCircleContainerClassName="w-full max-w-none shadow-none"
+            contentClassName="flex-1 min-h-0"
+          >
+            {/* STEP 1: BASKET MANAGEMENT */}
+            <Step>
+              <div className="py-2 animate-in duration-200 fade-in-50">
+                <h3 className="font-semibold text-lg">Review Basket Items</h3>
+                <StepBasket />
+              </div>
+            </Step>
+
+            {/* STEP 2: METADATA & ORDER TYPE */}
+            <Step>
+              <div className="py-2 h-full animate-in duration-200 fade-in-50">
+                <h3 className="font-semibold text-lg">Add Information</h3>
+                <StepOrderMeta form={form} />
+              </div>
+            </Step>
+
+            <Step>
+              <div className="py-2 animate-in duration-200 fade-in-50">
+                <h3 className="font-semibold text-lg">Review Basket Items</h3>
+                <ReceiptPreview form={form} />
+              </div>
+            </Step>
+          </Stepper>
+
+          {/* Minimal footer action block tucked underneath the stepper bar */}
+          <div className="flex justify-center bg-background px-8 pt-2 pb-4 border-t">
+            <DrawerClose asChild>
+              <Button className="w-full">Minimize</Button>
+            </DrawerClose>
+          </div>
+        </div>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function StepBasket() {
+  const cart = useCartStore((state) => state.cart)
+
+  const menuItems = useQuery(api.restaurant.menuItems.listMenuItems)
+
+  if (menuItems === undefined) {
+    return (
+      <div className="flex justify-center items-center h-[250px]">
+        <SplashScreen />
+      </div>
+    )
+  }
+
+  const subtotal = cart.reduce(
+    (acc, item) => acc + item.price * item.quantity,
+    0,
+  )
+
+  if (cart.length === 0) {
+    return (
+      <div className="flex flex-col justify-center items-center gap-2 bg-muted/5 px-4 py-8 border border-dashed rounded-xl text-muted-foreground select-none">
+        <ShoppingBagIcon className="stroke-[1.5] w-6 h-6" />
+        <p className="font-medium text-sm">Your basket is empty</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 bg-background shadow-sm mx-auto p-4 border rounded-xl max-w-md">
+      {/* Scrollable Item Container */}
+      <div className="flex flex-col pr-1 divide-y divide-border/60 max-h-[340px] overflow-y-auto">
+        {cart.map((item) => {
+          const sourceItem = menuItems.find((m) => m._id === item.itemId)
+          const maxStock = sourceItem?.stockCount ?? 0
+
+          // This is reactive
+          const hasStockConflict = item.quantity > maxStock
+
+          return (
+            <div
+              key={item.itemId}
+              className={cn(
+                'group flex flex-col gap-2 px-2 py-3 first:pt-0 last:pb-0 rounded-lg transition-colors',
+                hasStockConflict &&
+                  'bg-destructive/5 border border-destructive/30 my-1',
+              )}
+            >
+              {/* Top Row: Image, Info, Counter */}
+              <div className="flex items-center gap-3">
+                <div className="relative flex-shrink-0 bg-muted border border-border/40 rounded-lg w-12 h-12 overflow-hidden">
+                  <div className="relative flex flex-shrink-0 justify-center items-center bg-muted border border-border/40 rounded-lg w-12 h-12 overflow-hidden">
+                    {item.photoURL ? (
+                      <img
+                        src={item.photoURL}
+                        alt={item.name}
+                        className="w-full h-full object-cover transition-transform"
+                      />
+                    ) : (
+                      <DonutImage className="w-6 h-6 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col flex-1 justify-center min-w-0">
+                  <div className="flex justify-between items-baseline gap-2">
+                    <span className="font-medium text-foreground text-sm truncate">
+                      {item.name}
+                    </span>
+                    <span className="flex-shrink-0 font-semibold tabular-nums text-foreground text-sm">
+                      Rs. {item.price * item.quantity}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Micro Counter Controls */}
+                <div className="flex items-center self-center gap-1.5 bg-muted/60 ml-2 p-1 border border-border/40 rounded-lg">
+                  <Button
+                    variant={'outline'}
+                    onClick={() => decrementItem(item.itemId)}
+                    className="flex justify-center items-center p-0 w-6 h-6"
+                    type="button"
+                    aria-label="Decrease quantity"
+                  >
+                    <MinusIcon className="stroke-[2.5] w-3 h-3" />
+                  </Button>
+
+                  <span
+                    className={cn(
+                      'w-5 font-bold tabular-nums text-sm text-center select-none',
+                      hasStockConflict ? 'text-destructive' : 'text-foreground',
+                    )}
+                  >
+                    {item.quantity}
+                  </span>
+
+                  <Button
+                    variant={'outline'}
+                    disabled={item.quantity >= maxStock}
+                    onClick={() =>
+                      addItem({
+                        _id: item.itemId,
+                        name: item.name,
+                        price: item.price,
+                        photoURL: item.photoURL,
+                      })
+                    }
+                    className={cn(
+                      'flex justify-center items-center p-0 w-6 h-6',
+                      item.quantity >= maxStock &&
+                        'opacity-40 cursor-not-allowed pointer-events-none',
+                    )}
+                    type="button"
+                    aria-label="Increase quantity"
+                  >
+                    <PlusIcon className="stroke-[2.5] w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Dynamic Warning Indicator */}
+              {hasStockConflict && (
+                <div className="flex items-center gap-1.5 pl-1 font-medium text-destructive text-xs">
+                  <AlertCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>Stock conflict! Only {maxStock} left in kitchen.</span>
+                </div>
+              )}
+
+              {/* Special Instructions Notes field */}
+              <div className="w-full">
+                <Input
+                  type="text"
+                  placeholder="Notes: no mayo, extra cheese..."
+                  value={item.notes || ''}
+                  onChange={(e) => {
+                    AddNote(item.itemId, e.target.value)
+                  }}
+                  className="bg-muted/30 focus-visible:bg-background border-border/50 focus-visible:ring-1 h-7 text-sm"
+                />
+              </div>
+
+              {/* Complimentary Checkbox */}
+              <div className="flex items-center gap-2 mt-0.5 pl-1">
+                <input
+                  type="checkbox"
+                  id={`comp-${item.itemId}`}
+                  checked={item.isComplimentary}
+                  onChange={() => toggleComplimentary(item.itemId)}
+                  className="border-muted-foreground/35 rounded w-3.5 h-3.5 accent-primary cursor-pointer"
+                />
+                <label
+                  htmlFor={`comp-${item.itemId}`}
+                  className="font-medium text-muted-foreground hover:text-foreground text-xs transition-colors cursor-pointer select-none"
+                >
+                  Mark as Complimentary
+                </label>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Footer Summary Card */}
+      <div className="flex justify-between items-center mt-1 pt-3 border-border border-t font-semibold text-foreground text-sm">
+        <span className="font-medium text-muted-foreground">Subtotal</span>
+        <span className="tabular-nums text-base">Rs. {subtotal}</span>
+      </div>
+    </div>
+  )
+}
+
+const StepOrderMeta = withForm({
+  defaultValues: defaultOrderMetaValues,
+
+  render: ({ form }) => {
+    const branches = useQuery(api.restaurant.branches.listBranches)
+    const payLaterCustomers = useQuery(
+      api.restaurant.payLaterCustomers.listPayLaterCustomers,
+    )
+    return (
+      <div className="py-16 h-full min-h-fit">
+        <div className="gap-3 grid grid-cols-2">
+          <form.Field name="branchId">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Branch</Label>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(val) =>
+                    field.handleChange(val as Id<'branches'>)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches ? (
+                      branches.map((branch) => (
+                        <SelectItem key={branch._id} value={branch._id}>
+                          {branch.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="flex justify-center items-center py-6 w-full">
+                        <LoaderIcon className="w-4 h-4 text-muted-foreground animate-spin" />
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                {field.state.meta.errors.length ? (
+                  <em style={{ color: 'red' }}>
+                    {field.state.meta.errors
+                      .map((error: any) =>
+                        typeof error === 'object' ? error.message : error,
+                      )
+                      .join(', ')}
+                  </em>
+                ) : null}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="orderDate">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Date</Label>
+                <DatePickerWithPresets
+                  className="w-full"
+                  selected={new Date(field.state.value)}
+                  onSelect={(val) =>
+                    field.handleChange((val ?? new Date()).getTime())
+                  }
+                />
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="kotNumber">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">KOT Number</Label>
+                <Input
+                  placeholder="e.g., 042"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="tableNumber">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Table Number</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g., 4"
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  className="flex bg-transparent shadow-sm px-3 py-1 border border-input rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-full h-9 placeholder:text-muted-foreground text-sm"
+                  onChange={(e) => {
+                    const raw = e.target.value
+
+                    if (raw === '') {
+                      field.handleChange(undefined)
+                      return
+                    }
+
+                    if (/^[0-9]*$/.test(raw)) {
+                      field.handleChange(parseInt(raw, 10))
+                    }
+                  }}
+                />
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="orderType">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Order Type</Label>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(val) =>
+                    field.handleChange(val as OrderMeta['orderType'])
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Order Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dine-in">Dine-in</SelectItem>
+                    <SelectItem value="takeaway">Takeaway</SelectItem>
+                    <SelectItem value="delivery">Delivery</SelectItem>
+                  </SelectContent>
+                </Select>
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="deliveryCharge">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Delivery Charge</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g., 4"
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  className="flex bg-transparent shadow-sm px-3 py-1 border border-input rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-full h-9 placeholder:text-muted-foreground text-sm"
+                  onChange={(e) => {
+                    const raw = e.target.value
+
+                    if (raw === '') {
+                      field.handleChange(0)
+                      return
+                    }
+
+                    if (/^[0-9]*$/.test(raw)) {
+                      field.handleChange(parseInt(raw, 10))
+                    }
+                  }}
+                />
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="totalDiscount">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Discount</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g., 4"
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  className="flex bg-transparent shadow-sm px-3 py-1 border border-input rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-full h-9 placeholder:text-muted-foreground text-sm"
+                  onChange={(e) => {
+                    const raw = e.target.value
+
+                    if (raw === '') {
+                      field.handleChange(0)
+                      return
+                    }
+
+                    if (/^[0-9]*$/.test(raw)) {
+                      field.handleChange(parseInt(raw, 10))
+                    }
+                  }}
+                />
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="taxAmount">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm">Tax Amount</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g., 4"
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  className="flex bg-transparent shadow-sm px-3 py-1 border border-input rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-full h-9 placeholder:text-muted-foreground text-sm"
+                  onChange={(e) => {
+                    const raw = e.target.value
+
+                    if (raw === '') {
+                      field.handleChange(0)
+                      return
+                    }
+
+                    if (/^[0-9]*$/.test(raw)) {
+                      field.handleChange(parseInt(raw, 10))
+                    }
+                  }}
+                />
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+        </div>
+
+        <div className="flex flex-col gap-2 mt-4">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm">Pay Later Customer</Label>
+          </div>
+
+          <form.Field name="payLaterCustomerId">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Select
+                  value={field.state.value}
+                  onValueChange={(val) =>
+                    field.handleChange(val as Id<'payLaterCustomers'>)
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {payLaterCustomers ? (
+                      payLaterCustomers.map((payLaterCustomer) => (
+                        <SelectItem
+                          key={payLaterCustomer._id}
+                          value={payLaterCustomer._id}
+                        >
+                          {payLaterCustomer.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="flex justify-center items-center py-6 w-full">
+                        <LoaderIcon className="w-4 h-4 text-muted-foreground animate-spin" />
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                <em style={{ color: 'red' }}>
+                  {field.state.meta.errors
+                    .map((error: any) =>
+                      typeof error === 'object' ? error.message : error,
+                    )
+                    .join(', ')}
+                </em>
+              </div>
+            )}
+          </form.Field>
+        </div>
+        <div className="flex flex-col gap-2 mt-4">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm">Payment Method</Label>
+          </div>
+
+          <form.Field name="paymentMethod">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Select
+                  value={field.state.value}
+                  onValueChange={(val) =>
+                    field.handleChange(val as 'cash' | 'esewa' | 'bank')
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Payment Method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="esewa">eSewa</SelectItem>
+                    <SelectItem value="bank">Bank Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {field.state.meta.errors.length > 0 && (
+                  <em className="font-medium text-destructive text-xs">
+                    {field.state.meta.errors
+                      .map((error: any) =>
+                        typeof error === 'object' ? error.message : error,
+                      )
+                      .join(', ')}
+                  </em>
+                )}
+              </div>
+            )}
+          </form.Field>
+        </div>
+      </div>
+    )
+  },
+})

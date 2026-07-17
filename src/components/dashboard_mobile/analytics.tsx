@@ -24,11 +24,8 @@ import {
   YAxis,
 } from 'recharts'
 
-import {
-  formatCompactNumber,
-  groupRevenueData,
-  mapToRevenueData,
-} from './analytics.utils'
+import { format, startOfDay, endOfDay } from 'date-fns'
+import { formatCompactNumber } from './analytics.utils'
 import AnimatedCounter from '../ui/animatedCounter'
 import {
   CreditCardIcon,
@@ -36,25 +33,21 @@ import {
   CalendarIcon,
   WalletIcon,
 } from 'lucide-react'
-import {
-  calculateTotalRevenue,
-  calculateOrderTotal,
-  calculateTotalExpenditure,
-} from './dashboard.utils'
 
-import type { FetchedOrder } from '../restaurant_mobile/types'
-import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
-import type { SeedBalance } from './seedOpeningConfig'
+import type { Doc } from '../../../convex/_generated/dataModel'
 
-export interface RevenueData {
+type DailyStat = Doc<'dailyStats'>
+
+interface ChartRow {
   timestamp: string
   income: number
   expenditure: number
+  sales: number
 }
 
-export function AnalyticsLineChart({ data }: { data: RevenueData[] }) {
+export function AnalyticsLineChart({ data }: { data: ChartRow[] }) {
   return (
-    <ResponsiveContainer width="100%" height={400} className=" ">
+    <ResponsiveContainer width="100%" height={400}>
       <LineChart data={data} margin={{ right: 12, left: 12 }}>
         <XAxis
           dataKey="timestamp"
@@ -74,11 +67,11 @@ export function AnalyticsLineChart({ data }: { data: RevenueData[] }) {
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: '#1a1a1a', // Dark gray background
-            border: '1px solid #404040', // Medium gray border
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #404040',
             borderRadius: '8px',
-            color: '#ffffff', // White text
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+            color: '#ffffff',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
           }}
         />
         <CartesianGrid stroke="#ccc" strokeWidth={1} strokeDasharray="5 5" />
@@ -103,7 +96,7 @@ export function AnalyticsLineChart({ data }: { data: RevenueData[] }) {
   )
 }
 
-export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
+export function AnalyticsAreaChart({ data }: { data: ChartRow[] }) {
   return (
     <ResponsiveContainer width="100%" height={400}>
       <AreaChart data={data} margin={{ right: 12, left: 12 }}>
@@ -134,11 +127,11 @@ export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: '#1a1a1a', // Dark gray background
-            border: '1px solid #404040', // Medium gray border
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #404040',
             borderRadius: '8px',
-            color: '#ffffff', // White text
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
+            color: '#ffffff',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
           }}
         />
         <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
@@ -173,206 +166,64 @@ export function AnalyticsAreaChart({ data }: { data: RevenueData[] }) {
   )
 }
 
-const COLORS = [
-  '#10B981', // Green for Bank (professional banking color)
-  '#3B82F6', // Blue for Cash (clean, classic)
-  '#F59E0B', // Orange for eSewa (matches eSewa brand better)
-]
-// Pie chart component
-function AnalyticsPieChart({ income }: { income: FetchedOrder[] }) {
-  // Aggregate income by payment method
-  const paymentMethodMap = income.reduce(
-    (acc, order) => {
-      // Calculate order total using centralized function
-      const finalOrderTotal = calculateOrderTotal(order)
-
-      const paymentMethod = order.paymentMethod || 'cash'
-      acc[paymentMethod] = (acc[paymentMethod] || 0) + finalOrderTotal
-
-      return acc
-    },
-    {} as Record<string, number>,
-  )
-
-  // Convert to pie chart data format
-  const pieData = Object.entries(paymentMethodMap)
-    .sort(([a], [b]) => a.localeCompare(b)) // Sort alphabetically by payment method name
-    .map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1), // Capitalize first letter
-      value: Math.round(value * 100) / 100, // Round to 2 decimal places
-    }))
-  return (
-    <ResponsiveContainer width="100%" height={400}>
-      <PieChart>
-        <Pie
-          dataKey="value"
-          data={pieData}
-          cx="50%"
-          cy="50%"
-          outerRadius={110}
-          innerRadius={75}
-          fill="#8884d8"
-          label
-        >
-          {/* used to be entry variable */}
-          {pieData.map((_, index) => (
-            <Cell
-              key={`cell-${index}`}
-              fill={COLORS[index % COLORS.length]}
-              className="rounded focus:outline-3 focus:outline-rose-500"
-            />
-          ))}
-        </Pie>
-        <Legend
-          verticalAlign="bottom"
-          height={36}
-          iconType="circle"
-          wrapperStyle={{
-            paddingTop: '20px',
-            fontSize: '14px',
-          }}
-        />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: '#1a1a1a', // Dark gray background
-            border: '1px solid #404040', // Medium gray border
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)', // Dark shadow
-            color: '#ffffff', // White text
-          }}
-          labelStyle={{
-            color: '#ffffff', // White text for labels
-          }}
-          itemStyle={{
-            color: '#ffffff', // White text for items
-          }}
-          formatter={(value: number, name: string) => [
-            `Rs. ${value.toFixed(2)}`,
-            name, // This will show the payment method name
-          ]}
-        />
-      </PieChart>
-    </ResponsiveContainer>
-  )
-}
-
-type AllLedger = {
-  orders: FetchedOrder[]
-  expenseLedger: ExpenseLedger[]
-}
-
 export function Analytics({
-  rawOrders: income,
-  expenseLedger,
-  allLedger,
+  dailyStats,
   seedBalance,
   dateRange,
 }: {
-  rawOrders: FetchedOrder[]
-  expenseLedger: ExpenseLedger[]
-  allLedger: AllLedger | undefined
-  seedBalance: SeedBalance | undefined
-  dateRange: { from: string; to: string }
+  dailyStats: DailyStat[]
+  seedBalance: Doc<'seedBalance'> | undefined
+  dateRange: { from: Date; to: Date }
 }) {
-  // Calculate opening and closing balance for the date range
+  const fromDate = dateRange.from
+  const toDate = dateRange.to
+
+  // Get filtered stats for the selected date window
+  const periodStats = dailyStats.filter((stat) => {
+    const d = new Date(stat.date)
+    return d >= startOfDay(fromDate) && d <= endOfDay(toDate)
+  })
+
+  //Sum up metrics for the current active period
+  const totalIncome = periodStats.reduce((sum, s) => sum + s.revenue, 0)
+  const totalExpenditure = periodStats.reduce((sum, s) => sum + s.expenses, 0)
+  const totalSales = periodStats.reduce((sum, s) => sum + s.salesCount, 0)
+
+  // Compute Opening Balance accurately up until the start of fromDate
   const calculateOpeningBalance = () => {
-    if (!allLedger || !seedBalance) return 0
+    if (!seedBalance) return 0
+    const seedDate = new Date(seedBalance.date)
 
-    const fromDate = new Date(dateRange.from)
-    const seedDate = new Date(seedBalance.seedDate)
+    const priorStats = dailyStats.filter((s) => {
+      const d = new Date(s.date)
+      return d > seedDate && d < startOfDay(fromDate)
+    })
 
-    let runningBalance = seedBalance.seedAmount
+    const income = priorStats.reduce((sum, s) => sum + s.revenue, 0)
+    const expenditure = priorStats.reduce((sum, s) => sum + s.expenses, 0)
 
-    const orders = allLedger.orders.filter(
-      (o) =>
-        new Date(o.receiptDate) > seedDate &&
-        new Date(o.receiptDate) < fromDate,
-    )
-
-    const expenses = allLedger.expenseLedger.filter(
-      (e) => new Date(e.date) > seedDate && new Date(e.date) < fromDate,
-    )
-
-    const income = calculateTotalRevenue(orders as FetchedOrder[])
-    const expenditure = calculateTotalExpenditure(expenses as ExpenseLedger[])
-    console.group('--- Debug: Opening Balance Calculation ---')
-    console.log('Seed Amount:', runningBalance)
-    console.log(
-      `Orders found before ${dateRange.from}:`,
-      orders.length,
-      `(Sum: Rs. ${income})`,
-    )
-    console.log(
-      `Expenses found before ${dateRange.from}:`,
-      expenses.length,
-      `(Sum: Rs. ${expenditure})`,
-    )
-    console.log(
-      'Resulting Opening Balance:',
-      runningBalance + income - expenditure,
-    )
-    console.groupEnd()
-    return runningBalance + income - expenditure
-  }
-
-  const calculateClosingBalance = () => {
-    if (!allLedger || !seedBalance) return 0
-
-    const toDate = new Date(dateRange.to)
-    const seedDate = new Date(seedBalance.seedDate)
-
-    let runningBalance = seedBalance.seedAmount
-
-    const orders = allLedger.orders.filter(
-      (o) =>
-        new Date(o.receiptDate) > seedDate && new Date(o.receiptDate) <= toDate,
-    )
-
-    const expenses = allLedger.expenseLedger.filter(
-      (e) => new Date(e.date) > seedDate && new Date(e.date) <= toDate,
-    )
-
-    const income = calculateTotalRevenue(orders as FetchedOrder[])
-    const expenditure = calculateTotalExpenditure(expenses as ExpenseLedger[])
-    console.group('--- Debug: Closing Balance Calculation ---')
-    console.log('Seed Amount:', runningBalance)
-    console.log(
-      `Total Orders since seed until ${dateRange.to}:`,
-      orders.length,
-      `(Sum: Rs. ${income})`,
-    )
-    console.log(
-      `Total Expenses since seed until ${dateRange.to}:`,
-      expenses.length,
-      `(Sum: Rs. ${expenditure})`,
-    )
-    console.log(
-      'Resulting Closing Balance:',
-      runningBalance + income - expenditure,
-    )
-    console.groupEnd()
-
-    return runningBalance + income - expenditure
+    return seedBalance.amount + income - expenditure
   }
 
   const openingBalance = calculateOpeningBalance()
-  const closingBalance = calculateClosingBalance()
 
-  // Format the date range for display
+  // Derive closing balance directly from opening balance to prevent day-boundary leakage
+  const closingBalance = openingBalance + totalIncome - totalExpenditure
+
   const formatDateRange = () => {
-    if (dateRange.from === dateRange.to) {
-      return new Date(dateRange.from).toLocaleDateString('en-US', {
+    if (dateRange.from.getTime() === dateRange.to.getTime()) {
+      return fromDate.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
       })
     }
 
-    const fromFormatted = new Date(dateRange.from).toLocaleDateString('en-US', {
+    const fromFormatted = fromDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
     })
-    const toFormatted = new Date(dateRange.to).toLocaleDateString('en-US', {
+    const toFormatted = toDate.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -383,19 +234,16 @@ export function Analytics({
 
   const dateRangeText = formatDateRange()
 
-  const revenueData = mapToRevenueData({ income, expenseLedger })
+  const data: ChartRow[] = [...periodStats]
+    .sort((a, b) => a.date - b.date)
+    .map((s) => ({
+      timestamp: format(new Date(s.date), 'MMM d'),
+      income: Math.round(s.revenue),
+      expenditure: Math.round(s.expenses),
+      sales: s.salesCount,
+    }))
 
-  const data = groupRevenueData(revenueData)
-
-  // Calculate total income directly from orders to include manual rounding and delivery fee
-  const totalIncomeFromOrders = calculateTotalRevenue(income)
-
-  const totalIncome = totalIncomeFromOrders
-  const totalExpenditure = calculateTotalExpenditure(expenseLedger)
-  const totalOrders = income.length
-  //make avgchecksie upto 2 digits after decimal
-  const avgCheckSize = totalOrders > 0 ? totalIncome / totalOrders : 0
-
+  const avgCheckSize = totalSales > 0 ? totalIncome / totalSales : 0
   const grossProfitMargin =
     totalIncome > 0 ? ((totalIncome - totalExpenditure) / totalIncome) * 100 : 0
 
@@ -445,7 +293,6 @@ export function Analytics({
           </CardHeader>
           <CardContent>
             <div className="font-bold text-2xl">
-              {' '}
               Rs. <AnimatedCounter from={0} to={totalExpenditure} />
             </div>
           </CardContent>
@@ -515,7 +362,6 @@ export function Analytics({
       </div>
 
       <div className="gap-4 grid md:grid-cols-2 lg:grid-cols-7 mt-4 pb-4">
-        {/* Revenue Chart */}
         <Card className="order-1 lg:order-1 col-span-full lg:col-span-4 h-full">
           <Tabs defaultValue="line" className="flex flex-col p-0">
             <CardHeader>
@@ -532,7 +378,6 @@ export function Analytics({
             <CardContent className="relative m-0 p-0 h-full">
               <>
                 <TabsContent value="line">
-                  {/* <div className="border-2 border-red-500">test</div> */}
                   <AnalyticsLineChart data={data} />
                 </TabsContent>
                 <TabsContent value="area">
@@ -543,19 +388,86 @@ export function Analytics({
           </Tabs>
         </Card>
 
-        {/* Pie Chart */}
         <Card className="order-2 lg:order-2 col-span-full lg:col-span-3 h-full">
           <CardHeader>
-            <CardTitle>Sales by Payment Method</CardTitle>
-            <CardDescription>
-              Revenue breakdown by payment method.
-            </CardDescription>
+            <CardTitle>Sales Volume</CardTitle>
+            <CardDescription>Number of sales per day.</CardDescription>
           </CardHeader>
           <CardContent>
-            <AnalyticsPieChart income={income} />
+            <PaymentMethodChart data={periodStats} />
           </CardContent>
         </Card>
       </div>
     </>
+  )
+}
+
+const COLORS = [
+  '#10B981', // Bank
+  '#3B82F6', // Cash
+  '#F59E0B', // eSewa
+]
+
+function PaymentMethodChart({ data }: { data: DailyStat[] }) {
+  const totals = data.reduce(
+    (acc, s) => {
+      acc.cash += s.paymentBreakdown.cash
+      acc.esewa += s.paymentBreakdown.esewa
+      acc.bank += s.paymentBreakdown.bank
+      return acc
+    },
+    { cash: 0, esewa: 0, bank: 0 },
+  )
+
+  const pieData = [
+    { name: 'Bank', value: Math.round(totals.bank * 100) / 100 },
+    { name: 'Cash', value: Math.round(totals.cash * 100) / 100 },
+    { name: 'eSewa', value: Math.round(totals.esewa * 100) / 100 },
+  ]
+
+  return (
+    <ResponsiveContainer width="100%" height={400}>
+      <PieChart>
+        <Pie
+          dataKey="value"
+          data={pieData}
+          cx="50%"
+          cy="50%"
+          outerRadius={110}
+          innerRadius={75}
+          fill="#8884d8"
+          label
+        >
+          {pieData.map((_, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={COLORS[index % COLORS.length]}
+              className="rounded focus:outline-3 focus:outline-rose-500"
+            />
+          ))}
+        </Pie>
+        <Legend
+          verticalAlign="bottom"
+          height={36}
+          iconType="circle"
+          wrapperStyle={{ paddingTop: '20px', fontSize: '14px' }}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #404040',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+            color: '#ffffff',
+          }}
+          labelStyle={{ color: '#ffffff' }}
+          itemStyle={{ color: '#ffffff' }}
+          formatter={(value: number, name: string) => [
+            `Rs. ${value.toFixed(2)}`,
+            name,
+          ]}
+        />
+      </PieChart>
+    </ResponsiveContainer>
   )
 }

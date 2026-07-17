@@ -1,128 +1,102 @@
-'use client'
-
 import { useState } from 'react'
+import { useMutation, useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
 import {
   CalendarIcon,
   CheckCircle2Icon,
   LoaderIcon,
   PencilIcon,
   PlusIcon,
+  SaveIcon,
   Trash2Icon,
+  XIcon,
+  StoreIcon,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
-import { pb } from '@/lib/pocketbase'
+import type { Doc } from '../../../convex/_generated/dataModel'
 
-export interface SeedBalance {
-  id: string
-  seedAmount: number
-  seedDate: string
-}
-
-interface SeedBalancePayload {
-  amount: number
-  date: string
-}
-
-const COLLECTION = 'seedConfig'
-
-async function getSeedBalance(): Promise<SeedBalance | null> {
-  try {
-    const records = await pb.collection(COLLECTION).getList<SeedBalance>(1, 1)
-    if (records.items.length === 0) return null
-    const r = records.items[0]
-    return { id: r.id, seedAmount: r.seedAmount, seedDate: r.seedDate }
-  } catch {
-    return null
-  }
-}
-
-async function setSeedBalance(
-  payload: SeedBalancePayload,
-  existingId?: string,
-): Promise<SeedBalance> {
-  const data = {
-    seedAmount: payload.amount,
-    seedDate: new Date(payload.date).toISOString(),
-  }
-  if (existingId) {
-    const r = await pb
-      .collection(COLLECTION)
-      .update<SeedBalance>(existingId, data)
-    return { id: r.id, seedAmount: r.seedAmount, seedDate: r.seedDate }
-  }
-  const r = await pb.collection(COLLECTION).create<SeedBalance>(data)
-  return { id: r.id, seedAmount: r.seedAmount, seedDate: r.seedDate }
-}
-
-async function deleteSeedBalance(id: string): Promise<void> {
-  await pb.collection(COLLECTION).delete(id)
-}
-
-const SeedOpeningConfig = () => {
+const SeedOpeningConfig = ({
+  selectedBranch,
+}: {
+  selectedBranch: Doc<'branches'>
+}) => {
   const [isEditing, setIsEditing] = useState(false)
   const [amount, setAmount] = useState('')
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const queryClient = useQueryClient()
-
-  const { data: seedBalance, isLoading } = useQuery({
-    queryKey: ['seedBalance'],
-    queryFn: getSeedBalance,
+  const seedBalance = useQuery(api.dashboard.seedBalance.getSeedBalance, {
+    branchId: selectedBranch._id,
   })
 
-  const createMutation = useMutation({
-    mutationFn: (payload: SeedBalancePayload) =>
-      setSeedBalance(payload, seedBalance?.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['seedBalance'] })
-      setIsEditing(false)
-      setAmount('')
-      setSelectedDate(undefined)
-      toast.success('Opening balance saved')
-    },
-    onError: () => toast.error('Failed to save'),
-  })
+  const isLoading = seedBalance === undefined
 
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteSeedBalance(seedBalance!.id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['seedBalance'] })
-      toast.success('Opening balance removed')
-    },
-    onError: () => toast.error('Failed to delete'),
-  })
-
-  const handleSave = () => {
-    if (!amount || !selectedDate) {
-      toast.error('Fill in all fields')
-      return
-    }
-    createMutation.mutate({
-      amount: Number.parseFloat(amount),
-      date: format(selectedDate, 'yyyy-MM-dd'),
-    })
-  }
+  const setSeedBalance = useMutation(api.dashboard.seedBalance.setSeedBalance)
+  const clearSeedBalance = useMutation(
+    api.dashboard.seedBalance.clearSeedBalance,
+  )
 
   const handleEdit = () => {
     if (seedBalance) {
-      setAmount(seedBalance.seedAmount.toString())
-      setSelectedDate(new Date(seedBalance.seedDate))
-      setIsEditing(true)
+      setAmount(String(seedBalance.amount))
+      setSelectedDate(new Date(seedBalance.date))
     }
+    setIsEditing(true)
   }
 
   const handleCancel = () => {
-    setIsEditing(false)
     setAmount('')
     setSelectedDate(undefined)
+    setIsEditing(false)
+  }
+
+  const handleSave = async () => {
+    if (!amount || !selectedDate) return
+
+    const parsedAmount = Number(amount)
+    if (Number.isNaN(parsedAmount) || parsedAmount < 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await setSeedBalance({
+        branchId: selectedBranch._id,
+        amount: parsedAmount,
+        date: selectedDate.getTime(),
+      })
+      toast.success(
+        seedBalance ? 'Opening balance updated' : 'Opening balance set',
+      )
+      setAmount('')
+      setSelectedDate(undefined)
+      setIsEditing(false)
+    } catch (err) {
+      toast.error('Failed to save opening balance')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      await clearSeedBalance({ branchId: selectedBranch._id })
+      toast.success('Opening balance removed')
+    } catch (err) {
+      toast.error('Failed to remove opening balance')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   if (isLoading) {
@@ -136,13 +110,15 @@ const SeedOpeningConfig = () => {
   return (
     <div className="mx-auto px-4 pt-6 pb-10 w-full sm:w-[480px] lg:w-[540px]">
       {/* Page heading */}
-      <div className="mb-6">
-        <p className="mb-1 text-muted-foreground text-xs uppercase tracking-widest">
-          Configuration
-        </p>
-        <h1 className="font-semibold text-foreground text-xl tracking-tight">
-          Opening Balance
-        </h1>
+      <div className="flex justify-between items-end gap-3 mb-6">
+        <div>
+          <p className="mb-1 text-muted-foreground text-xs uppercase tracking-widest">
+            Configuration
+          </p>
+          <h1 className="font-semibold text-foreground text-xl tracking-tight">
+            Opening Balance
+          </h1>
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
@@ -156,7 +132,11 @@ const SeedOpeningConfig = () => {
           >
             <div className="flex flex-col items-center gap-4 bg-muted/30 px-5 py-10 border border-border border-dashed rounded-xl text-center">
               <p className="text-muted-foreground text-sm leading-relaxed">
-                No opening balance set yet. <br />
+                No opening balance set yet for{' '}
+                <span className="font-medium text-foreground">
+                  {selectedBranch.name}
+                </span>
+                . <br />
                 Add one to start tracking daily cash flow.
               </p>
               <Button
@@ -187,7 +167,7 @@ const SeedOpeningConfig = () => {
                       Seed amount
                     </p>
                     <p className="font-semibold text-foreground text-3xl tracking-tight">
-                      Rs. {seedBalance.seedAmount.toLocaleString('en-IN')}
+                      Rs. {seedBalance.amount.toLocaleString('en-IN')}
                     </p>
                   </div>
                   <Badge
@@ -202,8 +182,13 @@ const SeedOpeningConfig = () => {
                 <div className="flex items-center gap-1.5 mt-3 text-muted-foreground">
                   <CalendarIcon className="flex-shrink-0 w-3.5 h-3.5" />
                   <span className="text-sm">
-                    {format(new Date(seedBalance.seedDate), 'MMM d, yyyy')}
+                    {format(new Date(seedBalance.date), 'MMM d, yyyy')}
                   </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
+                  <StoreIcon className="flex-shrink-0 w-3.5 h-3.5" />
+                  <span className="text-sm">{selectedBranch.name}</span>
                 </div>
               </div>
 
@@ -218,16 +203,16 @@ const SeedOpeningConfig = () => {
                   Edit
                 </button>
                 <button
-                  onClick={() => deleteMutation.mutate()}
-                  disabled={deleteMutation.isPending}
+                  onClick={handleDelete}
+                  disabled={isDeleting}
                   className="flex flex-1 justify-center items-center gap-2 hover:bg-destructive/5 active:bg-destructive/10 disabled:opacity-40 py-3 text-muted-foreground hover:text-destructive text-sm transition-colors"
                 >
-                  {deleteMutation.isPending ? (
+                  {isDeleting ? (
                     <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
                   ) : (
                     <Trash2Icon className="w-3.5 h-3.5" />
                   )}
-                  {deleteMutation.isPending ? 'Removing…' : 'Remove'}
+                  {isDeleting ? 'Removing…' : 'Remove'}
                 </button>
               </div>
             </div>
@@ -252,7 +237,8 @@ const SeedOpeningConfig = () => {
                   {seedBalance ? 'Edit balance' : 'Set opening balance'}
                 </p>
                 <p className="mt-0.5 text-muted-foreground text-xs">
-                  Starting point for all daily calculations.
+                  Starting point for all daily calculations —{' '}
+                  {selectedBranch.name}.
                 </p>
               </div>
 
@@ -279,10 +265,11 @@ const SeedOpeningConfig = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-medium text-muted-foreground text-xs">
+                  <label className="mr-2 font-medium text-muted-foreground text-xs">
                     Starting date
                   </label>
                   <DatePickerWithPresets
+                    className="w-48"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
                   />
@@ -294,28 +281,28 @@ const SeedOpeningConfig = () => {
               <div className="flex divide-x divide-border">
                 <button
                   onClick={handleCancel}
-                  className="flex-1 hover:bg-muted/40 active:bg-muted/60 py-3 text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  className="flex flex-1 justify-center items-center gap-2 hover:bg-muted/40 active:bg-muted/60 py-3 text-muted-foreground hover:text-foreground text-sm transition-colors"
                 >
+                  <XIcon className="w-4 h-4" />
                   Cancel
                 </button>
+
                 <button
                   onClick={handleSave}
-                  disabled={
-                    createMutation.isPending || !amount || !selectedDate
-                  }
+                  disabled={isSaving || !amount || !selectedDate}
                   className="flex flex-1 justify-center items-center gap-2 hover:bg-muted/40 active:bg-muted/60 disabled:opacity-40 py-3 font-medium text-foreground text-sm transition-colors"
                 >
-                  {createMutation.isPending && (
-                    <LoaderIcon
-                      color="white"
-                      className="w-3.5 h-3.5 animate-spin"
-                    />
+                  {isSaving ? (
+                    <>
+                      <LoaderIcon className="w-4 h-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <SaveIcon className="w-4 h-4" />
+                      {seedBalance ? 'Update' : 'Save'}
+                    </>
                   )}
-                  {createMutation.isPending
-                    ? 'Saving…'
-                    : seedBalance
-                      ? 'Update'
-                      : 'Save'}
                 </button>
               </div>
             </div>

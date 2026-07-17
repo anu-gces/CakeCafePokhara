@@ -1,5 +1,4 @@
 import { memo, useState } from 'react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,16 +10,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer'
 import {
   Sheet,
   SheetClose,
@@ -47,25 +36,37 @@ import {
   SearchIcon,
   ArrowLeftIcon,
   PartyPopperIcon,
+  PackageIcon,
 } from 'lucide-react'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import DonutImage from '@/assets/donutImage'
-import { Formik, Form } from 'formik'
-import * as Yup from 'yup'
 import { SplashScreen } from '@/components/splashscreen'
-import { ScrollArea } from '@radix-ui/react-scroll-area'
 import { ExpandableTabs } from '@/components/ui/expandable-tabs-vanilla'
-import { useRouteContext, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 import { Link } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'motion/react'
-import { pb } from '@/lib/pocketbase'
-import {
-  menuItemsQuery,
-  MAIN_CATEGORIES,
-  type MenuItemProps,
-  type MainCategory,
-} from '@/lib/pocketbase/menuManagement'
+
+import { Authenticated } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
+import { useQuery, useMutation } from 'convex/react'
+import { useForm } from '@tanstack/react-form'
+import { z } from 'zod'
+import type { WithoutSystemFields } from 'convex/server'
+import type { Doc, Id } from '../../../convex/_generated/dataModel'
+
+type MenuItemProps =
+  (typeof api.restaurant.menuItems.listMenuItems._returnType)[number]
+
+export const MAIN_CATEGORIES = [
+  'appetizers',
+  'main_courses',
+  'bakery',
+  'desserts',
+  'beverages',
+  'hard_drinks',
+  'specials',
+  'others',
+] as const
 
 function CategoryTabs() {
   return (
@@ -106,14 +107,14 @@ const MenuItemCard = memo(function MenuItemCard({
       <div className="flex flex-col gap-2">
         {menuItems.map((menuItem) => (
           <div
-            key={menuItem.id}
+            key={menuItem._id}
             className="flex items-center gap-3 active:bg-accent p-4 border rounded-xl transition-colors"
           >
             <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
               {menuItem.photoURL ? (
                 <img
                   alt={menuItem.name}
-                  src={pb.files.getURL(menuItem, menuItem.photoURL)}
+                  src={menuItem.photoURL}
                   className="w-full h-full object-cover"
                   loading="lazy"
                 />
@@ -129,8 +130,10 @@ const MenuItemCard = memo(function MenuItemCard({
             </div>
             {/* Edit and Delete Buttons */}
             <div className="flex gap-2">
-              <EditMenuItemDrawer menuItem={menuItem} />
-              <DeleteMenuItemDrawer menuItem={menuItem} />
+              <Authenticated>
+                <EditMenuItemDrawer key={menuItem._id} menuItem={menuItem} />
+                <DeleteMenuItemDrawer menuItem={menuItem} />
+              </Authenticated>
             </div>
           </div>
         ))}
@@ -139,515 +142,10 @@ const MenuItemCard = memo(function MenuItemCard({
   )
 })
 
-// Validation schema for menu item form
-const menuItemValidationSchema = Yup.object({
-  name: Yup.string()
-    .trim()
-    .min(2, 'Too short')
-    .max(64, 'Too long')
-    .required('Required'),
-  mainCategory: Yup.string()
-    .oneOf([...MAIN_CATEGORIES], 'Invalid Category') // Uses your constant
-    .required('Required'),
-  price: Yup.number()
-    .typeError('Must be a number')
-    .min(1, 'Must be greater than 0')
-    .required('Required'),
-  type: Yup.string().nullable(),
-  photoURL: Yup.mixed().nullable(),
-})
-
-interface MenuItemAddValues {
-  name: string
-  mainCategory: MainCategory
-  price: number
-  type?: string
-  photoURL?: File | string
-}
-
-export function AddMenuItemDrawer() {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-  const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
-
-  const enterMenuItemMutation = useMutation({
-    mutationFn: async (values: MenuItemAddValues) => {
-      const formData = new FormData()
-
-      // 1. Append all text fields
-      formData.append('name', values.name)
-      formData.append('price', values.price.toString())
-      formData.append('mainCategory', values.mainCategory)
-      formData.append('editedBy', user.id)
-      formData.append('addedBy', user.id)
-
-      if (values.type) formData.append('type', values.type)
-
-      // 2. Append the file (PocketBase handles the rest)
-      if (values.photoURL instanceof File) {
-        formData.append('photoURL', values.photoURL)
-      }
-
-      // 3. Single request to Create
-      return await pb.collection('menuItems').create(formData)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
-      toast.success('Menu Item Added successfully!')
-      setOpen(false)
-    },
-    onError: (error: any) => {
-      toast.error('Error adding item: ' + error.message)
-    },
-  })
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button>
-          <PlusIcon color="white" />
-          Add Food Item
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="bottom">
-        <SheetHeader>
-          <SheetTitle>Add Food Item</SheetTitle>
-          <SheetDescription>
-            Add a new food item here. Click save when you're done.
-          </SheetDescription>
-        </SheetHeader>
-
-        <Formik<MenuItemAddValues>
-          initialValues={{
-            name: '',
-            mainCategory: 'appetizers',
-            price: 0,
-            type: undefined,
-            photoURL: undefined,
-          }}
-          validationSchema={menuItemValidationSchema}
-          onSubmit={(values) => {
-            const normalizedValues = {
-              ...values,
-              type: values.type ? values.type.toLowerCase() : undefined,
-            }
-            enterMenuItemMutation.mutate(normalizedValues)
-          }}
-        >
-          {(formik) => (
-            <Form>
-              <ScrollArea className="max-h-96 overflow-y-auto">
-                <div className="flex flex-col gap-4 px-4 py-4">
-                  {/* Name Field */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="name">Menu Item Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      className="w-full"
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      value={formik.values.name}
-                    />
-                    {formik.touched.name && formik.errors.name && (
-                      <div className="text-red-500 text-xs">
-                        {String(formik.errors.name)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Category Select */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="mainCategory">Category</Label>
-                    <Select
-                      name="mainCategory"
-                      value={formik.values.mainCategory}
-                      onValueChange={(value) =>
-                        formik.setFieldValue('mainCategory', value)
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MAIN_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {/* Replaces underscores with spaces and capitalizes for the UI */}
-                            {cat.replace('_', ' ').toUpperCase()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {formik.touched.mainCategory &&
-                      formik.errors.mainCategory && (
-                        <div className="text-red-500 text-xs">
-                          {String(formik.errors.mainCategory)}
-                        </div>
-                      )}
-                  </div>
-
-                  {/* Price Field */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="price">Price</Label>
-                    <Input
-                      id="price"
-                      name="price"
-                      type="number"
-                      className="w-full"
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      value={formik.values.price}
-                    />
-                    {formik.touched.price && formik.errors.price && (
-                      <div className="text-red-500 text-xs">
-                        {String(formik.errors.price)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Type Field (optional) */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="type">
-                      Type (optional): For example, enter "pizza" for Chicken
-                      Pizza. Leave blank for items like Plain Water.
-                    </Label>
-                    <Input
-                      id="type"
-                      name="type"
-                      className="w-full"
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      value={formik.values.type || ''}
-                    />
-                  </div>
-
-                  {/* File Upload */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="photoURL">Photo</Label>
-                    <Input
-                      type="file"
-                      id="photoURL"
-                      name="photoURL"
-                      className="w-full"
-                      onChange={(e) => {
-                        formik.setFieldValue(
-                          'photoURL',
-                          e.currentTarget.files?.[0] || null,
-                        )
-                      }}
-                      onBlur={formik.handleBlur}
-                    />
-                  </div>
-                </div>
-              </ScrollArea>
-
-              <SheetFooter>
-                <Button
-                  className="text-white"
-                  type="submit"
-                  disabled={formik.isSubmitting}
-                >
-                  {formik.isSubmitting ? (
-                    <LoaderIcon color="white" className="animate-spin" />
-                  ) : (
-                    'Submit'
-                  )}
-                </Button>
-                <SheetClose asChild>
-                  <Button variant="outline" type="button">
-                    Cancel
-                  </Button>
-                </SheetClose>
-              </SheetFooter>
-            </Form>
-          )}
-        </Formik>
-      </SheetContent>
-    </Sheet>
-  )
-}
-
-interface MenuItemEditValues {
-  id: string
-  name: string
-  mainCategory: MainCategory
-  price: number
-  type?: string
-  photoURL?: File | string
-}
-
-// Edit Menu Item Drawer Component
-function EditMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
-  const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-
-  const updateMenuItemsMutation = useMutation({
-    mutationFn: async (values: MenuItemEditValues) => {
-      const formData = new FormData()
-
-      // 1. Append Text Fields
-      formData.append('name', values.name)
-      formData.append('price', values.price.toString())
-      formData.append('mainCategory', values.mainCategory)
-      formData.append('type', values.type ?? '')
-      formData.append('editedBy', user.id)
-
-      // 2. Handle Image
-      // Only append if the user actually picked a NEW file
-      if (values.photoURL instanceof File) {
-        formData.append('photoURL', values.photoURL)
-      }
-
-      // 3. Single Update Request
-      return await pb.collection('menuItems').update(values.id, formData)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
-      toast.success('Item updated successfully!')
-      setOpen(false)
-    },
-    onError: (error: any) => {
-      toast.error('Update failed: ' + error.message)
-    },
-  })
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="icon">
-          <PencilIcon className="w-4 h-4" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="bottom">
-        <SheetHeader>
-          <SheetTitle>Edit Menu Item</SheetTitle>
-          <SheetDescription>
-            Update the details of {menuItem.name}. Click save when you're done.
-          </SheetDescription>
-        </SheetHeader>
-
-        <Formik<MenuItemEditValues>
-          initialValues={{
-            id: menuItem.id,
-            name: menuItem.name,
-            mainCategory: menuItem.mainCategory,
-            price: menuItem.price,
-            type: menuItem.type ?? undefined,
-            photoURL: menuItem.photoURL ?? undefined,
-          }}
-          validationSchema={menuItemValidationSchema}
-          onSubmit={(values) => updateMenuItemsMutation.mutate(values)}
-        >
-          {(formik) => (
-            <Form>
-              <ScrollArea className="max-h-96 overflow-y-auto">
-                <div className="flex flex-col gap-4 px-4 py-4">
-                  {/* Name */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="name">Menu Item Name</Label>
-                    <Input
-                      id="name"
-                      name="name"
-                      type="text"
-                      className="w-full"
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      value={formik.values.name}
-                    />
-                  </div>
-
-                  {/* Category */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="mainCategory">Category</Label>
-                    <Select
-                      name="mainCategory"
-                      value={formik.values.mainCategory}
-                      onValueChange={(value) =>
-                        formik.setFieldValue('mainCategory', value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MAIN_CATEGORIES.map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {/* Replaces underscores with spaces and capitalizes for the UI */}
-                            {cat.replace('_', ' ').toUpperCase()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="price">Price</Label>
-                    <Input
-                      id="price"
-                      name="price"
-                      type="number"
-                      className="w-full"
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      value={formik.values.price}
-                    />
-                  </div>
-
-                  {/* Type */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="type">
-                      Type (optional): e.g., "pizza" for Chicken Pizza. Leave
-                      blank for items like Plain Water.
-                    </Label>
-                    <Input
-                      id="type"
-                      name="type"
-                      className="w-full"
-                      onChange={formik.handleChange}
-                      onBlur={formik.handleBlur}
-                      value={formik.values.type || ''}
-                    />
-                  </div>
-
-                  {/* Photo */}
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="photoURL">Photo</Label>
-                    <Input
-                      type="file"
-                      id="photoURL"
-                      name="photoURL"
-                      className="w-full"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null
-                        formik.setFieldValue('photoURL', file)
-                      }}
-                      onBlur={formik.handleBlur}
-                    />
-                  </div>
-                </div>
-              </ScrollArea>
-
-              <SheetFooter>
-                <Button
-                  className="text-white"
-                  type="submit"
-                  disabled={formik.isSubmitting}
-                >
-                  {formik.isSubmitting ? (
-                    <LoaderIcon className="animate-spin" color="white" />
-                  ) : (
-                    'Submit'
-                  )}
-                </Button>
-                <SheetClose asChild>
-                  <Button variant="outline" type="button">
-                    Cancel
-                  </Button>
-                </SheetClose>
-              </SheetFooter>
-            </Form>
-          )}
-        </Formik>
-      </SheetContent>
-    </Sheet>
-  )
-}
-
-// Delete Menu Item Drawer Component
-function DeleteMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
-  const [open, setOpen] = useState(false)
-  const queryClient = useQueryClient()
-
-  const deleteMenuItemMutation = useMutation({
-    mutationFn: async () => {
-      // PocketBase handles deleting the associated photoURL file automatically
-      await pb.collection('menuItems').delete(menuItem.id)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menuItems'] })
-      toast.success('Menu Item Deleted successfully!')
-      setOpen(false)
-    },
-    onError: (error: any) => {
-      toast.error('Error deleting item: ' + error.message)
-    },
-  })
-
-  return (
-    <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Trash2Icon className="w-4 h-4" />
-        </Button>
-      </DrawerTrigger>
-
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Delete Menu Item</DrawerTitle>
-          <DrawerDescription>
-            Are you sure you want to delete <strong>{menuItem.name}</strong>?
-            This action cannot be undone.
-          </DrawerDescription>
-        </DrawerHeader>
-
-        <div className="px-4 pb-4">
-          <div className="bg-card p-4 border rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="flex justify-center items-center bg-gray-100 rounded-lg w-12 h-12">
-                {typeof menuItem.photoURL === 'string' && menuItem.photoURL ? (
-                  <img
-                    alt={menuItem.name}
-                    src={pb.files.getURL(menuItem, menuItem.photoURL)}
-                    className="rounded-lg w-12 h-12 object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <DonutImage width={36} height={36} />
-                )}
-              </div>
-              <div>
-                <h4 className="font-medium">{menuItem.name}</h4>
-                <p className="text-muted-foreground text-sm">
-                  Rs. {menuItem.price}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DrawerFooter>
-          <Button
-            onClick={() => deleteMenuItemMutation.mutate()}
-            disabled={deleteMenuItemMutation.isPending}
-          >
-            {deleteMenuItemMutation.isPending ? (
-              <>
-                <LoaderIcon
-                  className="mr-2 w-4 h-4 animate-spin"
-                  color="white"
-                />
-                Deleting...
-              </>
-            ) : (
-              'Yes, Delete Item'
-            )}
-          </Button>
-          <DrawerClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
-  )
-}
-
 // Main MenuManagement Component
 export function MenuManagement() {
-  const { data: menuItems = [], isLoading } = useQuery(menuItemsQuery())
+  const menuItems = useQuery(api.restaurant.menuItems.listMenuItems)
+  // const user = useQuery(api.users.currentUser)
 
   const { category: selectedCategory } = useSearch({
     from: '/home/menuManagement',
@@ -655,7 +153,7 @@ export function MenuManagement() {
 
   const [search, setSearch] = useState('')
 
-  if (isLoading) {
+  if (menuItems === undefined) {
     return <SplashScreen />
   }
 
@@ -689,10 +187,12 @@ export function MenuManagement() {
               className="inline-flex items-center gap-1 p-2 border rounded-lg text-muted-foreground hover:text-primary transition-colors"
               title="Go to Inventory"
             >
-              <PartyPopperIcon className="w-5 h-5" />
+              <PackageIcon className="w-5 h-5" />
               <span className="font-medium text-sm">Go To Inventory</span>
             </Link>
-            <AddMenuItemDrawer />
+            <Authenticated>
+              <AddMenuItemDrawer />
+            </Authenticated>
           </div>
         </div>
 
@@ -781,5 +281,542 @@ export function MenuManagement() {
           )}
       </div>
     </div>
+  )
+}
+
+type MenuItem = WithoutSystemFields<Doc<'menuItems'>>
+
+const menuItemSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+  price: z
+    .string()
+    .min(1, 'Price is required')
+    .refine((v) => !isNaN(Number(v)) && Number(v) >= 0, 'Must be 0 or more'),
+  type: z.string().optional(),
+  photoId: z.instanceof(File).optional(),
+  mainCategory: z.enum([
+    'appetizers',
+    'main_courses',
+    'bakery',
+    'desserts',
+    'beverages',
+    'hard_drinks',
+    'specials',
+    'others',
+  ]),
+})
+
+type MenuItemFormData = Omit<
+  MenuItem,
+  'stockCount' | 'addedBy' | 'editedBy' | 'photoId' | 'price'
+> & {
+  photoId?: File
+  price: string
+}
+
+function AddMenuItemDrawer() {
+  const [isOpen, setIsOpen] = useState(false)
+  const mutateAddItem = useMutation(api.restaurant.menuItems.addMenuItem)
+  const generateUploadUrl = useMutation(api.imageUpload.generateUploadUrl)
+
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      price: '',
+      type: undefined,
+      photoId: undefined,
+      mainCategory: 'appetizers',
+    } as MenuItemFormData,
+    validators: {
+      onChange: menuItemSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        let photoId: Id<'_storage'> | undefined = undefined
+
+        if (value.photoId) {
+          // value.photoId is the File object stored by your field
+          const file = value.photoId as unknown as File
+
+          // Step 1: get short-lived upload URL
+          const uploadUrl = await generateUploadUrl()
+
+          // Step 2: POST the raw file to Convex storage
+          const res = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': file.type },
+            body: file,
+          })
+
+          if (!res.ok) throw new Error('Photo upload failed')
+
+          // Step 3: extract the storageId
+          const { storageId } = (await res.json()) as {
+            storageId: Id<'_storage'>
+          }
+          photoId = storageId
+        }
+
+        await mutateAddItem({
+          name: value.name,
+          price: Number(value.price),
+          stockCount: 0,
+          mainCategory: value.mainCategory,
+          type: value.type || undefined,
+          photoId,
+        })
+
+        form.reset()
+        setIsOpen(false)
+      } catch (err) {
+        console.error('Failed to add menu item:', err)
+      }
+    },
+  })
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button>
+          <PlusIcon color="white" />
+          Add Menu Item
+        </Button>
+      </SheetTrigger>
+
+      <SheetContent side="bottom" className="p-4">
+        <SheetHeader>
+          <SheetTitle>Add Menu Item</SheetTitle>
+        </SheetHeader>
+
+        <form
+          className="flex flex-col gap-5 py-6"
+          onSubmit={(e) => {
+            e.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <form.Field name="name">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name}>Name</Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="e.g. Margherita Pizza"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="price">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name}>Price</Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="0.00"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="mainCategory">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label>Category</Label>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(val) =>
+                    field.handleChange(val as MenuItemFormData['mainCategory'])
+                  }
+                >
+                  <SelectTrigger onBlur={field.handleBlur}>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="appetizers">Appetizers</SelectItem>
+                    <SelectItem value="main_courses">Main Courses</SelectItem>
+                    <SelectItem value="bakery">Bakery</SelectItem>
+                    <SelectItem value="desserts">Desserts</SelectItem>
+                    <SelectItem value="beverages">Beverages</SelectItem>
+                    <SelectItem value="hard_drinks">Hard Drinks</SelectItem>
+                    <SelectItem value="specials">Specials</SelectItem>
+                    <SelectItem value="others">Others</SelectItem>
+                  </SelectContent>
+                </Select>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="type">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name}>
+                  Type{' '}
+                  <span className="text-muted-foreground text-xs">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  onChange={(e) =>
+                    field.handleChange(e.target.value || undefined)
+                  }
+                  placeholder="use this to categorize. Eg: chicken momo & veg momo if they have type 'momo' they will be grouped together"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="photoId">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label>Photo</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onBlur={field.handleBlur}
+                  onChange={(e) =>
+                    field.handleChange(e.target.files?.[0] as any)
+                  }
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <SheetFooter className="mt-2">
+            <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting]}>
+              {([canSubmit, isSubmitting]) => (
+                <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <LoaderIcon className="stroke-white w-4 h-4 animate-spin" />
+                      <span>Adding...</span>
+                    </>
+                  ) : (
+                    'Add Item'
+                  )}
+                </Button>
+              )}
+            </form.Subscribe>
+            <SheetClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => form.reset()}
+              >
+                Cancel
+              </Button>
+            </SheetClose>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+type EditMenuItemDrawerProps = {
+  menuItem: MenuItemProps
+}
+
+function EditMenuItemDrawer({ menuItem }: EditMenuItemDrawerProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const mutateEditItem = useMutation(api.restaurant.menuItems.editMenuItem)
+
+  const form = useForm({
+    defaultValues: {
+      name: menuItem.name,
+      price: String(menuItem.price),
+      type: menuItem.type ?? undefined,
+      mainCategory: menuItem.mainCategory,
+    } as Omit<MenuItemFormData, 'photoId'>,
+    validators: {
+      onChange: menuItemSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await mutateEditItem({
+          id: menuItem._id,
+          name: value.name,
+          price: Number(value.price),
+          mainCategory: value.mainCategory,
+          type: value.type || undefined,
+        })
+        setIsOpen(false)
+      } catch (err) {
+        console.error('Failed to edit menu item:', err)
+      }
+    },
+  })
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button size="icon" variant={'outline'}>
+          <PencilIcon color="currentColor" />
+        </Button>
+      </SheetTrigger>
+
+      <SheetContent side="bottom" className="p-4">
+        <SheetHeader>
+          <SheetTitle>Edit Menu Item</SheetTitle>
+        </SheetHeader>
+
+        <div className="flex justify-center items-center bg-gray-100 rounded-lg w-16 h-16">
+          {menuItem.photoURL ? (
+            <img
+              alt={menuItem.name}
+              src={menuItem.photoURL}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <DonutImage />
+          )}
+        </div>
+        <form
+          className="flex flex-col gap-5 py-6"
+          onSubmit={(e) => {
+            e.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <form.Field name="name">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name}>Name</Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="e.g. Margherita Pizza"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="price">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name}>Price</Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder="0.00"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="mainCategory">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label>Category</Label>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(val) =>
+                    field.handleChange(val as MenuItemFormData['mainCategory'])
+                  }
+                >
+                  <SelectTrigger onBlur={field.handleBlur}>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="appetizers">Appetizers</SelectItem>
+                    <SelectItem value="main_courses">Main Courses</SelectItem>
+                    <SelectItem value="bakery">Bakery</SelectItem>
+                    <SelectItem value="desserts">Desserts</SelectItem>
+                    <SelectItem value="beverages">Beverages</SelectItem>
+                    <SelectItem value="hard_drinks">Hard Drinks</SelectItem>
+                    <SelectItem value="specials">Specials</SelectItem>
+                    <SelectItem value="others">Others</SelectItem>
+                  </SelectContent>
+                </Select>
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <form.Field name="type">
+            {(field) => (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={field.name}>
+                  Type{' '}
+                  <span className="text-muted-foreground text-xs">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id={field.name}
+                  value={field.state.value ?? ''}
+                  onBlur={field.handleBlur}
+                  onChange={(e) =>
+                    field.handleChange(e.target.value || undefined)
+                  }
+                  placeholder="e.g. momo — groups items of the same type together"
+                />
+                {field.state.meta.errors.length > 0 && (
+                  <p className="text-destructive text-sm">
+                    {field.state.meta.errors[0]?.message}
+                  </p>
+                )}
+              </div>
+            )}
+          </form.Field>
+
+          <SheetFooter className="mt-2">
+            <form.Subscribe selector={(s) => [s.canSubmit, s.isSubmitting]}>
+              {([canSubmit, isSubmitting]) => (
+                <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <LoaderIcon className="stroke-white w-4 h-4 animate-spin" />
+                      <span>Editing...</span>
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              )}
+            </form.Subscribe>
+            <SheetClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => form.reset()}
+              >
+                Cancel
+              </Button>
+            </SheetClose>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function DeleteMenuItemDrawer({ menuItem }: { menuItem: MenuItemProps }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const mutateDeleteItem = useMutation(api.restaurant.menuItems.deleteMenuItem)
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true)
+      await mutateDeleteItem({ id: menuItem._id })
+      setIsOpen(false)
+    } catch (err) {
+      console.error('Failed to delete menu item:', err)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button size="icon" variant="outline">
+          <Trash2Icon />
+        </Button>
+      </SheetTrigger>
+
+      <SheetContent side="bottom" className="p-4">
+        <SheetHeader>
+          <SheetTitle>Delete Menu Item</SheetTitle>
+          <SheetDescription>
+            <div className="flex items-center gap-4 py-4 text-left">
+              <div className="flex-shrink-0">
+                {menuItem.photoURL ? (
+                  <img
+                    src={menuItem.photoURL}
+                    alt={menuItem.name}
+                    className="rounded-lg w-16 h-16 object-cover"
+                  />
+                ) : (
+                  <div className="flex justify-center items-center bg-muted border border-border border-dashed rounded-lg w-16 h-16 text-muted-foreground">
+                    <DonutImage className="stroke-[1.5] w-8 h-8" />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                Are you sure you want to delete{' '}
+                <span className="font-semibold text-foreground">
+                  {menuItem.name}
+                </span>
+                ? This action cannot be undone.
+              </div>
+            </div>
+          </SheetDescription>
+        </SheetHeader>
+
+        <SheetFooter>
+          <Button disabled={isDeleting} onClick={handleDelete}>
+            {isDeleting ? (
+              <>
+                <LoaderIcon className="stroke-white w-4 h-4 animate-spin" />
+                <span>Deleting...</span>
+              </>
+            ) : (
+              'Delete'
+            )}
+          </Button>
+          <SheetClose asChild>
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+          </SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

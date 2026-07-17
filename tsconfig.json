@@ -12,7 +12,7 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "vite-plugin-pwa/client", "web-bluetooth"],
+    "types": ["node", "vite/client", "vite-plugin-pwa/client", "web-bluetooth"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

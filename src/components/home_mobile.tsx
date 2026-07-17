@@ -9,12 +9,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer'
 import { motion } from 'motion/react'
-import {
-  Link,
-  Outlet,
-  useNavigate,
-  useRouteContext,
-} from '@tanstack/react-router'
+import { Link, Outlet, useNavigate } from '@tanstack/react-router'
 import {
   BoxIcon,
   MicrowaveIcon,
@@ -31,6 +26,7 @@ import {
   WifiIcon,
   WifiOffIcon,
   PrinterIcon,
+  SettingsIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -39,10 +35,10 @@ import { Button } from './ui/button'
 import { ExpandableTabs, type TabItem } from './ui/expandable-tabs'
 import { Separator } from './ui/separator'
 import { ModeToggle } from './ui/themeToggle'
-import { messaging } from '@/lib/firebase'
-import { getToken } from 'firebase/messaging'
-import { logout } from '@/lib/auth'
-import { pb } from '@/lib/pocketbase'
+import { useConvexAuth, useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
+import { SplashScreen } from './splashscreen'
+import { useAuthActions } from '@convex-dev/auth/react'
 
 const tabs: TabItem[] = [
   {
@@ -72,8 +68,8 @@ const tabs: TabItem[] = [
 ]
 
 export function Home() {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
+  const user = useQuery(api.users.currentUser)
+  const auth = useConvexAuth()
 
   const [wasOffline, setWasOffline] = useState(false)
 
@@ -102,39 +98,43 @@ export function Home() {
     }
   }, [wasOffline])
 
-  useEffect(() => {
-    async function fetchAndSaveFcmToken() {
-      if (
-        typeof Notification === 'undefined' ||
-        Notification.permission !== 'granted' ||
-        !messaging
-      )
-        return
+  // useEffect(() => {
+  //   async function fetchAndSaveFcmToken() {
+  //     if (
+  //       typeof Notification === 'undefined' ||
+  //       Notification.permission !== 'granted' ||
+  //       !messaging
+  //     )
+  //       return
 
-      try {
-        const token = await getToken(messaging, {
-          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-        })
+  //     try {
+  //       const token = await getToken(messaging, {
+  //         vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+  //       })
 
-        if (!token) return
+  //       if (!token) return
 
-        const userId = user.id
-        if (!userId) return
+  //       const userId = user.id
+  //       if (!userId) return
 
-        const uniqueKey = `${userId}_${token}`
+  //       const uniqueKey = `${userId}_${token}`
 
-        await pb.collection('fcm_tokens').create({
-          userId,
-          token,
-          uniqueKey,
-        })
-      } catch (err) {
-        console.log('Error fetching FCM token:', err)
-      }
-    }
+  //       await pb.collection('fcm_tokens').create({
+  //         userId,
+  //         token,
+  //         uniqueKey,
+  //       })
+  //     } catch (err) {
+  //       console.log('Error fetching FCM token:', err)
+  //     }
+  //   }
 
-    fetchAndSaveFcmToken()
-  }, [])
+  //   fetchAndSaveFcmToken()
+  // }, [])
+
+  if (auth.isLoading || !auth.isAuthenticated || !user) {
+    return <SplashScreen />
+  }
 
   return (
     <>
@@ -173,36 +173,34 @@ export function Home() {
 function AvatarDrawer() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
-  const pb = auth.pb
+  const auth = useConvexAuth()
+  const user = useQuery(api.users.currentUser)
+  const { signOut } = useAuthActions()
 
-  const avatar = pb.files.getURL(user, user.avatar, { thumb: '100x100' })
+  if (!auth.isAuthenticated || auth.isLoading || !user) {
+    return <SplashScreen />
+  }
 
   return (
     <Drawer direction="left" open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <button
-          type="button"
-          onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-4 bg-background hover:bg-muted shadow-sm px-2 py-2 border border-border rounded-xl w-full text-left transition"
+        <Button
+          variant="ghost"
+          className="px-2 rounded-full hover:ring-2 hover:ring-primary active:ring-2 active:ring-red-500 ring-offset-2 ring-offset-background h-10 transition-all duration-300"
         >
-          <Avatar className="ring-2 ring-muted w-11 h-11">
-            <AvatarImage src={avatar} alt="User Avatar" />
-            <AvatarFallback className="font-medium text-base">
-              {user.firstName?.charAt(0).toUpperCase() || 'U'}
-              {user.lastName?.charAt(0).toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col justify-center">
-            <span className="text-muted-foreground text-xs tracking-wide">
-              Welcome back,
-            </span>
-            <span className="font-semibold text-foreground text-sm leading-tight">
-              {user.username || user.firstName || 'User'}!
+          <div className="flex items-center gap-2">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={user.image} className="object-cover" />
+              <AvatarFallback className="bg-muted font-bold text-xs">
+                {user.name?.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+
+            <span className="max-w-[120px] font-medium text-sm truncate">
+              {user.name}
             </span>
           </div>
-        </button>
+        </Button>
       </DrawerTrigger>
       <DrawerContent className="flex flex-col justify-between h-full">
         <DrawerHeader>
@@ -224,7 +222,7 @@ function AvatarDrawer() {
 
           <Link
             to="/home/employee/$salaryLedger"
-            params={{ salaryLedger: user.id || '' }}
+            params={{ salaryLedger: user._id || '' }}
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
@@ -239,6 +237,15 @@ function AvatarDrawer() {
           >
             <PrinterIcon className="w-5 h-5" />
             <span>Printer Configuration</span>
+          </Link>
+
+          <Link
+            to="/home/configurations"
+            onClick={() => setOpen(false)}
+            className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
+          >
+            <SettingsIcon className="w-5 h-5" />
+            <span>Configurations</span>
           </Link>
 
           <Link
@@ -257,8 +264,8 @@ function AvatarDrawer() {
           </div>
           <DrawerClose asChild>
             <Button
-              onClick={() => {
-                logout()
+              onClick={async () => {
+                await signOut()
                 navigate({ to: '/' })
                 toast('Logged out successfully!')
               }}
@@ -273,10 +280,14 @@ function AvatarDrawer() {
 }
 
 function HamburgerDrawer() {
-  const { auth } = useRouteContext({ from: '/home' })
-  const user = auth.user!
+  const user = useQuery(api.users.currentUser)
+  const auth = useConvexAuth()
   const [open, setOpen] = useState(false)
-  const isAdmin = user.role === 'manager' || user.role === 'owner'
+  const isAdmin = user?.role === 'manager' || user?.role === 'owner'
+
+  if (!auth.isAuthenticated || auth.isLoading || !user) {
+    return <SplashScreen />
+  }
 
   return (
     <Drawer direction="right" open={open} onOpenChange={setOpen}>
@@ -399,12 +410,12 @@ function HamburgerDrawer() {
           </Link>
           <Link
             to="/home/assets/$department"
-            params={{ department: 'equipment' }}
+            params={{ department: 'equipments' }}
             onClick={() => setOpen(false)}
             className="flex items-center space-x-3 p-3 rounded-md text-muted-foreground hover:text-foreground text-sm"
           >
             <MicrowaveIcon className="w-5 h-5" />
-            <span>Equipment</span>
+            <span>Equipments</span>
           </Link>
         </div>
         <Separator />

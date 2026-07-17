@@ -14,11 +14,13 @@ import {
 } from 'lucide-react'
 import { globalError404 } from '@/components/globalError404'
 import { SplashScreen } from '@/components/splashscreen'
-import type { AuthContext } from '@/lib/auth'
+import type { useConvexAuth } from 'convex/react'
+import type { Doc } from '../../convex/_generated/dataModel'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
-  auth: AuthContext
+  auth: ReturnType<typeof useConvexAuth>
+  user: Doc<'users'> | null | undefined
 }>()({
   component: () => {
     return (

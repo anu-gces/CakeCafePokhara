@@ -4,123 +4,89 @@ import { Overview } from './overview'
 import { BarChartIcon, LayoutDashboardIcon } from 'lucide-react'
 import { Analytics } from './analytics'
 import type { DateRange } from 'react-day-picker'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { endOfDay, startOfDay, subDays } from 'date-fns'
-import { useQuery } from '@tanstack/react-query'
-import { format } from 'date-fns'
-import SeedOpeningConfig, { type SeedBalance } from './seedOpeningConfig'
-import { pb } from '@/lib/pocketbase'
-import { type FetchedOrder } from '../restaurant_mobile/types'
-import type { ExpenseLedger } from '@/routes/home/expenseLedger/$department'
+import SeedOpeningConfig from './seedOpeningConfig'
+import type { Doc } from '../../../convex/_generated/dataModel'
+import { useLoaderData } from '@tanstack/react-router'
+import { useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
+import { InlineLoader } from '../splashscreen'
 
 export default function Dashboard() {
+  const { branches } = useLoaderData({ from: '/home/dashboard' })
+  const [selectedBranch, setSelectedBranch] = useState<Doc<'branches'>>(
+    branches[0],
+  )
+  const [activeView, setActiveView] = useState('overview')
   const [date, setDate] = useState<DateRange | undefined>({
     from: subDays(new Date(), 6),
     to: new Date(),
   })
 
-  // Format dates for query keys and API
-  const from = date?.from ? format(date.from, 'yyyy-MM-dd') : ''
-  const to = date?.to ? format(date.to, 'yyyy-MM-dd') : ''
-
-  const incomeQuery = useQuery<FetchedOrder[]>({
-    queryKey: ['orderHistoryDashboard', date],
-    queryFn: async () => {
-      if (!date?.from || !date?.to) return []
-
-      // 1. Local start/end (same as your working version)
-      const localStart = startOfDay(date.from)
-      const localEnd = endOfDay(date.to)
-
-      // 2. Convert to ISO + replace T (your proven format)
-      const startStr = localStart.toISOString().replace('T', ' ')
-      const endStr = localEnd.toISOString().replace('T', ' ')
-
-      return await pb.collection('orders').getFullList({
-        filter: `created >= "${startStr}" && created <= "${endStr}" && complementary = false && status = "paid"`,
-        sort: '-created',
-        expand: 'createdBy',
-        // expand: 'customerId, createdBy' // optional if you need it
-      })
-    },
-
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
+  const dailyStats = useQuery(api.dashboard.dailyStats.getDashboard, {
+    branchId: selectedBranch._id,
   })
 
-  const expenseQuery = useQuery<ExpenseLedger[]>({
-    queryKey: ['expenseHistoryDashboard', date],
-    queryFn: async () => {
-      if (!date?.from || !date?.to) return []
-
-      // 1. Local start/end (same as your working version)
-      const localStart = startOfDay(date.from)
-      const localEnd = endOfDay(date.to)
-
-      // 2. Convert to ISO + replace T (your proven format)
-      const startStr = localStart.toISOString().replace('T', ' ')
-      const endStr = localEnd.toISOString().replace('T', ' ')
-
-      return await pb.collection('expenseLedger').getFullList({
-        filter: `created >= "${startStr}" && created <= "${endStr}" && status = "paid"`,
-        sort: '-created',
-        expand: 'createdBy',
-        // expand: 'customerId, createdBy' // optional if you need it
-      })
-    },
-
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
+  const seedBalance = useQuery(api.dashboard.seedBalance.getSeedBalance, {
+    branchId: selectedBranch._id,
   })
 
-  // Query for daily balance data - fetch ALL years (simple approach)
-  const allLedgerQuery = useQuery<{
-    orders: FetchedOrder[]
-    expenseLedger: ExpenseLedger[]
-  }>({
-    queryKey: ['allLedger'],
-    queryFn: async () => {
-      const [orders, expenseLedger] = await Promise.all([
-        pb.collection('orders').getFullList<FetchedOrder>({
-          sort: '-created',
-          filter: `complementary = false && status = "paid"`,
-        }),
-        pb.collection('expenseLedger').getFullList<ExpenseLedger>({
-          sort: '-created',
-          filter: `status = "paid"`,
-        }),
-      ])
+  const fromTime = date?.from ? startOfDay(date.from) : undefined
+  const toTime = date?.to ? endOfDay(date.to) : undefined
 
-      return {
-        orders,
-        expenseLedger,
-      }
-    },
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
-  })
+  const filteredStats = useMemo(() => {
+    if (!dailyStats) return []
+    if (fromTime === undefined || toTime === undefined) return dailyStats
 
-  // Query for seed balance
-  const seedBalanceQuery = useQuery<SeedBalance | undefined>({
-    queryKey: ['seedBalance'],
-    queryFn: async () => {
-      try {
-        return await pb.collection('seedConfig').getFirstListItem('')
-      } catch (e) {
-        return undefined
-      }
-    },
+    const startTarget = fromTime.getTime()
+    const endTarget = toTime.getTime()
 
-    staleTime: Number.POSITIVE_INFINITY,
-    gcTime: Number.POSITIVE_INFINITY,
-  })
+    return dailyStats.filter(
+      (stat) => stat.date >= startTarget && stat.date <= endTarget,
+    )
+  }, [dailyStats, fromTime, toTime])
+
+  if (!branches || branches.length === 0) {
+    return <div>No branches found.</div>
+  }
+
+  if (dailyStats === undefined || seedBalance === undefined) {
+    return (
+      <div className="flex justify-center items-center w-full h-full">
+        <InlineLoader />
+      </div>
+    )
+  }
 
   return (
     <>
       <div className="md:flex flex-col px-2 h-full overflow-y-auto">
         <div className="flex-1 space-y-4 pt-6 h-full">
+          <div className="flex flex-row justify-between">
+            <Tabs
+              value={selectedBranch?._id}
+              onValueChange={(id) => {
+                const match = branches.find((b) => b._id === id)
+                if (match) {
+                  setSelectedBranch(match)
+                }
+              }}
+            >
+              <TabsList>
+                {branches.map((branch) => (
+                  <TabsTrigger key={branch._id} value={branch._id}>
+                    {branch.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <CalendarDateRangePicker value={date} onChange={setDate} />
+          </div>
           <Tabs
             defaultValue="overview"
+            value={activeView}
+            onValueChange={setActiveView}
             className="flex flex-col space-y-4 h-full"
           >
             <div className="flex flex-col gap-4">
@@ -138,33 +104,25 @@ export default function Dashboard() {
                   <BarChartIcon className="mr-2 w-4 h-4" /> Configure
                 </TabsTrigger>
               </TabsList>
-              <div className="flex justify-center sm:justify-end">
-                <CalendarDateRangePicker value={date} onChange={setDate} />
-              </div>
             </div>
             <TabsContent value="overview" className="space-y-4 h-full">
               <div className="flex flex-col gap-4 h-full">
-                <Overview
-                  rawOrders={incomeQuery.data || []}
-                  expenseLedger={expenseQuery.data || []}
-                />
+                <Overview dailyStats={filteredStats} />
               </div>
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-4 h-full">
               <div className="flex flex-col gap-4 h-full">
                 <Analytics
-                  rawOrders={incomeQuery.data || []}
-                  expenseLedger={expenseQuery.data || []}
-                  allLedger={allLedgerQuery.data}
-                  seedBalance={seedBalanceQuery.data}
-                  dateRange={{ from, to }}
+                  dailyStats={dailyStats}
+                  dateRange={{ from: fromTime!, to: toTime! }}
+                  seedBalance={seedBalance ?? undefined}
                 />
               </div>
             </TabsContent>
             <TabsContent value="seedOpeningConfig" className="space-y-4 h-full">
               <div className="flex flex-col gap-4 h-full">
-                <SeedOpeningConfig />
+                <SeedOpeningConfig selectedBranch={selectedBranch} />
               </div>
             </TabsContent>
           </Tabs>
