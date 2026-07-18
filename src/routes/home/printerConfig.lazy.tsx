@@ -29,7 +29,7 @@ async function writeChunks(
   characteristic: BluetoothRemoteGATTCharacteristic,
   data: any,
 ) {
-  const chunkSize = 512
+  const chunkSize = 20
 
   for (let i = 0; i < data.length; i += chunkSize) {
     const chunk = data.slice(i, i + chunkSize)

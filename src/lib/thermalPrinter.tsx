@@ -5,7 +5,7 @@ import type { Doc } from '../../convex/_generated/dataModel'
 
 const PRINTER_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb'
 const PRINTER_CHARACTERISTIC_UUID = '00002af1-0000-1000-8000-00805f9b34fb'
-const CHUNK_SIZE = 512
+const CHUNK_SIZE = 20
 
 let cachedDevice: BluetoothDevice | null = null
 
