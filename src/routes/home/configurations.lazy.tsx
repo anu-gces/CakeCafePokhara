@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/drawer'
 import { toast } from 'sonner'
 import { ConvexError } from 'convex/values'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export const Route = createLazyFileRoute('/home/configurations')({
   component: Configurations,
@@ -68,7 +69,7 @@ export function Configurations() {
   }
 
   return (
-    <div className="bg-background h-full overflow-y-auto">
+    <ScrollArea className="bg-background h-full overflow-y-auto">
       <div className="mx-auto px-4 py-6 pb-20 max-w-xl">
         <h1 className="mb-6 font-bold text-foreground text-2xl tracking-tight">
           Configuration
@@ -146,7 +147,7 @@ export function Configurations() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ScrollArea>
   )
 }
 

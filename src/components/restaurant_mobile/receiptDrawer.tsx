@@ -20,6 +20,16 @@ import {
 import { format } from 'date-fns'
 import CakeCafeLogo from '@/assets/Logob.webp' // Adjust path as necessary
 import type { Doc } from '../../../convex/_generated/dataModel'
+import {
+  connectPrinter,
+  isPrinterPaired,
+  printReceipt,
+} from '@/lib/thermalPrinter'
+import { BluetoothIcon, PrinterIcon } from 'lucide-react'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { useQuery } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 type ConvexOrderItem = Doc<'orderItems'>
 type ConvexOrderTicket = Doc<'orderTickets'> & {
@@ -35,7 +45,19 @@ export function ReceiptDrawer({
   receiptOpen: boolean
   setReceiptOpen: (open: boolean) => void
 }) {
-  if (!data) {
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [paired, setPaired] = useState(isPrinterPaired())
+  const currentUser = useQuery(api.users.currentUser)
+
+  const handleConnect = async () => {
+    try {
+      await connectPrinter()
+      setPaired(true)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+  if (!data || currentUser === undefined) {
     return (
       <Drawer open={receiptOpen} onOpenChange={setReceiptOpen}>
         <DrawerContent>
@@ -230,6 +252,43 @@ export function ReceiptDrawer({
         </div>
 
         <DrawerFooter>
+          <Button
+            type="button"
+            size="sm"
+            variant={'outline'}
+            className="flex justify-center items-center gap-2 w-full h-8 text-xs"
+            disabled={isPrinting}
+            onClick={handleConnect}
+          >
+            <BluetoothIcon className="w-3.5 h-3.5 shrink-0" />{' '}
+            {paired ? 'Reconnect Printer' : 'Connect Printer'}
+          </Button>
+          <Button
+            className="flex justify-center items-center gap-2 w-full h-8 text-xs"
+            disabled={isPrinting || !paired}
+            onClick={async () => {
+              setIsPrinting(true)
+              try {
+                await printReceipt({ ...data, processedBy: currentUser?.name })
+              } catch (err) {
+                console.error('Print failed:', err)
+                toast.error(
+                  err instanceof Error
+                    ? err.message
+                    : 'Failed to print receipt',
+                )
+              } finally {
+                setIsPrinting(false)
+              }
+            }}
+          >
+            <PrinterIcon className="stroke-white w-3.5 h-3.5 shrink-0" />{' '}
+            {isPrinting
+              ? 'Printing...'
+              : !paired
+                ? 'Printer not connected'
+                : 'Print Receipt'}
+          </Button>
           <DrawerClose asChild>
             <Button className="w-full">Close</Button>
           </DrawerClose>

@@ -7,6 +7,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../../convex/_generated/api'
 import type { Id } from '../../../../convex/_generated/dataModel'
 import { SplashScreen } from '@/components/splashscreen'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export const Route = createFileRoute('/home/payLaterCustomers/$id')({
   component: RouteComponent,
@@ -55,7 +56,7 @@ function RouteComponent() {
   const grandTotal = orders.reduce((sum, order) => sum + order.totalAmount, 0)
 
   return (
-    <div className="h-full overflow-y-auto">
+    <ScrollArea className="h-full overflow-y-auto">
       {/* Sticky Header */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-7 py-6 max-w-xl">
@@ -238,6 +239,6 @@ function RouteComponent() {
           )}
         </div>
       </div>
-    </div>
+    </ScrollArea>
   )
 }

@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label'
 import { api } from '../../../../convex/_generated/api'
 import { useMutation, useQuery } from 'convex/react'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 type Department = 'permanentInventory' | 'equipments'
 
@@ -50,7 +51,7 @@ function AssetsComponent() {
   const totalUnits = items.reduce((sum, i) => sum + i.quantity, 0)
 
   return (
-    <div className="h-full overflow-y-auto">
+    <ScrollArea className="h-full overflow-y-auto">
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm p-4 border-primary/10 border-b">
         <div className="mx-auto max-w-xl">
           <div className="flex justify-between items-center mb-4">
@@ -159,7 +160,7 @@ function AssetsComponent() {
           ))}
         </AnimatePresence>
       </div>
-    </div>
+    </ScrollArea>
   )
 }
 

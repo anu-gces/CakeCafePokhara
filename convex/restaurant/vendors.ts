@@ -30,7 +30,7 @@ export const UpdateVendor = authenticatedMutation({
   },
   minimumRole: 'manager',
   handler: async (ctx, args) => {
-    const items = await ctx.db.patch('vendors', args.id, {
+    await ctx.db.patch('vendors', args.id, {
       name: args.name,
       remarks: args.remarks,
     })

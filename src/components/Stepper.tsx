@@ -9,6 +9,7 @@ import React, {
 import { motion, AnimatePresence, type Variants } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
@@ -129,7 +130,7 @@ export default function Stepper({
       </div>
 
       {/* 2. ISOLATED SCROLLABLE WRAPPER FOR STEP CONTENT ONLY */}
-      <div className="flex-1 w-full min-h-0 overflow-y-auto">
+      <ScrollArea className="flex-1 w-full min-h-0 overflow-y-auto">
         <StepContentWrapper
           isCompleted={isCompleted}
           currentStep={currentStep}
@@ -138,7 +139,7 @@ export default function Stepper({
         >
           {stepsArray[currentStep - 1]}
         </StepContentWrapper>
-      </div>
+      </ScrollArea>
 
       {/* 3. STICKY FOOTER ACTIONS */}
       <div

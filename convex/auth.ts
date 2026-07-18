@@ -1,6 +1,6 @@
 import Google from '@auth/core/providers/google'
 import { convexAuth } from '@convex-dev/auth/server'
-import { Doc } from './_generated/dataModel'
+import type { Doc } from './_generated/dataModel'
 import { ConvexError } from 'convex/values'
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({

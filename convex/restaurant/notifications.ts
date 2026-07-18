@@ -1,5 +1,5 @@
 import { ConvexError } from 'convex/values'
-import { mutation, query } from '../_generated/server'
+import { query } from '../_generated/server'
 import { vv } from '../schema'
 import { authenticatedMutation } from '../functions'
 
@@ -191,6 +191,7 @@ export const markTicketAsPaid = authenticatedMutation({
     await ctx.db.patch(ticketId, {
       status: 'paid',
       orderSettledDate: Date.now(),
+      processedBy: ctx.user._id,
     })
   },
 })

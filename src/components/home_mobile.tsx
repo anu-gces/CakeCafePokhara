@@ -50,7 +50,7 @@ const tabs: TabItem[] = [
   {
     title: 'Notifications',
     icon: BellIcon,
-    to: '/home/notifications/orderNotification',
+    to: '/home/notifications',
   },
 
   { type: 'separator' },

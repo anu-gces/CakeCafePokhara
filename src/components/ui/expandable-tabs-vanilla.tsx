@@ -58,7 +58,12 @@ const spanVariants = {
   exit: { width: 0, opacity: 0 },
 }
 
-const transition = { delay: 0.1, type: 'spring', bounce: 0, duration: 0.6 }
+const transition = {
+  delay: 0.1,
+  type: 'spring',
+  bounce: 0,
+  duration: 0.6,
+} as const
 
 const Separator = React.memo(() => (
   <div className="mx-1 bg-border w-[1.2px] h-[24px]" aria-hidden="true" />

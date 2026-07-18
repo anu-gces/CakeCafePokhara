@@ -128,6 +128,7 @@ const orderTickets = defineTable({
   editedBy: v.id('users'),
 })
   .index('by_status_and_date', ['status', 'orderDate'])
+  .index('by_orderSettledDate', ['orderSettledDate'])
   .index('by_branch_status_and_date', ['branchId', 'status', 'orderDate'])
   .index('by_payLaterCustomerId', ['payLaterCustomerId'])
 

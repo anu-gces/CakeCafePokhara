@@ -3,7 +3,7 @@ import { expect, test } from 'vitest'
 import schema from '../schema'
 import { api } from '../_generated/api'
 import { modules } from '../testConfig.shared'
-import { FunctionArgs } from 'convex/server'
+import type { FunctionArgs } from 'convex/server'
 
 test('successfully creates order ticket and decrements stock', async () => {
   // 1. Initialize our clean, virtual database

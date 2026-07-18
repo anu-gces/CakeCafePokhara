@@ -4,12 +4,18 @@ import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
-import { XIcon, CheckIcon, LoaderIcon, CheckCircle2Icon } from 'lucide-react'
+import {
+  XIcon,
+  CheckIcon,
+  LoaderIcon,
+  CheckCircle2Icon,
+  PlusIcon,
+} from 'lucide-react'
 import { ScrollArea } from './ui/scroll-area'
 import { ReceiptDrawer } from './restaurant_mobile/receiptDrawer'
 import {
@@ -25,6 +31,8 @@ import {
 import { toast } from 'sonner'
 import { ConvexError } from 'convex/values'
 import { AnimatePresence, motion } from 'motion/react'
+import { cn } from '@/lib/utils'
+import { Input } from './ui/input'
 
 type OrderTicketWithItems = Doc<'orderTickets'> & {
   items: Doc<'orderItems'>[]
@@ -79,16 +87,17 @@ function OrderCard({ tickets }: { tickets: OrderTicketWithItems[] }) {
               mass: 1,
             }}
           >
-            <Card key={ticket._id} className="shadow-sm border-muted/60">
+            <Card
+              key={ticket._id}
+              className="shadow-sm pb-0 border-muted/60 overflow-hidden"
+            >
               <CardHeader className="bg-muted/40 p-4 pb-3.5 border-border border-b">
                 <div className="flex justify-between items-start gap-4">
-                  {/* Left Side: Heavy Operational Identification */}
                   <div className="flex flex-1 items-start gap-3 min-w-0">
                     <div className="bg-primary shadow-sm px-2.5 py-1.5 rounded-md font-black text-primary-foreground text-sm uppercase tracking-wider shrink-0">
                       KOT: {ticket.kotNumber}
                     </div>
 
-                    {/* Location Meta using standard component states */}
                     <div className="pt-0.5 min-w-0">
                       {ticket.tableNumber !== undefined ? (
                         <Badge
@@ -111,19 +120,7 @@ function OrderCard({ tickets }: { tickets: OrderTicketWithItems[] }) {
                     </div>
                   </div>
 
-                  {/* Right Side: Status Indicators & Destructive Actions */}
                   <div className="flex items-center gap-1.5 pt-0.5 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="px-2.5 h-7 font-semibold text-xs"
-                      onClick={() => {
-                        setSelectedTicket(ticket)
-                        setReceiptOpen(true)
-                      }}
-                    >
-                      View Receipt
-                    </Button>
                     <SettleOrderDrawer ticket={ticket} />
                     <CancelWholeOrderDrawer ticket={ticket} />
                   </div>
@@ -141,7 +138,6 @@ function OrderCard({ tickets }: { tickets: OrderTicketWithItems[] }) {
                       ) : null}
 
                       <div className="flex justify-between items-center gap-3">
-                        {/* Item Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="bg-accent px-1.5 py-0.5 rounded min-w-[24px] font-semibold text-sm text-center text-accent-foreground">
@@ -187,6 +183,21 @@ function OrderCard({ tickets }: { tickets: OrderTicketWithItems[] }) {
                   )
                 })}
               </CardContent>
+
+              <CardFooter className="flex flex-row justify-between gap-2 py-2 border-t">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="font-semibold text-xs"
+                  onClick={() => {
+                    setSelectedTicket(ticket)
+                    setReceiptOpen(true)
+                  }}
+                >
+                  View Receipt
+                </Button>
+                <AddItemsDrawer ticket={ticket} />
+              </CardFooter>
             </Card>
           </motion.div>
         ))}
@@ -411,7 +422,7 @@ function CancelWholeOrderDrawer({ ticket }: { ticket: OrderTicketWithItems }) {
       <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>
-            Are you sure you want to delete the order of KOT: {ticket.kotNumber}
+            Are you sure you want to cancel the order of KOT: {ticket.kotNumber}
             ?
           </DrawerTitle>
           <DrawerDescription>This action cannot be undone.</DrawerDescription>
@@ -609,7 +620,7 @@ export function OrderSummary({ ticket }: { ticket: OrderTicketWithItems }) {
 
   return (
     <div className="px-4 py-2">
-      <div className="bg-muted/40 p-3 border border-muted/80 rounded-lg max-h-[40vh] overflow-y-auto">
+      <ScrollArea className="bg-muted/40 p-3 border border-muted/80 rounded-lg max-h-[40vh] overflow-y-auto">
         <p className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           Order Summary ({ticket.items.length} items)
         </p>
@@ -645,7 +656,224 @@ export function OrderSummary({ ticket }: { ticket: OrderTicketWithItems }) {
             </div>
           ))}
         </div>
-      </div>
+      </ScrollArea>
     </div>
+  )
+}
+
+type AddOrderItemPayload = Pick<
+  Doc<'orderItems'>,
+  'itemId' | 'name' | 'price' | 'quantity'
+>
+
+export function AddItemsDrawer({ ticket }: { ticket: OrderTicketWithItems }) {
+  const menuItems = useQuery(api.restaurant.menuItems.listMenuItems) ?? []
+  const addItemsToOrderTicket = useMutation(
+    api.restaurant.orderTickets.addItemsToOrderTicket,
+  )
+
+  const [isOpen, setIsOpen] = useState(false)
+  const [isPending, setIsPending] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<
+    Record<Id<'menuItems'>, AddOrderItemPayload>
+  >({})
+  const [search, setSearch] = useState('')
+
+  const filteredCatalog = menuItems.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase()),
+  )
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) setSelectedItems({})
+  }
+
+  const addItem = (
+    item: Pick<Doc<'menuItems'>, '_id' | 'name' | 'price' | 'stockCount'>,
+  ) => {
+    setSelectedItems((prev) => {
+      const current = prev[item._id]
+
+      if ((current?.quantity ?? 0) >= item.stockCount) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        [item._id]: {
+          itemId: item._id,
+          name: item.name,
+          price: item.price,
+          quantity: (current?.quantity ?? 0) + 1,
+        },
+      }
+    })
+  }
+
+  const decrementItem = (itemId: Id<'menuItems'>) => {
+    setSelectedItems((prev) => {
+      const current = prev[itemId]
+
+      if (!current) return prev
+
+      if (current.quantity <= 1) {
+        const { [itemId]: _, ...rest } = prev
+        return rest
+      }
+
+      return {
+        ...prev,
+        [itemId]: {
+          ...current,
+          quantity: current.quantity - 1,
+        },
+      }
+    })
+  }
+
+  const handleAddItems = async () => {
+    try {
+      setIsPending(true)
+
+      const payload: AddOrderItemPayload[] = Object.values(selectedItems)
+
+      addItemsToOrderTicket({
+        orderTicketId: ticket._id,
+        items: payload.map((item) => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          isComplimentary: false,
+        })),
+      })
+
+      toast.success('Items ready.')
+      setIsOpen(false)
+    } catch {
+      toast.error('Failed to prepare items.')
+    } finally {
+      setIsPending(false)
+    }
+  }
+
+  const totalCount = Object.values(selectedItems).reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  )
+
+  const hasStockConflict = Object.values(selectedItems).some((selected) => {
+    const item = menuItems.find((menuItem) => menuItem._id === selected.itemId)
+
+    return item && item.stockCount - selected.quantity < 0
+  })
+
+  return (
+    <Drawer open={isOpen} onOpenChange={handleOpenChange}>
+      <DrawerTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="px-2.5 h-7 font-semibold text-xs"
+        >
+          <PlusIcon className="mr-1 w-3.5 h-3.5" />
+          Add Items
+        </Button>
+      </DrawerTrigger>
+
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-sm">
+          <DrawerHeader className="pb-2">
+            <DrawerTitle>Add Items</DrawerTitle>
+            <DrawerDescription>
+              Tap to add • Tap and Hold to remove.
+            </DrawerDescription>
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search items..."
+            />
+          </DrawerHeader>
+
+          <ScrollArea className="min-h-[35vh] max-h-[35vh]">
+            {filteredCatalog.map((item) => {
+              const qty = selectedItems[item._id]?.quantity ?? 0
+              const remainingStock = item.stockCount - qty
+              const isOutOfStock = remainingStock === 0
+              const selected = qty > 0
+
+              return (
+                <div
+                  key={item._id}
+                  onClick={() => {
+                    if (isOutOfStock || isPending) return
+                    addItem(item)
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    decrementItem(item._id)
+                  }}
+                  className={cn(
+                    'relative flex justify-between items-center px-4 py-2.5 border-border/40 last:border-0 border-b transition-colors',
+                    !isOutOfStock && 'cursor-pointer',
+                    !selected && !isOutOfStock && 'hover:bg-muted/40',
+                    selected && 'bg-emerald-500/40',
+                    item.stockCount - qty < 0 &&
+                      'bg-destructive/10 animate-pulse',
+                    isOutOfStock && 'opacity-60',
+                  )}
+                >
+                  {selected && (
+                    <div className="top-1/2 right-2 absolute flex justify-center items-center bg-primary rounded-full w-5 h-5 font-semibold text-[10px] text-primary-foreground -translate-y-1/2">
+                      {qty}
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        'font-medium text-sm',
+                        isOutOfStock
+                          ? 'text-muted-foreground/60 line-through'
+                          : 'text-foreground',
+                      )}
+                    >
+                      {item.name}
+                    </p>
+
+                    <p className="text-[10px] text-muted-foreground">
+                      {isOutOfStock
+                        ? 'Out of stock'
+                        : `${remainingStock} available`}
+                    </p>
+                  </div>
+
+                  <div className="w-24 shrink-0" />
+                </div>
+              )
+            })}
+          </ScrollArea>
+
+          <DrawerFooter className="pt-4">
+            <div className="flex flex-col gap-2 w-full">
+              <Button
+                onClick={handleAddItems}
+                disabled={totalCount === 0 || isPending || hasStockConflict}
+              >
+                {isPending ? (
+                  <LoaderIcon className="w-4 h-4 animate-spin" />
+                ) : (
+                  `Confirm (${totalCount})`
+                )}
+              </Button>
+
+              <DrawerClose asChild>
+                <Button variant="ghost" size="sm" disabled={isPending}>
+                  Cancel
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerFooter>
+        </div>
+      </DrawerContent>
+    </Drawer>
   )
 }

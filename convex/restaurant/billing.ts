@@ -1,6 +1,5 @@
 import { authenticatedMutation, authenticatedQuery } from '../functions'
 import { ConvexError, v } from 'convex/values'
-import { vv } from '../schema'
 
 const DAY_IN_MS = 86400 * 1000
 
@@ -14,11 +13,10 @@ export const getAllBillingTickets = authenticatedQuery({
 
     const tickets = await ctx.db
       .query('orderTickets')
-      .withIndex('by_status_and_date', (q) =>
+      .withIndex('by_orderSettledDate', (q) =>
         q
-          .eq('status', 'paid')
-          .gte('orderDate', args.startDate)
-          .lt('orderDate', endDate),
+          .gte('orderSettledDate', args.startDate)
+          .lt('orderSettledDate', endDate),
       )
       .collect()
 

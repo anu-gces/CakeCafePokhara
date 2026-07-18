@@ -46,6 +46,7 @@ import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from 'motion/react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
+import { ScrollArea } from '../ui/scroll-area'
 
 type MenuItemProps =
   (typeof api.restaurant.menuItems.listMenuItems._returnType)[number]
@@ -320,7 +321,7 @@ export function InventoryManagement() {
   const safeMenuItems = menuItems ?? []
 
   return (
-    <div className="flex flex-col bg-background h-full overflow-y-auto">
+    <ScrollArea className="flex flex-col bg-background h-full overflow-y-auto">
       {/* Header */}
       <div className="top-0 z-50 sticky bg-transparent backdrop-blur">
         <div className="flex justify-between items-center p-4">
@@ -442,6 +443,6 @@ export function InventoryManagement() {
             </div>
           )}
       </div>
-    </div>
+    </ScrollArea>
   )
 }

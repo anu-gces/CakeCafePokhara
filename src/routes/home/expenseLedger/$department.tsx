@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export const Route = createFileRoute('/home/expenseLedger/$department')({
   component: RouteComponent,
@@ -85,7 +86,7 @@ function RouteComponent() {
   }, [entries, selectedBranch])
 
   return (
-    <div className="h-full overflow-y-auto">
+    <ScrollArea className="h-full overflow-y-auto">
       {/* Sticky Header */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-4 pt-4 pb-4 max-w-xl">
@@ -283,7 +284,7 @@ function RouteComponent() {
           )}
         </div>
       </div>
-    </div>
+    </ScrollArea>
   )
 }
 

@@ -8,7 +8,7 @@ import { getAuthUserId } from '@convex-dev/auth/server'
 import { ensureUserHasRole } from './auth'
 import { ConvexError } from 'convex/values'
 import { Triggers } from 'convex-helpers/server/triggers'
-import { DataModel } from './_generated/dataModel'
+import type { DataModel } from './_generated/dataModel'
 
 type Role = 'owner' | 'manager' | 'employee' | 'unverified'
 

@@ -21,6 +21,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export const Route = createFileRoute('/home/vendors/$id')({
   component: RouteComponent,
@@ -45,7 +46,7 @@ function RouteComponent() {
     .reduce((sum, e) => sum + e.price * e.quantity, 0)
 
   return (
-    <div className="h-full overflow-y-auto">
+    <ScrollArea className="h-full overflow-y-auto">
       {/* Sticky Header */}
       <div className="top-0 z-10 sticky bg-transparent backdrop-blur-sm border-primary/10 dark:border-zinc-700 border-b">
         <div className="mx-auto px-4 pt-4 pb-4 max-w-xl">
@@ -221,7 +222,7 @@ function RouteComponent() {
           )}
         </div>
       </div>
-    </div>
+    </ScrollArea>
   )
 }
 

@@ -12,6 +12,7 @@ import { useLoaderData } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { InlineLoader } from '../splashscreen'
+import { ScrollArea } from '../ui/scroll-area'
 
 export default function Dashboard() {
   const { branches } = useLoaderData({ from: '/home/dashboard' })
@@ -61,7 +62,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="md:flex flex-col px-2 h-full overflow-y-auto">
+      <ScrollArea className="md:flex flex-col px-2 h-full overflow-y-auto">
         <div className="flex-1 space-y-4 pt-6 h-full">
           <div className="flex flex-row justify-between">
             <Tabs
@@ -127,7 +128,7 @@ export default function Dashboard() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
+      </ScrollArea>
     </>
   )
 }

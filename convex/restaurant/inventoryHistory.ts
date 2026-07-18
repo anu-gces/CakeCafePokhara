@@ -1,4 +1,4 @@
-import { authenticatedQuery, authenticatedMutation } from '../functions'
+import { authenticatedQuery } from '../functions'
 import { v } from 'convex/values'
 
 export const listInventoryHistory = authenticatedQuery({

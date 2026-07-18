@@ -12,11 +12,18 @@ import { withForm } from './takeOrderForm'
 import { useCartStore } from './takeOrderStore'
 import { useQuery } from 'convex/react'
 import { InlineLoader } from '../splashscreen'
-import { PrinterIcon } from 'lucide-react'
+import { BluetoothIcon, PrinterIcon } from 'lucide-react'
 import { Button } from '../ui/button'
 import { api } from '../../../convex/_generated/api'
 import type { FunctionArgs } from 'convex/server'
 import type { Id } from '../../../convex/_generated/dataModel'
+import {
+  connectPrinter,
+  isPrinterPaired,
+  printReceipt,
+} from '@/lib/thermalPrinter'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 type OrderMeta = FunctionArgs<
   typeof api.restaurant.orderTickets.createOrderTicket
@@ -31,6 +38,7 @@ const defaultOrderMetaValues: OrderMeta = {
   orderType: 'dine-in',
   totalDiscount: 0,
   taxAmount: 0,
+  paymentMethod: 'cash',
   orderDate: Date.now(),
   status: 'active',
   items: [],
@@ -51,18 +59,19 @@ export const ReceiptPreview = withForm({
     const payLaterCustomerId = form.getFieldValue('payLaterCustomerId')
     const orderDate = form.getFieldValue('orderDate')
 
-    // 👇 FIXED: Correctly evaluate complimentary items at the subtotal accumulation layer
-    const subtotal = cart.reduce((acc, item) => {
+    const subTotal = cart.reduce((acc, item) => {
       const actualPrice = item.isComplimentary ? 0 : item.price
       return acc + actualPrice * item.quantity
     }, 0)
 
-    const grandTotal = Math.max(
+    const totalAmount = Math.max(
       0,
-      subtotal + taxAmount + deliveryCharge - totalDiscount,
+      subTotal + taxAmount + deliveryCharge - totalDiscount,
     )
 
     const currentUser = useQuery(api.users.currentUser)
+
+    const [isPrinting, setIsPrinting] = useState(false)
 
     if (!currentUser) {
       return (
@@ -70,6 +79,52 @@ export const ReceiptPreview = withForm({
           <InlineLoader />
         </div>
       )
+    }
+
+    const [paired, setPaired] = useState(isPrinterPaired())
+
+    const handleConnect = async () => {
+      try {
+        await connectPrinter()
+        setPaired(true)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+    const handlePrint = async () => {
+      setIsPrinting(true)
+      try {
+        await printReceipt({
+          kotNumber,
+          tableNumber,
+          orderType,
+          processedBy: currentUser.name,
+          orderDate,
+          payLaterCustomerId,
+          items: cart,
+          subTotal,
+          totalDiscount,
+          taxAmount,
+          deliveryCharge,
+          totalAmount,
+        })
+      } catch (err) {
+        let errorMessage = 'An unknown error occurred'
+
+        if (err instanceof Error) {
+          errorMessage = err.message
+        } else if (typeof err === 'string') {
+          errorMessage = err
+        } else if (err && typeof err === 'object' && 'message' in err) {
+          errorMessage = String(err.message)
+        }
+        toast.error('Print failed', {
+          description: errorMessage,
+        })
+      } finally {
+        setIsPrinting(false)
+      }
     }
 
     return (
@@ -192,7 +247,7 @@ export const ReceiptPreview = withForm({
                     Sub Total
                   </TableCell>
                   <TableCell className="p-1 font-semibold text-right">
-                    Rs. {subtotal.toFixed(2)}
+                    Rs. {subTotal.toFixed(2)}
                   </TableCell>
                 </TableRow>
 
@@ -250,7 +305,7 @@ export const ReceiptPreview = withForm({
                     Total
                   </TableCell>
                   <TableCell className="p-1 font-bold text-xs text-right text-nowrap">
-                    Rs. {grandTotal.toFixed(2)}
+                    Rs. {totalAmount.toFixed(2)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -273,35 +328,23 @@ export const ReceiptPreview = withForm({
 
           <hr className="my-3 border-dashed" />
 
-          <div className="print:hidden flex justify-center">
+          <div className="print:hidden flex flex-col justify-center gap-2">
             <Button
               type="button"
               size="sm"
               className="flex justify-center items-center gap-2 w-full h-8 text-xs"
-              onClick={() => {
-                const fullInvoicePayload = {
-                  metadata: {
-                    kotNumber,
-                    tableNumber,
-                    orderType,
-                    payLaterCustomerId,
-                    orderDate,
-                  },
-                  totals: {
-                    subtotal,
-                    totalDiscount,
-                    taxAmount,
-                    deliveryCharge,
-                    grandTotal,
-                  },
-                  items: cart,
-                }
-                console.log(
-                  'Sending structured payload to device output pipeline:',
-                  fullInvoicePayload,
-                )
-                window.print()
-              }}
+              disabled={isPrinting}
+              onClick={handleConnect}
+            >
+              <BluetoothIcon className="stroke-white w-3.5 h-3.5 shrink-0" />{' '}
+              {paired ? 'Reconnect Printer' : 'Connect Printer'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="flex justify-center items-center gap-2 w-full h-8 text-xs"
+              disabled={isPrinting}
+              onClick={handlePrint}
             >
               <PrinterIcon className="stroke-white w-3.5 h-3.5 shrink-0" />{' '}
               Print Receipt

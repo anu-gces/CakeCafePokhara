@@ -1,9 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CameraIcon, LockIcon, UserIcon } from 'lucide-react'
+import { CameraIcon, LockIcon } from 'lucide-react'
 
 import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { SplashScreen } from './splashscreen'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function Settings() {
   const auth = useConvexAuth()
@@ -14,7 +15,7 @@ export function Settings() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <ScrollArea className="h-full overflow-y-auto">
       <div className="mx-auto px-4 py-6 pb-20 max-w-xl">
         <h1 className="mb-4 font-bold text-primary text-2xl">Settings</h1>
 
@@ -112,7 +113,7 @@ export function Settings() {
           </button>
         </div>
       </div>
-    </div>
+    </ScrollArea>
   )
 }
 
