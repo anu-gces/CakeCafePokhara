@@ -2,8 +2,6 @@ import { authenticatedQuery, authenticatedMutation } from '../functions'
 import schema from '../schema'
 import { vv } from '../schema'
 
-const DAY_IN_MS = 86_400_000
-
 export const listSalaryLedger = authenticatedQuery({
   args: {
     id: vv.id('users'),
