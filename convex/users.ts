@@ -15,13 +15,17 @@ export const currentUser = query({
 
 export const getUserById = authenticatedQuery({
   args: { id: v.string() },
-  minimumRole: 'manager',
+  minimumRole: 'employee',
   handler: async (ctx, args) => {
-    // Verify if the string is structurally a valid 'users' ID
     const validId = ctx.db.normalizeId('users', args.id)
+    if (!validId) return null
 
-    if (!validId) {
-      return null
+    const isLookingAtSelf = ctx.user._id === validId
+    const isManagerOrAbove =
+      ctx.user.role === 'manager' || ctx.user.role === 'owner'
+
+    if (!isLookingAtSelf && !isManagerOrAbove) {
+      throw new ConvexError('Unauthorized: You can only view your own profile.')
     }
 
     return await ctx.db.get(validId)

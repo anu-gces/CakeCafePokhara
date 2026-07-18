@@ -7,18 +7,17 @@ const DAY_IN_MS = 86_400_000
 export const listSalaryLedger = authenticatedQuery({
   args: {
     id: vv.id('users'),
-    date: vv.number(),
   },
-  minimumRole: 'manager',
-  handler: async (ctx, { id, date }) => {
+  minimumRole: 'employee',
+  handler: async (ctx, { id }) => {
+    const isManager = ctx.user.role === 'manager' || ctx.user.role === 'owner'
+
+    // If manager/owner then use requested id. If employee, force query to use their own id.
+    const targetUserId = isManager ? id : ctx.user._id
+
     return await ctx.db
       .query('salaryLedger')
-      .withIndex('by_userId_and_date', (q) =>
-        q
-          .eq('userId', id)
-          .gte('paidAt', date)
-          .lt('paidAt', date + DAY_IN_MS),
-      )
+      .withIndex('by_userId_and_date', (q) => q.eq('userId', targetUserId))
       .order('desc')
       .collect()
   },

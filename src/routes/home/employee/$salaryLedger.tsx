@@ -8,7 +8,7 @@ import {
   UserXIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { format, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { motion, AnimatePresence } from 'motion/react'
 import { toast } from 'sonner'
 import { DatePickerWithPresets } from '@/components/ui/datepicker'
@@ -44,9 +44,8 @@ export const Route = createFileRoute('/home/employee/$salaryLedger')({
 function RouteComponent() {
   const { salaryLedger } = Route.useParams()
   const navigate = useNavigate()
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    () => new Date(),
-  )
+
+  const currentUser = useQuery(api.users.currentUser)
 
   const targetUser = useQuery(api.users.getUserById, {
     id: salaryLedger as Id<'users'>,
@@ -55,7 +54,6 @@ function RouteComponent() {
   const entries =
     useQuery(api.salaryLedger.salaryLedger.listSalaryLedger, {
       id: salaryLedger as Id<'users'>,
-      date: startOfDay(selectedDate!).getTime(),
     }) ?? []
 
   if (targetUser === undefined) {
@@ -108,7 +106,9 @@ function RouteComponent() {
               <span className="text-sm">Back</span>
             </Button>
 
-            <CreateSalaryLedgerDrawer />
+            {currentUser &&
+              (currentUser.role === 'manager' ||
+                currentUser.role === 'owner') && <CreateSalaryLedgerDrawer />}
           </div>
 
           <h1 className="mb-3 font-bold text-primary text-2xl capitalize">
@@ -180,11 +180,6 @@ function RouteComponent() {
               <LoaderIcon className="w-3 h-3 text-muted-foreground animate-spin" />
             )}
           </div>
-
-          <DatePickerWithPresets
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-          />
         </div>
 
         <div className="space-y-2">
